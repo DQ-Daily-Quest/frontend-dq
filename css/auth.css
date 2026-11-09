@@ -1,0 +1,96 @@
+/* 09 · 로그인 / 10 · 회원가입 정보 입력 / 11 · 아바타 만들기 */
+
+/* ---------- 09 로그인 ---------- */
+.login-hero { position: absolute; left: 0; top: 0; width: 390px; height: 296px; }
+.login-hero__bg { width: 100%; height: 100%; object-fit: cover; }
+.login-hero__pal { position: absolute; top: 222px; width: 40px; height: 40px; }
+.login-hero__pal.avatar { left: 254px; }
+.login-brand {
+  position: absolute; left: 24px; top: 105px; width: 342px; height: 112px; border-radius: 22px;
+  background: rgba(255, 255, 247, .94); box-shadow: 0 4px 16px rgba(20, 51, 31, .14);
+  display: flex; flex-direction: column; align-items: center; padding-top: 26px;
+}
+.login-brand__logo { display: flex; align-items: center; gap: 8px; font-size: 28px; font-weight: 900; color: #144029; line-height: 1; }
+.login-brand__logo img { width: 38px; height: 34px; }
+.login-brand__slogan { margin-top: 14px; font-size: 13px; font-weight: 500; color: #335442; line-height: normal; }
+
+.login-form { position: absolute; left: 16px; right: 16px; top: 312px; }
+.login-form .field-label { margin: 0 4px 6px; font-size: 13px; }
+.login-form .field-label ~ .field-label { margin-top: 6px; }
+.icon-input {
+  position: relative; display: flex; align-items: center; height: 50px; padding: 0 13px;
+  background: #fff; border: 1px solid var(--c-line); border-radius: 16px; box-shadow: 0 3px 12px rgba(31,71,51,.1);
+}
+.icon-input > img { width: 20px; height: 20px; flex: none; }
+.icon-input input { flex: 1; min-width: 0; height: 100%; margin-left: 8px; border: 0; outline: none; background: none; font-size: 14px; color: var(--c-ink); }
+.icon-input input::placeholder { color: var(--c-muted); }
+.icon-input__eye { width: 20px; height: 20px; }
+.icon-input__eye img { width: 20px; height: 20px; }
+.icon-input:focus-within { border-color: var(--c-primary-strong); }
+
+.login-form__submit { width: 100%; height: 54px; margin-top: 18px; font-size: 16px; }
+.login-links { display: flex; align-items: center; justify-content: center; margin-top: 14px; font-size: 13px; color: var(--c-muted); line-height: normal; }
+.login-links a { width: 110px; text-align: center; }
+.login-links__sep { width: 1px; height: 14px; margin: 0 14px; background: var(--c-soft); }
+.login-links__join { font-weight: 700; color: #448f6b; }
+
+.divider-text { display: flex; align-items: center; gap: 0; margin-top: 25px; font-size: 12px; color: var(--c-muted); }
+.divider-text::before, .divider-text::after { content: ""; width: 130px; height: 1px; background: var(--c-soft); }
+.divider-text span { flex: 1; text-align: center; }
+
+.social-list { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+.social-btn {
+  position: relative; display: flex; align-items: center; justify-content: center; height: 50px; border-radius: 14px;
+  font-size: 14.5px; font-weight: 700; color: var(--c-ink);
+}
+.social-btn img { position: absolute; left: 18px; top: 15px; width: 20px; height: 20px; }
+.social-btn--kakao { background: #fee500; }
+.social-btn--google { background: #fff; border: 1px solid var(--c-line); }
+.social-btn--apple { background: #111; color: #fff; }
+
+/* ---------- 10 · 11 회원가입 ---------- */
+.signup-progress { z-index: 21; position: absolute; left: 16px; right: 16px; top: 96px; height: 4px; border-radius: 2px; background: var(--c-soft); }
+.signup-progress__fill { height: 100%; border-radius: 2px; background: var(--c-primary); }
+.signup-body { position: absolute; left: 16px; right: 16px; top: 120px; bottom: 90px; overflow-y: auto; scrollbar-width: none; }
+.signup-title { padding-left: 4px; font-size: 22px; font-weight: 700; line-height: 1.35; }
+.signup-body .field-label { margin: 12px 4px 6px; font-size: 13px; }
+.signup-body .signup-title + .field-label { margin-top: 16px; }
+.signup-body .icon-input { padding: 0 15px; }
+.signup-body .icon-input input { margin-left: 0; }
+.input-with-btn { display: flex; gap: 8px; }
+.input-with-btn .icon-input { flex: 1; border: 1.5px solid var(--c-primary-strong); }
+.input-with-btn .icon-input input { font-weight: 500; }
+.input-with-btn .btn { width: 104px; height: 50px; font-size: 14px; }
+.input-hint { margin: 6px 4px 0; font-size: 11.5px; color: var(--c-muted); line-height: normal; }
+.input-hint + .field-label { margin-top: 6px; }
+
+.agreements { margin-top: 12px; border-radius: 16px; background: var(--c-soft); padding: 14px 14px 6px; }
+.agree-all { display: flex; align-items: center; gap: 10px; padding-bottom: 14px; border-bottom: 1px solid var(--c-soft); font-size: 15px; font-weight: 700; cursor: pointer; }
+.agree-all__box { width: 22px; height: 22px; border-radius: 11px; background: #c9d3cb; display: grid; place-items: center; }
+.agree-all__box img { width: 12px; height: 12px; }
+.agree-all input:checked + .agree-all__box { background: var(--c-primary); }
+.agree-item { display: flex; align-items: center; gap: 12px; height: 32px; padding-left: 2px; font-size: 13px; cursor: pointer; }
+.agree-all + .agree-item { margin-top: 6px; }
+.agree-item img { width: 18px; height: 18px; }
+.agree-item .agree-item__off { display: none; }
+.agree-item input:not(:checked) ~ .agree-item__on { display: none; }
+.agree-item input:not(:checked) ~ .agree-item__off { display: block; }
+.agree-item input:not(:checked) ~ .agree-item__text { color: var(--c-muted); }
+.agree-item__text { flex: 1; }
+.agree-item__more img { width: 16px; height: 16px; margin-right: 6px; }
+
+/* ---------- 11 · 아바타 만들기 ---------- */
+.avatar-preview { position: relative; margin-top: 15px; height: 240px; border-radius: 22px; overflow: hidden; }
+.avatar-preview__bg { width: 100%; height: 100%; object-fit: cover; }
+.avatar-preview .avatar { position: absolute; left: 109px; top: 46px; width: 140px; height: 140px; }
+.swatch-group__label { display: block; margin: 24px 4px 4px; font-size: 14px; font-weight: 700; line-height: normal; }
+.swatch-group + .swatch-group .swatch-group__label { margin-top: 4px; }
+.swatch-row { display: flex; gap: 8px; }
+.swatch { position: relative; width: 48px; height: 48px; display: grid; place-items: center; }
+.swatch > img { width: 40px; height: 40px; }
+.swatch > .swatch__ring { position: absolute; inset: 0; width: 48px; height: 48px; display: none; }
+.swatch.is-active .swatch__ring { display: block; }
+.signup-body--avatar { bottom: 0; }
+.avatar-cta { position: absolute; left: 16px; right: 16px; top: 710px; text-align: center; }
+.avatar-cta .btn { width: 100%; height: 54px; font-size: 16px; }
+.avatar-cta__later { display: inline-block; margin-top: 14px; font-size: 13px; color: var(--c-muted); }

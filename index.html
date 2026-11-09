@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Daily Quest · 퍼블리싱 화면 목록</title>
+  <link rel="stylesheet" href="css/common.css">
+  <style>
+    body { padding: 32px 20px 60px; }
+    .wrap { max-width: 720px; margin: 0 auto; }
+    h1 { font-size: 24px; font-weight: 900; }
+    .desc { margin-top: 6px; font-size: 13px; color: var(--c-muted); }
+    section { margin-top: 28px; }
+    h2 { font-size: 14px; font-weight: 700; color: var(--c-label); }
+    ul { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; margin-top: 10px; }
+    a { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 14px; background: #fff;
+         border: 1px solid var(--c-line); font-size: 14px; font-weight: 500; }
+    a:hover { border-color: var(--c-primary); }
+    .num { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; background: var(--c-soft);
+            font-size: 12px; font-weight: 700; color: var(--c-primary-strong); flex: none; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Daily Quest · 작은 마을 테마</h1>
+    <p class="desc">퍼블리싱 화면 19개 · 모바일 기준 390 × 844</p>
+    <section>
+      <h2>A · 기존 화면 (01–08)</h2>
+      <ul>
+        <li><a href="screens/01-home-private.html"><span class="num">01</span>홈 · 우리만 (마을 지도)</a></li>
+        <li><a href="screens/02-home-public.html"><span class="num">02</span>홈 · 공개 (다른 마을 구경)</a></li>
+        <li><a href="screens/03-room.html"><span class="num">03</span>방 내부 (우리들의 아지트)</a></li>
+        <li><a href="screens/04-story-viewer.html"><span class="num">04</span>챌린지 스토리 뷰어</a></li>
+        <li><a href="screens/05-mission-verify.html"><span class="num">05</span>미션 인증하기</a></li>
+        <li><a href="screens/06-verify-check.html"><span class="num">06</span>인증 확인 (팀원 투표)</a></li>
+        <li><a href="screens/07-send-mission.html"><span class="num">07</span>미션 보내기</a></li>
+        <li><a href="screens/08-customize.html"><span class="num">08</span>꾸미기 (아바타 · 우리 집)</a></li>
+      </ul>
+    </section>
+    <section>
+      <h2>B · 로그인 · 회원가입 (09–11)</h2>
+      <ul>
+        <li><a href="screens/09-login.html"><span class="num">09</span>A1 로그인</a></li>
+        <li><a href="screens/10-signup-info.html"><span class="num">10</span>A2 회원가입 · 정보 입력</a></li>
+        <li><a href="screens/11-signup-avatar.html"><span class="num">11</span>A3 회원가입 · 아바타 만들기</a></li>
+      </ul>
+    </section>
+    <section>
+      <h2>C · B 플로우 (12–16)</h2>
+      <ul>
+        <li><a href="screens/12-b1-home.html"><span class="num">12</span>B1 홈</a></li>
+        <li><a href="screens/13-room-detail.html"><span class="num">13</span>B2 방 내부</a></li>
+        <li><a href="screens/14-b3-mission-verify.html"><span class="num">14</span>B3 미션 인증</a></li>
+        <li><a href="screens/15-b4-send-mission.html"><span class="num">15</span>B4 미션 보내기</a></li>
+        <li><a href="screens/16-b5-customize.html"><span class="num">16</span>B5 꾸미기</a></li>
+      </ul>
+    </section>
+    <section>
+      <h2>D · 세로 흐름형 (17–19)</h2>
+      <ul>
+        <li><a href="screens/17-daily-quest.html"><span class="num">17</span>Daily Quest</a></li>
+        <li><a href="screens/18-mission-verify.html"><span class="num">18</span>미션 인증</a></li>
+        <li><a href="screens/19-verify-check.html"><span class="num">19</span>인증 확인</a></li>
+      </ul>
+    </section>
+  </div>
+</body>
+</html>

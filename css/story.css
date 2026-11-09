@@ -1,0 +1,45 @@
+/* 04 · 챌린지 스토리 뷰어 */
+.story { background: #6fa0d8; }
+.story__media { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.story__cloud { position: absolute; }
+.story__skyline { position: absolute; left: 0; top: 600px; width: 390px; height: 260px; }
+.story__scrim { position: absolute; left: 0; right: 0; top: 0; height: 150px; background: linear-gradient(to bottom, rgba(0,0,0,.4), rgba(0,0,0,0)); }
+
+.story__progress { position: absolute; left: 14px; right: 14px; top: 50px; display: flex; gap: 4px; }
+.story__progress span { flex: 1; height: 3px; border-radius: 2px; background: rgba(255,255,255,.4); }
+.story__progress span.is-done { background: #fff; }
+
+.story__author { position: absolute; left: 12px; top: 64px; display: flex; align-items: center; gap: 6px; color: #fff; }
+.story__author .avatar { width: 40px; height: 40px; }
+.story__author-name { font-size: 14px; font-weight: 700; line-height: normal; }
+.story__author-time { margin-top: 2px; font-size: 11px; line-height: normal; }
+.story__close { position: absolute; left: 350px; top: 72px; width: 24px; height: 24px; }
+.story__close img { width: 24px; height: 24px; }
+
+.mission-tag {
+  position: absolute; left: 16px; top: 556px; width: 226px; height: 30px; padding: 0 10px;
+  display: flex; align-items: center; gap: 6px; border-radius: 15px; background: rgba(255,255,255,.95);
+  font-size: 12px; font-weight: 700; color: var(--c-ink);
+}
+.mission-tag img { width: 16px; height: 16px; }
+.story__caption { position: absolute; left: 18px; top: 596px; font-size: 15px; font-weight: 500; color: #fff; line-height: normal; }
+
+.vote-panel {
+  position: absolute; left: 16px; top: 640px; width: 358px; height: 116px; padding: 14px 16px;
+  border-radius: 20px; background: rgba(255,255,255,.96);
+}
+.vote-panel__head { display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: 700; line-height: normal; }
+.vote-panel__count { font-size: 13px; color: #448f6b; }
+.progress { margin-top: 9px; height: 6px; border-radius: 3px; background: var(--c-soft); overflow: hidden; }
+.progress__fill { height: 100%; border-radius: 3px; background: var(--c-primary); }
+.vote-panel__btns { display: flex; gap: 14px; margin-top: 12px; }
+.vote-panel__btns .btn { flex: 1; height: 42px; }
+.vote-panel__btns .btn--outline { border-color: var(--c-primary-strong); color: var(--c-ink-green); }
+
+.story__comment { position: absolute; left: 16px; top: 772px; display: flex; align-items: center; gap: 16px; }
+.story__comment input {
+  width: 300px; height: 44px; padding: 0 16.8px; border-radius: 22px; border: 1.2px solid #fff;
+  background: transparent; color: #fff; font-size: 13.5px; outline: none;
+}
+.story__comment input::placeholder { color: #fff; }
+.story__comment button img { width: 28px; height: 28px; }

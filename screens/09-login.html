@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>09 · A1 로그인 | Daily Quest</title>
+  <link rel="stylesheet" href="../css/common.css">
+  <script src="../js/fit.js"></script>
+  <link rel="stylesheet" href="../css/form.css">
+  <link rel="stylesheet" href="../css/auth.css">
+</head>
+<body>
+  <div class="screen">
+    <div class="login-hero">
+      <img class="login-hero__bg" src="../assets/img/village-map.png" alt="">
+      <img class="login-hero__pal" src="../assets/img/avatar-story-md-1.svg" alt="" style="left:98px">
+      <span class="avatar login-hero__pal"><img src="../assets/img/avatar-girl.png" alt=""></span>
+    </div>
+    <div class="status-bar">
+      <span class="status-bar__time">9:41</span>
+      <img class="status-bar__ind" src="../assets/icon/status-indicators.svg" alt="">
+    </div>
+
+    <div class="login-brand">
+      <h1 class="login-brand__logo"><img src="../assets/icon/logo-mark.svg" alt="">Daily Quest</h1>
+      <p class="login-brand__slogan">작은 하루들이 모여, 더 특별한 우리</p>
+    </div>
+
+    <form class="login-form" action="01-home-private.html">
+      <label class="field-label" for="email">이메일</label>
+      <div class="icon-input">
+        <img src="../assets/icon/mail.svg" alt="">
+        <input id="email" type="email" placeholder="example@email.com" autocomplete="email" required>
+      </div>
+      <label class="field-label" for="password">비밀번호</label>
+      <div class="icon-input">
+        <img src="../assets/icon/lock-gray.svg" alt="">
+        <input id="password" type="password" placeholder="비밀번호 입력" autocomplete="current-password" required>
+        <button type="button" class="icon-input__eye" data-toggle-password aria-label="비밀번호 보기"><img src="../assets/icon/eye.svg" alt=""></button>
+      </div>
+      <button type="submit" class="btn btn--primary login-form__submit">로그인</button>
+
+      <div class="login-links">
+        <a href="#">비밀번호 찾기</a>
+        <span class="login-links__sep"></span>
+        <a href="10-signup-info.html" class="login-links__join">회원가입</a>
+      </div>
+
+      <p class="divider-text"><span>간편 로그인</span></p>
+      <div class="social-list">
+        <button type="button" class="social-btn social-btn--kakao"><img src="../assets/icon/brand-kakao.svg" alt="">카카오로 시작하기</button>
+        <button type="button" class="social-btn social-btn--google"><img src="../assets/icon/brand-google.svg" alt="">Google로 시작하기</button>
+        <button type="button" class="social-btn social-btn--apple"><img src="../assets/icon/brand-apple.svg" alt="">Apple로 시작하기</button>
+      </div>
+    </form>
+  </div>
+  <script src="../js/common.js"></script>
+</body>
+</html>

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>16 · B5 꾸미기 | Daily Quest</title>
+  <link rel="stylesheet" href="../css/common.css">
+  <script src="../js/fit.js"></script>
+  <link rel="stylesheet" href="../css/customize.css">
+</head>
+<body>
+  <div class="screen deco--b5">
+    <div class="status-bar">
+      <span class="status-bar__time">9:41</span>
+      <img class="status-bar__ind" src="../assets/icon/status-indicators.svg" alt="">
+    </div>
+
+    <h1 class="deco-title">꾸미기</h1>
+    <span class="coin-pill deco-coin"><img src="../assets/icon/coin.svg" alt="코인">320<img src="../assets/icon/plus-circle.svg" alt="코인 충전"></span>
+
+    <div class="deco-preview">
+      <img class="deco-preview__bg" src="../assets/img/room-interior.png" alt="">
+      <span class="avatar"><img src="../assets/img/avatar-girl.png" alt="내 아바타 미리보기"></span>
+    </div>
+
+    <div class="chip-row deco-chips" role="tablist" data-select="single">
+      <button type="button" class="chip" role="tab" aria-selected="false" data-option>머리</button>
+      <button type="button" class="chip is-active" role="tab" aria-selected="true" data-option>옷</button>
+      <button type="button" class="chip" role="tab" aria-selected="false" data-option>소품</button>
+      <button type="button" class="chip" role="tab" aria-selected="false" data-option>배경</button>
+    </div>
+
+    <ul class="item-grid" data-select="single">
+      <li class="item-card" data-option>
+        <div class="item-card__thumb"><span class="shirt" style="--shirt:#5da37b"></span></div>
+        <p class="item-card__label">보유 중</p>
+      </li>
+      <li class="item-card is-active" data-option>
+        <div class="item-card__thumb"><span class="shirt" style="--shirt:#f2a7b8"></span></div>
+        <p class="item-card__price"><img src="../assets/icon/coin-16.svg" alt="코인">120</p>
+        <span class="item-card__check"><img src="../assets/icon/check-white.svg" alt="선택됨"></span>
+      </li>
+      <li class="item-card" data-option>
+        <div class="item-card__thumb"><span class="shirt" style="--shirt:#e3f0e6"></span></div>
+        <p class="item-card__price"><img src="../assets/icon/coin-16.svg" alt="코인">80</p>
+        <span class="item-card__check"><img src="../assets/icon/check-white.svg" alt="선택됨"></span>
+      </li>
+      <li class="item-card" data-option>
+        <div class="item-card__thumb"><span class="shirt" style="--shirt:#f5d58a"></span></div>
+        <p class="item-card__label">보유 중</p>
+      </li>
+      <li class="item-card" data-option>
+        <div class="item-card__thumb"><span class="shirt" style="--shirt:#e3f0e6"></span></div>
+        <p class="item-card__price"><img src="../assets/icon/coin-16.svg" alt="코인">200</p>
+        <span class="item-card__check"><img src="../assets/icon/check-white.svg" alt="선택됨"></span>
+      </li>
+      <li class="item-card" data-option>
+        <div class="item-card__thumb"><span class="shirt" style="--shirt:#f4b183"></span></div>
+        <p class="item-card__label item-card__label--reward">미션 보상</p>
+      </li>
+    </ul>
+
+    <nav class="tab-bar" aria-label="메인 메뉴">
+      <a href="12-b1-home.html" class="tab-bar__item"><img src="../assets/icon/tab-home.svg" alt="">홈</a>
+      <a href="14-b3-mission-verify.html" class="tab-bar__item"><img src="../assets/icon/tab-mission.svg" alt=""><img class="tab-bar__badge" src="../assets/icon/badge-dot.svg" alt="새 미션">미션</a>
+      <a href="16-b5-customize.html" class="tab-bar__item is-active" aria-current="page"><img src="../assets/icon/tab-shop-active.svg" alt="">쇼핑</a>
+      <a href="#" class="tab-bar__item"><img src="../assets/icon/tab-my.svg" alt="">마이</a>
+    </nav>
+    <span class="home-indicator"></span>
+  </div>
+  <script src="../js/common.js"></script>
+</body>
+</html>

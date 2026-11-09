@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>01 · 홈 · 우리만 (마을 지도) | Daily Quest</title>
+  <link rel="stylesheet" href="../css/common.css">
+  <script src="../js/fit.js"></script>
+  <link rel="stylesheet" href="../css/home.css">
+</head>
+<body>
+  <div class="screen">
+    <div class="status-bar">
+      <span class="status-bar__time">9:41</span>
+      <img class="status-bar__ind" src="../assets/icon/status-indicators.svg" alt="">
+    </div>
+
+    <!-- 마을 지도 -->
+    <section class="village-map" aria-label="우리 마을 지도">
+      <img class="village-map__bg" src="../assets/img/village-map.png" alt="">
+
+      <a href="13-room-detail.html" class="room-pin" style="left:34px;top:170px" aria-label="우리들의 아지트">
+        <span class="room-pin__avatars">
+          <img class="room-pin__story" src="../assets/img/avatar-story-1.svg" alt="">
+          <span class="avatar"><img src="../assets/img/avatar-boy.png" alt=""></span>
+          <span class="avatar"><img src="../assets/img/avatar-girl.png" alt=""></span>
+          <span class="avatar"><img src="../assets/img/avatar-boy.png" alt=""></span>
+        </span>
+      </a>
+      <div class="room-label" style="left:33px;top:240px">
+        <span class="room-label__name">우리들의 아지트</span>
+        <span class="room-label__count"><img src="../assets/icon/users.svg" alt="">4명</span>
+      </div>
+
+      <a href="13-room-detail.html" class="room-pin" style="left:240px;top:182px" aria-label="맛집 탐험대">
+        <span class="room-pin__avatars">
+          <img class="room-pin__story" src="../assets/img/avatar-story-2.svg" alt="">
+          <span class="avatar"><img src="../assets/img/avatar-boy.png" alt=""></span>
+          <span class="avatar"><img src="../assets/img/avatar-girl.png" alt=""></span>
+        </span>
+      </a>
+      <div class="room-label" style="left:251px;top:250px">
+        <span class="room-label__name">맛집 탐험대</span>
+        <span class="room-label__count"><img src="../assets/icon/users.svg" alt="">3명</span>
+      </div>
+
+      <a href="13-room-detail.html" class="room-pin" style="left:34px;top:326px" aria-label="하늘 보는 사람들">
+        <span class="room-pin__avatars">
+          <img class="room-pin__story" src="../assets/img/avatar-story-3.svg" alt="">
+          <span class="avatar"><img src="../assets/img/avatar-girl.png" alt=""></span>
+          <span class="avatar"><img src="../assets/img/avatar-boy.png" alt=""></span>
+        </span>
+      </a>
+      <div class="room-label" style="left:31.5px;top:420px">
+        <span class="room-label__name">하늘 보는 사람들</span>
+        <span class="room-label__count"><img src="../assets/icon/users.svg" alt="">4명</span>
+      </div>
+
+      <a href="13-room-detail.html" class="room-pin" style="left:240px;top:336px" aria-label="운동하는 우리">
+        <span class="room-pin__avatars">
+          <img class="room-pin__story" src="../assets/img/avatar-story-4.svg" alt="">
+          <span class="avatar"><img src="../assets/img/avatar-boy.png" alt=""></span>
+        </span>
+      </a>
+      <div class="room-label" style="left:245px;top:430px">
+        <span class="room-label__name">운동하는 우리</span>
+        <span class="room-label__count"><img src="../assets/icon/users.svg" alt="">3명</span>
+      </div>
+    </section>
+
+    <!-- 헤더 -->
+    <header class="home-header">
+      <img class="home-header__logo" src="../assets/icon/logo-mark.svg" alt="">
+      <h1 class="home-header__title">Daily Quest</h1>
+      <p class="home-header__slogan">작은 하루들이 모여,<br>더 특별한 우리</p>
+      <button type="button" class="home-header__bell" aria-label="알림"><img src="../assets/icon/bell.svg" alt=""></button>
+      <span class="coin-pill home-header__coin">
+        <img src="../assets/icon/coin.svg" alt="코인">320<img src="../assets/icon/plus-circle.svg" alt="코인 충전">
+      </span>
+      <div class="scope-toggle" role="tablist">
+        <a href="02-home-public.html" class="scope-toggle__btn" role="tab" aria-selected="false"><img src="../assets/icon/globe.svg" alt="">공개</a>
+        <a href="01-home-private.html" class="scope-toggle__btn is-active" role="tab" aria-selected="true"><img src="../assets/icon/lock-white.svg" alt="">우리만</a>
+      </div>
+    </header>
+
+    <!-- 바텀시트 -->
+    <section class="bottom-sheet">
+      <span class="bottom-sheet__handle"></span>
+      <div class="sheet-head">
+        <h2 class="sheet-head__title">오늘의 미션</h2>
+        <span class="sheet-head__date">4월 17일 (목)</span>
+      </div>
+      <article class="card mission-card">
+        <img class="mission-card__photo" src="../assets/img/photo-sky.png" alt="">
+        <div class="mission-card__info">
+          <h3 class="mission-card__title"><img src="../assets/icon/cloud.svg" alt="">오늘의 하늘 찍기</h3>
+          <p class="mission-card__desc">지금 이 순간, 너의 하늘을 보여줘!</p>
+          <p class="mission-card__reward"><img src="../assets/icon/gift.svg" alt="">보상 <span class="reward-chip">랜덤 꾸미기 아이템 1개</span></p>
+        </div>
+        <a href="05-mission-verify.html" class="btn btn--primary">인증하기</a>
+      </article>
+
+      <div class="sheet-head sheet-head--sub">
+        <h2 class="section-title">친구가 보낸 미션 <span class="count-badge">2</span></h2>
+        <a href="#" class="sheet-head__more">더보기 ›</a>
+      </div>
+      <ul class="card friend-missions">
+        <li class="friend-mission">
+          <span class="avatar"><img src="../assets/img/avatar-girl.png" alt=""></span>
+          <div class="friend-mission__text">
+            <p class="friend-mission__from">지수가 보낸 미션</p>
+            <p class="friend-mission__name">오늘 커피 한 잔 마시기</p>
+          </div>
+          <span class="friend-mission__coin"><img src="../assets/icon/coin-sm.svg" alt="코인">+50</span>
+          <button type="button" class="btn btn--soft">도전하기</button>
+        </li>
+        <li class="friend-mission">
+          <span class="avatar"><img src="../assets/img/avatar-boy.png" alt=""></span>
+          <div class="friend-mission__text">
+            <p class="friend-mission__from">민수가 보낸 미션</p>
+            <p class="friend-mission__name">10분 동안 산책하기</p>
+          </div>
+          <span class="friend-mission__coin"><img src="../assets/icon/coin-sm.svg" alt="코인">+100</span>
+          <button type="button" class="btn btn--soft">도전하기</button>
+        </li>
+      </ul>
+    </section>
+
+    <!-- 탭바 -->
+    <nav class="tab-bar" aria-label="메인 메뉴">
+      <a href="01-home-private.html" class="tab-bar__item is-active" aria-current="page"><img src="../assets/icon/tab-home-active.svg" alt="">홈</a>
+      <a href="05-mission-verify.html" class="tab-bar__item"><img src="../assets/icon/tab-mission.svg" alt=""><img class="tab-bar__badge" src="../assets/icon/badge-dot.svg" alt="새 미션">미션</a>
+      <a href="08-customize.html" class="tab-bar__item"><img src="../assets/icon/tab-shop.svg" alt="">쇼핑</a>
+      <a href="#" class="tab-bar__item"><img src="../assets/icon/tab-my.svg" alt="">마이</a>
+    </nav>
+    <span class="home-indicator"></span>
+  </div>
+</body>
+</html>

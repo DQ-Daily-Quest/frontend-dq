@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>03 · 방 내부 (우리들의 아지트) | Daily Quest</title>
+  <link rel="stylesheet" href="../css/common.css">
+  <script src="../js/fit.js"></script>
+  <link rel="stylesheet" href="../css/room.css">
+</head>
+<body>
+  <div class="screen">
+    <div class="status-bar">
+      <span class="status-bar__time">9:41</span>
+      <img class="status-bar__ind" src="../assets/icon/status-indicators.svg" alt="">
+    </div>
+
+    <header class="room-nav">
+      <a href="01-home-private.html" class="room-nav__back" aria-label="뒤로가기"><img src="../assets/icon/back.svg" alt=""></a>
+      <h1 class="room-nav__title">우리들의 아지트</h1>
+      <span class="privacy-chip"><img src="../assets/icon/lock-green.svg" alt="">우리만</span>
+      <button type="button" class="room-nav__more" aria-label="더보기"><img src="../assets/icon/more.svg" alt=""></button>
+    </header>
+
+    <ul class="member-row" aria-label="멤버">
+      <li class="member"><a href="04-story-viewer.html"><img class="member__pic" src="../assets/img/avatar-story-lg-1.svg" alt=""></a><span class="member__name member__name--bold">지수</span></li>
+      <li class="member"><a href="04-story-viewer.html"><img class="member__pic" src="../assets/img/avatar-story-lg-2.svg" alt=""></a><span class="member__name member__name--bold">민수</span></li>
+      <li class="member"><span class="avatar"><img src="../assets/img/avatar-girl.png" alt=""></span><span class="member__name">서연</span></li>
+      <li class="member"><span class="avatar"><img src="../assets/img/avatar-boy.png" alt=""></span><span class="member__name">나</span></li>
+      <li class="member"><button type="button" class="member__invite" aria-label="멤버 초대"><img src="../assets/icon/plus.svg" alt=""></button><span class="member__name">초대</span></li>
+    </ul>
+
+    <section class="room-interior" aria-label="방 내부">
+      <img class="room-interior__bg" src="../assets/img/room-interior.png" alt="">
+      <span class="avatar" style="left:95px;top:149px"><img src="../assets/img/avatar-girl.png" alt=""></span>
+      <span class="avatar" style="left:167px;top:165px"><img src="../assets/img/avatar-boy.png" alt=""></span>
+      <span class="avatar" style="left:227px;top:145px"><img src="../assets/img/avatar-girl.png" alt=""></span>
+      <a href="08-customize.html" class="btn btn--soft room-interior__deco">방 꾸미기</a>
+    </section>
+
+    <nav class="seg-tabs" role="tablist">
+      <button type="button" class="seg-tabs__item is-active" role="tab" aria-selected="true">피드</button>
+      <button type="button" class="seg-tabs__item" role="tab" aria-selected="false">미션</button>
+      <button type="button" class="seg-tabs__item" role="tab" aria-selected="false">랭킹</button>
+    </nav>
+
+    <article class="card feed-post">
+      <div class="feed-post__head">
+        <img src="../assets/img/avatar-story-md-1.svg" alt="">
+        <div class="feed-post__who">
+          <p class="feed-post__name">지수</p>
+          <p class="feed-post__meta">오늘의 하늘 찍기 · 1시간 전</p>
+        </div>
+        <span class="status-chip">검토 중 2/3</span>
+      </div>
+      <img class="feed-post__photo" src="../assets/img/photo-sky.png" alt="지수의 하늘 사진">
+      <div class="feed-post__foot">
+        <span class="feed-post__stat"><img src="../assets/icon/heart-outline.svg" alt="좋아요">5</span>
+        <span class="feed-post__stat"><img src="../assets/icon/chat.svg" alt="댓글">3</span>
+        <a href="06-verify-check.html" class="feed-post__vote">통과 투표하기 ›</a>
+      </div>
+    </article>
+
+    <a href="07-send-mission.html" class="btn btn--primary fab">+ 미션 보내기</a>
+  </div>
+</body>
+</html>

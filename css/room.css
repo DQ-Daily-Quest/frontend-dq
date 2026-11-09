@@ -1,0 +1,101 @@
+/* 03 · 방 내부 / 13 · B2 방 내부 */
+
+.room-nav { position: absolute; top: 44px; left: 0; right: 0; height: 44px; }
+.room-nav__back { position: absolute; left: 14px; top: 12px; width: 26px; height: 26px; }
+.room-nav__back img { width: 26px; height: 26px; }
+.room-nav__title {
+  position: absolute; left: 40px; width: 250px; top: 11px; text-align: center;
+  font-size: 17px; font-weight: 700; line-height: normal;
+}
+.room-nav__title--center { left: 70px; }
+.privacy-chip {
+  position: absolute; left: 276px; top: 14px; height: 22px; padding: 0 8px;
+  display: inline-flex; align-items: center; gap: 2px; border-radius: 11px; background: var(--c-soft);
+  font-size: 10.5px; font-weight: 700; color: #448f6b;
+}
+.privacy-chip img { width: 12px; height: 12px; }
+.room-nav__more { position: absolute; left: 350px; top: 12px; width: 24px; height: 24px; }
+.room-nav__more img { width: 24px; height: 24px; }
+
+/* 멤버 스토리 */
+.member-row { position: absolute; top: 98px; left: 18px; display: flex; gap: 14px; }
+.member { display: flex; flex-direction: column; align-items: center; width: 52px; gap: 4px; }
+.member__pic { width: 52px; height: 52px; }
+.member .avatar { width: 52px; height: 52px; }
+.member__name { font-size: 11.5px; color: var(--c-muted); line-height: normal; white-space: nowrap; }
+.member__name--bold { font-weight: 700; color: var(--c-ink); }
+.member__invite {
+  width: 44px; height: 44px; margin: 4px 0; border-radius: 22px; background: #fff;
+  border: 1px dashed #a9b5ac; display: grid; place-items: center;
+}
+.member__invite img { width: 20px; height: 20px; }
+
+/* 방 인테리어 */
+.room-interior {
+  position: absolute; left: 16px; top: 184px; width: 358px; height: 252px; overflow: hidden;
+  border: 1px solid #e8d9bf; border-radius: 20px;
+}
+.room-interior__bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.room-interior .avatar { position: absolute; width: 52px; height: 52px; }
+.room-interior__deco { position: absolute; left: 265px; top: 213px; width: 82px; height: 30px; }
+
+/* 탭 */
+.seg-tabs { position: absolute; left: 0; right: 0; top: 452px; height: 33px; display: flex; border-bottom: 1px solid var(--c-soft); }
+.seg-tabs__item {
+  position: relative; flex: 1; text-align: center; font-size: 15px; font-weight: 500;
+  color: var(--c-muted); line-height: normal;
+}
+.seg-tabs__item.is-active { font-weight: 700; color: var(--c-ink); }
+.seg-tabs__item.is-active::after {
+  content: ""; position: absolute; left: 50%; bottom: -2px; transform: translateX(-50%);
+  width: 60px; height: 3px; border-radius: 2px; background: var(--c-primary);
+}
+
+/* 피드 */
+.feed-post {
+  position: absolute; left: 16px; top: 500px; width: 358px; height: 250px;
+  border-radius: 16px; filter: drop-shadow(var(--shadow-soft)); padding: 9px;
+}
+.feed-post__head { display: flex; align-items: center; gap: 8px; height: 40px; }
+.feed-post__head > img { width: 40px; height: 40px; }
+.feed-post__who { flex: 1; }
+.feed-post__name { font-size: 14px; font-weight: 700; line-height: normal; }
+.feed-post__meta { margin-top: 2px; font-size: 11px; color: var(--c-muted); line-height: normal; }
+.status-chip {
+  display: inline-flex; align-items: center; justify-content: center; height: 24px; min-width: 84px; padding: 0 8px;
+  border-radius: 12px; background: var(--c-soft); font-size: 11px; font-weight: 700; color: #e07a2f;
+}
+.feed-post__photo { margin-top: 10px; width: 338px; height: 140px; border-radius: 14px; object-fit: cover; }
+.feed-post__foot { display: flex; align-items: center; margin-top: 13px; padding: 0 4px; font-size: 13px; color: var(--c-muted); }
+.feed-post__foot img { width: 18px; height: 18px; }
+.feed-post__stat { display: flex; align-items: center; gap: 4px; margin-right: 10px; }
+.feed-post__vote { margin-left: auto; font-weight: 700; color: #448f6b; }
+
+.fab {
+  position: absolute; right: 16px; top: 770px; height: 50px; padding: 0 28px; border-radius: 25px;
+  filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.2));
+}
+
+/* ---------- 13 · B2 방 내부 ---------- */
+.b2-body { position: absolute; left: 16px; right: 16px; top: 104px; bottom: 90px; overflow-y: auto; scrollbar-width: none; }
+.b2-room { position: relative; height: 220px; border: 1px solid #e8d9bf; border-radius: 20px; overflow: hidden; }
+.b2-room .room-interior__bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.b2-room .avatar { position: absolute; width: 50px; height: 50px; }
+.b2-room .btn { position: absolute; left: 265px; top: 179px; width: 80px; height: 30px; }
+.b2-section-title { display: flex; align-items: baseline; gap: 10px; margin: 18px 4px 0; font-size: 15px; font-weight: 700; line-height: normal; }
+.b2-section-title small { font-size: 14px; font-weight: 400; color: var(--c-muted); }
+.b2-members { display: flex; gap: 14px; margin-top: 10px; padding-left: 4px; }
+.b2-members .member { width: 48px; }
+.b2-members .member__pic, .b2-members .avatar { width: 48px; height: 48px; }
+.b2-members .member__invite { width: 40px; height: 40px; border-radius: 20px; }
+.proof-list { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+.proof-item {
+  display: flex; align-items: center; gap: 12px; height: 72px; padding: 0 12px 0 9px;
+  border: 1px solid var(--c-line); border-radius: 16px; background: #fff; box-shadow: 0 3px 12px rgba(31,71,51,.1);
+}
+.proof-item__thumb { width: 52px; height: 52px; border-radius: 12px; flex: none; }
+.proof-item__text { flex: 1; }
+.proof-item__name { font-size: 14px; font-weight: 700; line-height: normal; }
+.proof-item__desc { margin-top: 3px; font-size: 12px; color: var(--c-muted); line-height: normal; }
+.proof-item .btn { width: 82px; font-size: 13px; }
+.proof-item .vote-chip { width: 76px; }

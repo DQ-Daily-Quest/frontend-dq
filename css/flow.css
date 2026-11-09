@@ -1,0 +1,62 @@
+/* 17 · Daily Quest / 18 · 미션 인증 / 19 · 인증 확인 — 세로 흐름형 화면 */
+.flow { padding: 24px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto; scrollbar-width: none; }
+.flow::-webkit-scrollbar { display: none; }
+.flow > * { position: relative; flex: none; }
+.flow__bg { position: absolute !important; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .2; pointer-events: none; }
+.flow__status { display: flex; align-items: center; justify-content: space-between; font-size: 12px; line-height: normal; }
+.flow__status-ind { display: flex; align-items: center; gap: 8px; margin-right: 154px; }
+.flow__status-ind i { display: block; width: 10px; height: 10px; border-radius: 50%; background: var(--c-ink); }
+.flow__status-ind b { display: block; width: 10px; height: 4px; border-radius: 1px; background: var(--c-ink); }
+.flow__title { font-size: 25px; font-weight: 700; line-height: normal; }
+.flow__sub { font-size: 13px; color: var(--c-muted); line-height: normal; }
+.flow .btn--flow { height: 44px; padding: 10px 18px; border-radius: 14px; background: #4a946e; color: #fff; font-size: 15px; }
+.flow__tabs { display: flex; gap: 12px; }
+.flow__tabs .btn { width: 165px; }
+
+.flow-stories { display: flex; gap: 20px; }
+.flow-story { display: flex; flex-direction: column; align-items: center; gap: 5px; width: 66px; font-size: 11px; line-height: normal; }
+.flow-story img { width: 48px; height: 48px; }
+
+.flow-card { display: flex; flex-direction: column; align-items: flex-start; gap: 9px; width: 342px; padding: 16px; border-radius: 18px; background: #fff; }
+.flow-card--soft { background: var(--c-soft); }
+.flow-card__eyebrow { font-size: 11px; font-weight: 700; color: #448f6b; white-space: pre; line-height: normal; }
+.flow-card__title { font-size: 23px; font-weight: 700; line-height: normal; }
+.flow-card__text { font-size: 13px; line-height: normal; }
+.flow-card__accent { font-size: 12px; font-weight: 700; color: #448f6b; white-space: pre; line-height: normal; }
+.flow-card .btn--flow { width: 310px; }
+.flow-card__strong { font-size: 14px; font-weight: 700; line-height: normal; white-space: pre; }
+.flow-progress { width: 310px; height: 8px; background: var(--c-soft); overflow: hidden; }
+.flow-progress__fill { height: 100%; background: #4a946e; }
+
+.flow__section { font-size: 17px; font-weight: 700; line-height: normal; }
+.flow-list { display: flex; flex-direction: column; gap: 9px; font-size: 12px; line-height: normal; }
+.flow-list__row { display: grid; grid-template-columns: 200px auto; }
+.flow-link { font-size: 12px; font-weight: 700; color: #448f6b; }
+.flow__room { font-size: 14px; font-weight: 700; white-space: pre; }
+.flow__tabbar { display: flex; gap: 38px; font-size: 14px; font-weight: 700; color: #448f6b; }
+
+/* ---------- 18 · 미션 인증 ---------- */
+.flow-card__title--md { font-size: 20px; }
+.flow-card__small { font-size: 12px; line-height: normal; }
+.flow-preview {
+  display: flex; align-items: center; justify-content: center; width: 342px; height: 210px; border-radius: 12px;
+  background: var(--c-soft) center / cover no-repeat; font-size: 13px; color: var(--c-muted); cursor: pointer;
+}
+.flow .btn--flow.btn--full { width: 342px; }
+.flow-card__label { font-size: 14px; color: var(--c-muted); line-height: normal; }
+.flow-card textarea {
+  width: 100%; min-height: 16px; height: 18px; padding: 0; border: 0; outline: none; resize: none; background: none;
+  font-size: 12px; color: var(--c-ink); line-height: normal;
+}
+.flow-card textarea::placeholder { color: var(--c-muted); }
+.flow-toggle-row { display: grid; grid-template-columns: 185px auto; width: 100%; text-align: left; font-size: 13px; line-height: normal; }
+.flow-note { font-size: 12px; color: var(--c-muted); line-height: normal; }
+
+/* ---------- 19 · 인증 확인 ---------- */
+.flow-card__strong--lg { font-size: 15px; }
+.flow-card__muted { font-size: 12px; color: var(--c-muted); white-space: pre; line-height: normal; }
+.flow-photo { width: 342px; height: 230px; border-radius: 12px; object-fit: cover; }
+.flow-quote { width: 342px; font-size: 15px; line-height: normal; }
+.flow-card__title--sm { font-size: 17px; }
+.flow-card__tiny { font-size: 11px; color: var(--c-muted); line-height: normal; }
+.flow-legend { font-size: 12px; color: var(--c-muted); line-height: normal; }

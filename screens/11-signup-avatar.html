@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>11 · A3 회원가입 · 아바타 만들기 | Daily Quest</title>
+  <link rel="stylesheet" href="../css/common.css">
+  <script src="../js/fit.js"></script>
+  <link rel="stylesheet" href="../css/form.css">
+  <link rel="stylesheet" href="../css/auth.css">
+</head>
+<body>
+  <div class="screen">
+    <div class="status-bar">
+      <span class="status-bar__time">9:41</span>
+      <img class="status-bar__ind" src="../assets/icon/status-indicators.svg" alt="">
+    </div>
+    <header class="page-nav page-nav--plain">
+      <a href="10-signup-info.html" class="page-nav__back" aria-label="뒤로가기"><img src="../assets/icon/back.svg" alt=""></a>
+      <h1 class="page-nav__title">회원가입</h1>
+      <span class="page-nav__step">2 / 2</span>
+    </header>
+    <div class="signup-progress" role="progressbar" aria-valuemin="1" aria-valuemax="2" aria-valuenow="2">
+      <div class="signup-progress__fill" style="width:100%"></div>
+    </div>
+
+    <div class="signup-body signup-body--avatar">
+      <h2 class="signup-title">나만의 아바타를<br>만들어 볼까요?</h2>
+      <div class="avatar-preview">
+        <img class="avatar-preview__bg" src="../assets/img/room-interior.png" alt="">
+        <span class="avatar"><img src="../assets/img/avatar-boy.png" alt="내 아바타 미리보기"></span>
+      </div>
+      <div class="swatch-group">
+        <span class="swatch-group__label">피부</span>
+        <div class="swatch-row" data-select="single" role="group" aria-label="피부">
+          <button type="button" class="swatch is-active" data-option aria-pressed="true" aria-label="피부 1">
+            <img src="../assets/swatch/skin-0.svg" alt=""><img class="swatch__ring" src="../assets/icon/swatch-selected.svg" alt="">
+          </button>
+          <button type="button" class="swatch" data-option aria-pressed="false" aria-label="피부 2">
+            <img src="../assets/swatch/skin-1.svg" alt=""><img class="swatch__ring" src="../assets/icon/swatch-selected.svg" alt="">
+          </button>
+          <button type="button" class="swatch" data-option aria-pressed="false" aria-label="피부 3">
+            <img src="../assets/swatch/skin-2.svg" alt=""><img class="swatch__ring" src="../assets/icon/swatch-selected.svg" alt="">
+          </button>
+          <button type="button" class="swatch" data-option aria-pressed="false" aria-label="피부 4">
+            <img src="../assets/swatch/skin-3.svg" alt=""><img class="swatch__ring" src="../assets/icon/swatch-selected.svg" alt="">
+          </button>
+          <button type="button" class="swatch" data-option aria-pressed="false" aria-label="피부 5">
+            <img src="../assets/swatch/skin-4.svg" alt=""><img class="swatch__ring" src="../assets/icon/swatch-selected.svg" alt="">
+          </button>
+        </div>
+      </div>
+      <div class="swatch-group">
+        <span class="swatch-group__label">헤어</span>
+        <div class="swatch-row" data-select="single" role="group" aria-label="헤어">
+          <button type="button" class="swatch is-active" data-option aria-pressed="true" aria-label="헤어 1">
+            <img src="../assets/swatch/hair-0.svg" alt=""><img class="swatch__ring" src="../assets/icon/swatch-selected.svg" alt="">
+          </button>
+          <button type="button" class="swatch" data-option aria-pressed="false" aria-label="헤어 2">
+            <img src="../assets/swatch/hair-1.svg" alt=""><img class="swatch__ring" src="../assets/icon/swatch-selected.svg" alt="">
+          </button>
+          <button type="button" class="swatch" data-option aria-pressed="false" aria-label="헤어 3">
+            <img src="../assets/swatch/hair-2.svg" alt=""><img class="swatch__ring" src="../assets/icon/swatch-selected.svg" alt="">
+          </button>
+          <button type="button" class="swatch" data-option aria-pressed="false" aria-label="헤어 4">
+            <img src="../assets/swatch/hair-3.svg" alt=""><img class="swatch__ring" src="../assets/icon/swatch-selected.svg" alt="">
+          </button>
+          <button type="button" class="swatch" data-option aria-pressed="false" aria-label="헤어 5">
+            <img src="../assets/swatch/hair-4.svg" alt=""><img class="swatch__ring" src="../assets/icon/swatch-selected.svg" alt="">
+          </button>
+        </div>
+      </div>
+      <div class="swatch-group">
+        <span class="swatch-group__label">옷</span>
+        <div class="swatch-row" data-select="single" role="group" aria-label="옷">
+          <button type="button" class="swatch is-active" data-option aria-pressed="true" aria-label="옷 1">
+            <img src="../assets/swatch/cloth-0.svg" alt=""><img class="swatch__ring" src="../assets/icon/swatch-selected.svg" alt="">
+          </button>
+          <button type="button" class="swatch" data-option aria-pressed="false" aria-label="옷 2">
+            <img src="../assets/swatch/cloth-1.svg" alt=""><img class="swatch__ring" src="../assets/icon/swatch-selected.svg" alt="">
+          </button>
+          <button type="button" class="swatch" data-option aria-pressed="false" aria-label="옷 3">
+            <img src="../assets/swatch/cloth-2.svg" alt=""><img class="swatch__ring" src="../assets/icon/swatch-selected.svg" alt="">
+          </button>
+          <button type="button" class="swatch" data-option aria-pressed="false" aria-label="옷 4">
+            <img src="../assets/swatch/cloth-3.svg" alt=""><img class="swatch__ring" src="../assets/icon/swatch-selected.svg" alt="">
+          </button>
+          <button type="button" class="swatch" data-option aria-pressed="false" aria-label="옷 5">
+            <img src="../assets/swatch/cloth-2.svg" alt=""><img class="swatch__ring" src="../assets/icon/swatch-selected.svg" alt="">
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="avatar-cta">
+      <a href="12-b1-home.html" class="btn btn--primary">Daily Quest 시작하기</a>
+      <a href="12-b1-home.html" class="avatar-cta__later">나중에 꾸밀게요</a>
+    </div>
+  </div>
+  <script src="../js/common.js"></script>
+</body>
+</html>

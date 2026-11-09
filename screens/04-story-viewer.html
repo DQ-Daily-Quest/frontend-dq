@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>04 · 챌린지 스토리 뷰어 | Daily Quest</title>
+  <link rel="stylesheet" href="../css/common.css">
+  <script src="../js/fit.js"></script>
+  <link rel="stylesheet" href="../css/story.css">
+</head>
+<body>
+  <div class="screen story">
+    <img class="story__media" src="../assets/img/photo-sky.png" alt="지수가 올린 하늘 사진">
+    <img class="story__cloud" src="../assets/img/cloud-1.svg" alt="" style="left:40px;top:240px;width:150px;height:50px">
+    <img class="story__cloud" src="../assets/img/cloud-2.svg" alt="" style="left:200px;top:300px;width:170px;height:56px">
+    <img class="story__skyline" src="../assets/img/skyline.svg" alt="">
+    <div class="story__scrim"></div>
+
+    <div class="status-bar status-bar--light">
+      <span class="status-bar__time">9:41</span>
+      <img class="status-bar__ind" src="../assets/icon/status-indicators-light.svg" alt="">
+    </div>
+
+    <div class="story__progress" aria-label="스토리 1 / 3">
+      <span class="is-done"></span><span></span><span></span>
+    </div>
+    <div class="story__author">
+      <span class="avatar"><img src="../assets/img/avatar-girl.png" alt=""></span>
+      <div>
+        <p class="story__author-name">지수</p>
+        <p class="story__author-time">2시간 전</p>
+      </div>
+    </div>
+    <a href="03-room.html" class="story__close" aria-label="닫기"><img src="../assets/icon/close-white.svg" alt=""></a>
+
+    <p class="mission-tag"><img src="../assets/icon/cloud-sm.svg" alt="">앱 미션 · 오늘의 하늘 찍기</p>
+    <p class="story__caption">퇴근길 하늘 너무 예쁘다</p>
+
+    <section class="vote-panel" aria-label="통과 투표">
+      <div class="vote-panel__head">
+        <h2>통과 투표</h2>
+        <span class="vote-panel__count">2 / 3명</span>
+      </div>
+      <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="3" aria-valuenow="2">
+        <div class="progress__fill" style="width:66.6%"></div>
+      </div>
+      <div class="vote-panel__btns">
+        <button type="button" class="btn btn--primary">통과!</button>
+        <button type="button" class="btn btn--outline">다시 해줘</button>
+      </div>
+    </section>
+
+    <form class="story__comment" onsubmit="return false">
+      <label class="blind" for="comment">댓글</label>
+      <input id="comment" type="text" placeholder="댓글 달기...">
+      <button type="button" aria-label="좋아요"><img src="../assets/icon/heart-white.svg" alt=""></button>
+    </form>
+  </div>
+</body>
+</html>
