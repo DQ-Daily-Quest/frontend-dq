@@ -1,10 +1,19 @@
 
 package com.dailyquest.app.data.mock
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableStateListOf
 import com.dailyquest.app.data.model.Room
 
 object MockRoomData {
+
+    // Mock 전용 상태이며 백엔드 DTO에 포함하지 않는다.
+    var focusedRoomId: Long? by mutableStateOf(null)
+        private set
+    private val createdRoomIds = mutableStateListOf<Long>()
+    fun isCreatedRoom(roomId: Long) = roomId in createdRoomIds
 
     // 전체 방 데이터
     private val rooms = mutableStateListOf(
@@ -16,7 +25,9 @@ object MockRoomData {
         Room(5L, "새벽 러닝클럽", 6L, true, isHot = true),
         Room(6L, "고양이 집사들", 4L, true),
         Room(7L, "필름 사진관", 5L, true),
-        Room(8L, "오늘도 베이킹", 3L, true)
+        Room(8L, "오늘도 베이킹", 3L, true),
+        Room(9L, "초대코드 테스트방", 1L, false, maxMembers = 2),
+        Room(10L, "정원 초과 테스트방", 2L, true, maxMembers = 2)
     )
 
     // 내가 참여한 방 목록
@@ -70,39 +81,46 @@ object MockRoomData {
         )
 
         rooms.add(newRoom)
+        createdRoomIds.add(newRoomId)
+        focusedRoomId = newRoomId
 
         return newRoom
     }
 
-    // 공개방 참여
-    fun joinRoom(roomId: Long): Boolean {
+    sealed interface JoinResult {
+        data class Success(val room: Room, val alreadyJoined: Boolean) : JoinResult
+        data class Failure(val message: String) : JoinResult
+    }
 
-        val index = rooms.indexOfFirst {
-            it.roomId == roomId
-        }
+    // 실제 API 명세와 무관한 개발 테스트용 코드.
+    fun inviteCodeFor(roomId: Long): String? =
+        getRoomById(roomId)?.let { "DQ" + roomId.toString().padStart(4, '0') }
 
-        // 존재하지 않는 방
-        if (index == -1) return false
+    fun joinByInviteCode(code: String): JoinResult {
+        val normalized = code.trim().uppercase(java.util.Locale.ROOT)
+        val room = rooms.find { inviteCodeFor(it.roomId) == normalized }
+            ?: return JoinResult.Failure("유효하지 않은 초대코드입니다.")
+        return join(room.roomId, allowPrivate = true)
+    }
 
+    // 기존 Boolean 인터페이스도 보존한다.
+    fun joinRoom(roomId: Long): Boolean = joinPublicRoom(roomId) is JoinResult.Success
+
+    fun joinPublicRoom(roomId: Long): JoinResult = join(roomId, allowPrivate = false)
+
+    private fun join(roomId: Long, allowPrivate: Boolean): JoinResult {
+        val index = rooms.indexOfFirst { it.roomId == roomId }
+        if (index == -1) return JoinResult.Failure("방을 찾을 수 없습니다.")
         val room = rooms[index]
-
-        // 이미 참여한 방
-        if (room.joined) return true
-
-        // 비공개방은 직접 참여 불가능
-        if (!room.isPublic) return false
-
-        // 최대 인원 초과 방지
-        if (room.memberCount >= room.maxMembers.toLong()) {
-            return false
+        if (room.joined) {
+            focusedRoomId = roomId
+            return JoinResult.Success(room, alreadyJoined = true)
         }
-
-        // 참여 상태 및 인원수 변경
-        rooms[index] = room.copy(
-            joined = true,
-            memberCount = room.memberCount + 1L
-        )
-
-        return true
+        if (!room.isPublic && !allowPrivate) return JoinResult.Failure("초대코드가 필요한 방입니다.")
+        if (room.memberCount >= room.maxMembers.toLong()) return JoinResult.Failure("현재 정원이 가득 찼습니다.")
+        val joinedRoom = room.copy(joined = true, memberCount = room.memberCount + 1L)
+        rooms[index] = joinedRoom
+        focusedRoomId = roomId
+        return JoinResult.Success(joinedRoom, alreadyJoined = false)
     }
 }

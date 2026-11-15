@@ -20,6 +20,10 @@ object Routes {
 
     // 방 생성 및 초대코드 참여
     const val CREATE_ROOM = "create_room"
+    const val CREATE_ROOM_ROUTE = "$CREATE_ROOM?isPublic={isPublic}"
+
+    fun createRoom(isPublic: Boolean): String = "$CREATE_ROOM?isPublic=$isPublic"
+
     const val JOIN_ROOM = "join_room"
 
     const val STORY = "story"

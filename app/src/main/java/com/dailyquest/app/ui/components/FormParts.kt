@@ -191,15 +191,20 @@ fun DqTextField(
 @Composable
 fun DqTextArea(placeholder: String, height: Dp = 80.dp, max: Int = 100, counter: Boolean = true) {
     var v by remember { mutableStateOf("") }
+    DqTextArea(v, { v = it }, placeholder, height, max, counter)
+}
+
+@Composable
+fun DqTextArea(value: String, onChange: (String) -> Unit, placeholder: String, height: Dp = 80.dp, max: Int = 100, counter: Boolean = true) {
     val shape = RoundedCornerShape(16.dp)
     Box(Modifier.fillMaxWidth().height(height).background(DQColors.White, shape).border(1.dp, DQColors.Line, shape).padding(start = 15.dp, end = 15.dp, top = 13.dp, bottom = 24.dp)) {
-        if (v.isEmpty()) Txt(placeholder, size = 13.5f, color = DQColors.Muted)
+        if (value.isEmpty()) Txt(placeholder, size = 13.5f, color = DQColors.Muted)
         BasicTextField(
-            value = v, onValueChange = { if (it.length <= max) v = it },
+            value = value, onValueChange = { if (it.length <= max) onChange(it) },
             textStyle = TextStyle(fontFamily = NotoSansKr, fontSize = 13.5.sp, color = DQColors.Ink),
             modifier = Modifier.fillMaxSize(),
         )
-        if (counter) Txt("${v.length} / $max", size = 11f, color = DQColors.Muted, modifier = Modifier.align(Alignment.BottomEnd).offset(y = 13.dp))
+        if (counter) Txt("${value.length} / $max", size = 11f, color = DQColors.Muted, modifier = Modifier.align(Alignment.BottomEnd).offset(y = 13.dp))
     }
 }
 

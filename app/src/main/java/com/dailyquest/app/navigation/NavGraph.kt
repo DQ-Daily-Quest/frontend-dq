@@ -31,6 +31,20 @@ fun DQNavGraph() {
                 HomePublicScreen()
             }
 
+            composable(
+                route = Routes.CREATE_ROOM_ROUTE,
+                arguments = listOf(navArgument("isPublic") {
+                    type = NavType.BoolType
+                    defaultValue = false
+                })
+            ) { backStackEntry ->
+                CreateRoomScreen(initialIsPublic = backStackEntry.arguments?.getBoolean("isPublic") ?: false)
+            }
+
+            composable(Routes.JOIN_ROOM) {
+                JoinRoomScreen()
+            }
+
             // 방 ID를 전달받아 해당 방 화면으로 이동
             composable(
                 route = Routes.ROOM,

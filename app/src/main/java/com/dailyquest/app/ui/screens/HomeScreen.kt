@@ -22,6 +22,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -116,7 +121,7 @@ private fun createMapRooms(rooms: List<Room>): List<MapRoom> {
         MapRoom(
             room = room,
             story = slot.story,
-            avatars = slot.avatars,
+            avatars = if (MockRoomData.isCreatedRoom(room.roomId)) listOf(R.drawable.img_avatar_boy) else slot.avatars,
             pin = slot.pin,
             label = slot.label
         )
@@ -153,7 +158,15 @@ fun HomeScreen() {
 
     // 현재 사용자가 참여한 방 목록
     val rooms = MockRoomData.myRooms
-    val mapRooms = createMapRooms(rooms)
+    var page by rememberSaveable { mutableIntStateOf(0) }
+    val pageCount = maxOf(1, (rooms.size + MAP_ROOM_SLOTS.size - 1) / MAP_ROOM_SLOTS.size)
+    val focusedRoomId = MockRoomData.focusedRoomId
+    LaunchedEffect(focusedRoomId, rooms.size) {
+        val index = rooms.indexOfFirst { it.roomId == focusedRoomId }
+        page = if (index >= 0) index / MAP_ROOM_SLOTS.size else page.coerceIn(0, pageCount - 1)
+    }
+    val currentPage = page.coerceIn(0, pageCount - 1)
+    val mapRooms = createMapRooms(rooms.drop(currentPage * MAP_ROOM_SLOTS.size).take(MAP_ROOM_SLOTS.size))
 
     DqScreen(statusBarPadding = false) {
         BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -221,6 +234,23 @@ fun HomeScreen() {
                                 bottom = 24.dp
                             )
                     ) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Btn("‹ 이전", Modifier.width(78.dp).height(34.dp), style = BtnStyle.Outline, size = 12f) {
+                                if (currentPage > 0) page = currentPage - 1
+                            }
+                            Txt("${currentPage + 1} / $pageCount 페이지 · ${rooms.size}개 방", size = 12f, weight = Medium)
+                            Btn("다음 ›", Modifier.width(78.dp).height(34.dp), style = BtnStyle.Outline, size = 12f) {
+                                if (currentPage < pageCount - 1) page = currentPage + 1
+                            }
+                        }
+                        if (rooms.isEmpty()) {
+                            Txt("첫 번째 방을 만들거나 초대코드로 참여해 보세요.", size = 12f,
+                                modifier = Modifier.padding(bottom = 12.dp))
+                        }
                         // 방 만들기 및 초대코드 참여 버튼
                         Row(
                             Modifier
@@ -233,7 +263,7 @@ fun HomeScreen() {
                                 Modifier.weight(1f).height(44.dp),
                                 size = 14f
                             ) {
-                                nav.navigate(Routes.CREATE_ROOM)
+                                nav.navigate(Routes.createRoom(isPublic = false))
                             }
 
                             Btn(

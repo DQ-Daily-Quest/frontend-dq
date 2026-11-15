@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -45,6 +46,7 @@ import com.dailyquest.app.data.mock.MockRoomData
 import com.dailyquest.app.navigation.LocalNav
 import com.dailyquest.app.navigation.Routes
 import com.dailyquest.app.ui.components.Black
+import com.dailyquest.app.ui.components.Btn
 import com.dailyquest.app.ui.components.Bold
 import com.dailyquest.app.ui.components.Chip
 import com.dailyquest.app.ui.components.DqAvatar
@@ -148,6 +150,8 @@ fun HomePublicScreen() {
     var selectedRoom by remember {
         mutableStateOf<Room?>(null)
     }
+
+    var joinError by remember { mutableStateOf<String?>(null) }
 
     // 공개방 목록 조회
     val publicRooms = createPublicRooms(
@@ -267,21 +271,22 @@ fun HomePublicScreen() {
                         }
                     }
 
-                    // 정렬 필터
+                    // 정렬 필터와 방 생성
                     Row(
-                        Modifier
-                            .padding(top = 12.dp)
-                            .horizontalScroll(rememberScrollState()),
+                        Modifier.fillMaxWidth().padding(top = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        FILTERS.forEach { f ->
-
-                            Chip(
-                                f,
-                                f == filter
-                            ) {
-                                filter = f
+                        Row(
+                            Modifier.weight(1f).horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            FILTERS.forEach { f ->
+                                Chip(f, f == filter) { filter = f }
                             }
+                        }
+                        Btn("+ 방 만들기", Modifier.height(34.dp).width(104.dp), size = 12f) {
+                            nav.navigate(Routes.createRoom(isPublic = true))
                         }
                     }
 
@@ -444,6 +449,7 @@ fun HomePublicScreen() {
                                         } else {
 
                                             // 미참여 방은 미리보기 표시
+                                            joinError = null
                                             selectedRoom = item.room
                                         }
                                     }
@@ -464,7 +470,8 @@ fun HomePublicScreen() {
     }
 
     // 공개방 상세 미리보기
-    selectedRoom?.let { room ->
+    selectedRoom?.let { selected ->
+        val room = MockRoomData.getRoomById(selected.roomId) ?: selected
 
         AlertDialog(
             onDismissRequest = {
@@ -496,19 +503,27 @@ fun HomePublicScreen() {
                         if (room.memberCount >= room.maxMembers.toLong()) {
                             "현재 정원이 가득 찼습니다."
                         } else {
-                            "방 참여 기능은 API 연동 후 이용할 수 있습니다."
+                            "참여하면 우리만 지도에 방이 추가됩니다."
                         }
                     )
+                    joinError?.let { Text(it, color = DQColors.Orange) }
                 }
             },
 
             confirmButton = {
                 TextButton(
+                    enabled = room.joined || room.memberCount < room.maxMembers.toLong(),
                     onClick = {
-                        selectedRoom = null
+                        when (val result = MockRoomData.joinPublicRoom(room.roomId)) {
+                            is MockRoomData.JoinResult.Success -> {
+                                selectedRoom = null
+                                nav.navigate(Routes.room(result.room.roomId)) { launchSingleTop = true }
+                            }
+                            is MockRoomData.JoinResult.Failure -> joinError = result.message
+                        }
                     }
                 ) {
-                    Text("확인")
+                    Text(if (room.joined) "입장하기" else "참여하기")
                 }
             },
 

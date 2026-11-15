@@ -104,6 +104,8 @@ fun RoomScreen(roomId: Long) {
         mutableStateOf("피드")
     }
 
+    val isNewRoom = MockRoomData.isCreatedRoom(roomId)
+
     // 임시 멤버 데이터
     // 추후 GET /rooms/{roomId}/members API로 교체
     val mockMembers = listOf(
@@ -190,9 +192,19 @@ fun RoomScreen(roomId: Long) {
                     )
                 )
 
+                Txt(
+                    "초대코드: ${MockRoomData.inviteCodeFor(roomId)} · Mock 테스트용",
+                    size = 11f, color = DQColors.Muted,
+                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp)
+                )
+                if (!isNewRoom) {
+                    Txt("멤버·아바타·피드는 공통 샘플 데이터입니다.", size = 11f,
+                        color = DQColors.Muted, modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp))
+                }
+
                 // 방 멤버 목록
                 MemberRow(
-                    members = mockMembers,
+                    members = if (isNewRoom) listOf(Member("나", avatar = R.drawable.img_avatar_boy)) else mockMembers,
                     size = 52.dp,
                     inviteSize = 44.dp,
                     showInviteLabel = true,
@@ -205,7 +217,7 @@ fun RoomScreen(roomId: Long) {
                 // 방 내부 및 아바타
                 RoomInterior(
                     height = 252f,
-                    avatars = listOf(
+                    avatars = if (isNewRoom) listOf(PlacedAvatar(R.drawable.img_avatar_boy, 167f, 165f)) else listOf(
                         PlacedAvatar(
                             R.drawable.img_avatar_girl,
                             95f,
@@ -303,7 +315,11 @@ fun RoomScreen(roomId: Long) {
                 when (tab) {
 
                     "피드" -> {
-
+                        if (isNewRoom) {
+                            Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                                Txt("아직 등록된 피드가 없어요.", size = 14f, color = DQColors.Muted)
+                            }
+                        } else {
                         DqCard(
                             Modifier
                                 .padding(
@@ -422,6 +438,7 @@ fun RoomScreen(roomId: Long) {
                                     )
                                 }
                             }
+                        }
                         }
                     }
 
