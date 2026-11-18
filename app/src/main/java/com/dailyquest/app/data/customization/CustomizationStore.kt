@@ -49,6 +49,12 @@ class MockCustomizationStore : CustomizationRepository {
     override var state by mutableStateOf(CustomizationState(320, catalog.filter { it.acquisition == Acquisition.DEFAULT }.map { it.itemId }.toSet(), defaults))
         private set
 
+    /** 로그아웃·계정 전환 시 Mock 코인/보유/장착 상태를 초기값으로 되돌린다. */
+    @Synchronized
+    fun reset() {
+        state = CustomizationState(320, catalog.filter { it.acquisition == Acquisition.DEFAULT }.map { it.itemId }.toSet(), defaults)
+    }
+
     private fun validate(equipment: Map<AvatarSlot, String>, requireOwned: Boolean): String? {
         if (equipment.keys != AvatarSlot.entries.toSet()) return "모든 기본 파츠를 선택해 주세요."
         val body = catalog.find { it.itemId == equipment[AvatarSlot.BODY] && it.slot == AvatarSlot.BODY }
@@ -89,5 +95,7 @@ class MockCustomizationStore : CustomizationRepository {
 }
 
 object CustomizationData {
-    val store: CustomizationRepository = MockCustomizationStore()
+    private val mock = MockCustomizationStore()
+    val store: CustomizationRepository = mock
+    fun reset() = mock.reset()
 }

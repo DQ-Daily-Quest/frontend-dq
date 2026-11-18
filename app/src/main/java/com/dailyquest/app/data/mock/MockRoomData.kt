@@ -16,7 +16,8 @@ object MockRoomData {
     fun isCreatedRoom(roomId: Long) = roomId in createdRoomIds
 
     // 전체 방 데이터
-    private val rooms = mutableStateListOf(
+    private fun initialRooms() = listOf(
+
         Room(1L, "우리들의 아지트", 4L, false, joined = true),
         Room(2L, "맛집 탐험대", 3L, false, joined = true),
         Room(3L, "하늘 보는 사람들", 4L, false, joined = true),
@@ -29,6 +30,16 @@ object MockRoomData {
         Room(9L, "초대코드 테스트방", 1L, false, maxMembers = 2),
         Room(10L, "정원 초과 테스트방", 2L, true, maxMembers = 2)
     )
+
+    private val rooms = mutableStateListOf<Room>().apply { addAll(initialRooms()) }
+
+    /** 로그아웃·계정 전환 시 이전 사용자의 Mock 상태를 초기화한다. */
+    fun reset() {
+        rooms.clear()
+        rooms.addAll(initialRooms())
+        createdRoomIds.clear()
+        focusedRoomId = null
+    }
 
     // 내가 참여한 방 목록
     val myRooms: List<Room>
