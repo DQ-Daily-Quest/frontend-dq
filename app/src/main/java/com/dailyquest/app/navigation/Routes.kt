@@ -7,7 +7,12 @@ import androidx.navigation.NavHostController
 /** 화면 경로 (피그마 화면 번호와 1:1) */
 object Routes {
 
+    // 인증 없이 접근 가능한 경로
+    const val SPLASH = "splash"
+
+    // 개발용 Catalog (디버그 빌드에서만 등록)
     const val CATALOG = "catalog"
+    const val MY = "my"
     const val HOME = "home"
     const val HOME_PUBLIC = "home_public"
 
@@ -49,8 +54,8 @@ object Routes {
     const val FLOW_MISSION_VERIFY = "flow_mission_verify"
     const val FLOW_VERIFY_CHECK = "flow_verify_check"
 
-    /** 앱 시작 화면. 실제 서비스에서는 로그인 상태에 따라 변경 */
-    const val START = CATALOG
+    /** 앱 시작 화면. 세션 상태에 따라 LOGIN/HOME으로 분기한다. */
+    const val START = SPLASH
 }
 
 val LocalNav = staticCompositionLocalOf<NavHostController> {
@@ -70,5 +75,8 @@ fun NavHostController.switchTo(route: String) {
 }
 
 fun NavHostController.backOrCatalog() {
-    if (!popBackStack()) navigate(Routes.CATALOG)
+    if (!popBackStack()) {
+        // Catalog는 디버그 빌드에만 등록되므로 없으면 홈으로 이동한다.
+        navigate(if (graph.findNode(Routes.CATALOG) != null) Routes.CATALOG else Routes.HOME)
+    }
 }
