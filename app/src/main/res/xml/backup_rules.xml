@@ -6,6 +6,8 @@
    See https://developer.android.com/about/versions/12/backup-restore
 -->
 <full-backup-content>
+    <!-- 암호화된 토큰은 Keystore 키와 함께만 복호화되므로 백업에서 제외 -->
+    <exclude domain="sharedpref" path="dq_auth_secure.xml" />
     <!--
    <include domain="sharedpref" path="."/>
    <exclude domain="sharedpref" path="device.xml"/>
