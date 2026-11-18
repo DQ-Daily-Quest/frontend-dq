@@ -1,0 +1,75 @@
+package com.dailyquest.app.data.auth
+
+import com.dailyquest.app.data.remote.dto.UserMeResponse
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+
+/** 서버 /users/me 기준의 현재 사용자. Mock 데이터와 섞이지 않도록 별도 모델로 둔다. */
+data class UserProfile(
+    val userId: Long,
+    val email: String?,
+    val nickname: String,
+    val coins: Int,
+    val streakCurrent: Int,
+    val streakLongest: Int,
+    val roomCount: Long,
+    val completedMissionCount: Long,
+)
+
+fun UserMeResponse.toProfile() = UserProfile(
+    userId = userId, email = email, nickname = nickname, coins = coins,
+    streakCurrent = streak.current, streakLongest = streak.longest,
+    roomCount = stats.roomCount, completedMissionCount = stats.completedMissionCount,
+)
+
+enum class LogoutReason { NONE, USER, EXPIRED }
+
+sealed interface SessionState {
+    data object Loading : SessionState
+    data class Unauthenticated(val reason: LogoutReason = LogoutReason.NONE) : SessionState
+    data class Authenticated(val profile: UserProfile) : SessionState
+
+    /** 토큰은 있으나 서버 확인에 실패(일시적 오류). 로그아웃하지 않고 재시도를 안내한다. */
+    data class BootstrapFailed(val isNetwork: Boolean) : SessionState
+}
+
+/**
+ * 로그인 상태의 단일 출처. 로그아웃·세션 만료·계정 변경 시 등록된 cleaner로
+ * 이전 사용자의 메모리 데이터(Mock 등)를 초기화한다.
+ */
+class SessionManager(
+    private val tokens: SessionTokens,
+    private val cleaners: List<() -> Unit> = emptyList(),
+) {
+    private val _state = MutableStateFlow<SessionState>(SessionState.Loading)
+    val state: StateFlow<SessionState> = _state.asStateFlow()
+
+    fun markAuthenticated(profile: UserProfile) {
+        val previous = (_state.value as? SessionState.Authenticated)?.profile?.userId
+        if (previous != null && previous != profile.userId) runCleaners()
+        _state.value = SessionState.Authenticated(profile)
+    }
+
+    fun markLoading() {
+        _state.value = SessionState.Loading
+    }
+
+    fun markBootstrapFailed(isNetwork: Boolean) {
+        _state.value = SessionState.BootstrapFailed(isNetwork)
+    }
+
+    fun markUnauthenticated() {
+        _state.value = SessionState.Unauthenticated(LogoutReason.NONE)
+    }
+
+    /** 토큰을 지우고 로그아웃 상태로 전환한다. 여러 번 호출해도 안전하다. */
+    fun expire(reason: LogoutReason) {
+        tokens.clear()
+        val wasUnauth = _state.value is SessionState.Unauthenticated
+        if (!wasUnauth) runCleaners()
+        _state.value = SessionState.Unauthenticated(reason)
+    }
+
+    private fun runCleaners() = cleaners.forEach { runCatching(it) }
+}
