@@ -290,6 +290,36 @@ class MissionViewModelsTest {
         assertNull(vm.ui.value.created); assertEquals("", vm.ui.value.content); assertEquals(0, created)
     }
 
+    @Test fun rewardTextKeepsOnlyDigitsAndSyncsWithButtons() = runTest {
+        val vm = createVm()
+        vm.onRewardTextChange("1a2"); assertEquals("12", vm.ui.value.rewardText)
+        vm.stepReward(10); assertEquals("20", vm.ui.value.rewardText) // 10 단위로 정렬
+        vm.onRewardTextChange("500"); vm.stepReward(10); assertEquals("500", vm.ui.value.rewardText)
+        vm.onRewardTextChange("13"); vm.stepReward(-10); assertEquals("10", vm.ui.value.rewardText)
+        vm.onRewardTextChange(""); vm.stepReward(10); assertEquals("60", vm.ui.value.rewardText)
+        vm.onRewardTextChange("70"); vm.stepReward(-10); assertEquals("60", vm.ui.value.rewardText)
+    }
+
+    @Test fun invalidRewardTextBlocksSubmitWithError() = runTest {
+        val vm = createVm()
+        vm.onContentChange("산책하기")
+        for (bad in listOf("", "5", "15", "0", "510", "1000")) {
+            vm.onRewardTextChange(bad)
+            assertNotNull("error for '$bad'", vm.ui.value.rewardError)
+            vm.submit(); advanceUntilIdle()
+            assertTrue(api.createCalls.isEmpty())
+        }
+        for (ok in listOf("10", "250", "500")) {
+            vm.onRewardTextChange(ok); assertNull(vm.ui.value.rewardError)
+        }
+    }
+
+    @Test fun typedRewardIsSentToServer() = runTest {
+        val vm = createVm()
+        vm.onContentChange("산책하기"); vm.onRewardTextChange("120"); vm.submit(); advanceUntilIdle()
+        assertEquals(120, api.createCalls.single().second.rewardCoins)
+    }
+
     @Test fun appMissionTypeIsRecognised() = runTest {
         api.mine = { listOf(MyRoomMissionsDto(MissionRoomBriefDto(10, "방"), listOf(dto(1, "APP")))) }
         val vm = MyMissionsViewModel(repo, session); advanceUntilIdle()

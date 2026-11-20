@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -115,13 +116,16 @@ fun SendRoomMissionScreen(viewModel: CreateMissionViewModel, room: RoomDetailVie
 
                 FieldLabel("보상 코인")
                 CoinStepper(
-                    ui.rewardCoins,
+                    ui.rewardText,
+                    onChange = viewModel::onRewardTextChange,
                     onMinus = { viewModel.stepReward(-MissionValidation.REWARD_STEP) },
                     onPlus = { viewModel.stepReward(MissionValidation.REWARD_STEP) },
                 )
+                val rewardError = ui.rewardError
                 Txt(
-                    "${MissionValidation.REWARD_MIN}~${MissionValidation.REWARD_MAX}코인, ${MissionValidation.REWARD_STEP}코인 단위",
-                    size = 11.5f, color = DQColors.Muted, modifier = Modifier.padding(start = 4.dp, top = 8.dp),
+                    rewardError ?: "${MissionValidation.REWARD_MIN}~${MissionValidation.REWARD_MAX}코인, ${MissionValidation.REWARD_STEP}코인 단위",
+                    size = 11.5f, color = if (rewardError != null) DQColors.Orange else DQColors.Muted,
+                    modifier = Modifier.padding(start = 4.dp, top = 8.dp).testTag("rewardHint"),
                 )
                 InfoNote("보상은 인증이 승인되면 앱이 수행한 멤버에게 지급해요. 보내는 사람의 코인은 차감되지 않아요.")
                 ui.serverError?.let { ErrorText(it, Modifier.testTag("sendMissionError")) }
@@ -138,7 +142,7 @@ fun SendRoomMissionScreen(viewModel: CreateMissionViewModel, room: RoomDetailVie
                 if (ui.submitting) "보내는 중…" else "미션 보내기",
                 Modifier.weight(1f).height(54.dp),
                 size = 16f,
-                enabled = !ui.submitting,
+                enabled = !ui.submitting && ui.rewardError == null,
             ) { viewModel.submit() }
         }
     }
@@ -172,7 +176,7 @@ private fun Recipient(name: String, avatar: Int?, on: Boolean, modifier: Modifie
 }
 
 @Composable
-private fun CoinStepper(coin: Int, onMinus: () -> Unit, onPlus: () -> Unit) {
+private fun CoinStepper(coin: String, onChange: (String) -> Unit, onMinus: () -> Unit, onPlus: () -> Unit) {
     val shape = RoundedCornerShape(16.dp)
     Row(
         Modifier.fillMaxWidth().height(60.dp).background(DQColors.White, shape).border(1.dp, DQColors.Line, shape).padding(horizontal = 13.dp),
@@ -188,7 +192,14 @@ private fun CoinStepper(coin: Int, onMinus: () -> Unit, onPlus: () -> Unit) {
             horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
         ) {
             DqIcon(R.drawable.ic_coin_22, 22.dp)
-            Txt("$coin", size = 22f, weight = Black, modifier = Modifier.testTag("rewardValue"))
+            androidx.compose.foundation.text.BasicTextField(
+                value = coin,
+                onValueChange = onChange,
+                singleLine = true,
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 22.sp, fontWeight = FontWeight.Black, color = DQColors.Ink, textAlign = androidx.compose.ui.text.style.TextAlign.Center),
+                modifier = Modifier.width(88.dp).testTag("rewardValue"),
+            )
         }
         Box(
             Modifier.size(32.dp).clip(CircleShape).background(DQColors.Primary).clickable(onClick = onPlus).testTag("rewardPlus"),

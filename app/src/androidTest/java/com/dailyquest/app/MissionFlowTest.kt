@@ -28,6 +28,7 @@ class MissionFlowTest {
     private fun waitText(text: String) = compose.waitUntil(5_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }
     private fun waitTag(tag: String) = compose.waitUntil(5_000) { compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() }
     private fun tab(label: String) = compose.onNode(hasText(label) and SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Tab))
+    private val contentField = hasSetTextAction() and !hasTestTag("rewardValue")
     private fun openHome() { click("홈 · 우리만 (마을 지도)"); waitText("서버 내 방 1") }
 
     private fun openRoomMissions() {
@@ -82,7 +83,7 @@ class MissionFlowTest {
         compose.onNodeWithTag("recipient-1").assertDoesNotExist() // 본인은 대상이 아님
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("recipient-8").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("recipient-8").performClick()
-        compose.onNode(hasSetTextAction()).performTextInput("테스트 미션")
+        compose.onNode(contentField).performTextInput("테스트 미션")
         Espresso.closeSoftKeyboard()
         compose.onNodeWithTag("rewardPlus").performClick()
         click("미션 보내기")
@@ -98,7 +99,7 @@ class MissionFlowTest {
         openRoomMissions()
         click("+ 미션 보내기")
         waitTag("sendRoomMission")
-        compose.onNode(hasSetTextAction()).performTextInput("전체 미션")
+        compose.onNode(contentField).performTextInput("전체 미션")
         Espresso.closeSoftKeyboard()
         click("미션 보내기")
         waitText("서버 설명 9101")
@@ -121,12 +122,33 @@ class MissionFlowTest {
         openRoomMissions()
         click("+ 미션 보내기")
         waitTag("sendRoomMission")
-        compose.onNode(hasSetTextAction()).performTextInput("유실 미션")
+        compose.onNode(contentField).performTextInput("유실 미션")
         Espresso.closeSoftKeyboard()
         click("미션 보내기")
         waitTag("sendMissionOutcomeUnknown")
         assertEquals(1, TestMissionCalls.createRequests.size)
         compose.onNodeWithTag("sendRoomMission").assertExists()
+    }
+
+    @Test fun rewardCanBeTypedValidatedAndSyncedWithButtons() {
+        openRoomMissions()
+        click("+ 미션 보내기")
+        waitTag("sendRoomMission")
+        compose.onNode(contentField).performTextInput("직접 입력 미션")
+        val reward = compose.onNodeWithTag("rewardValue")
+        reward.performTextReplacement("55")
+        compose.onNodeWithTag("rewardHint").assertTextContains("10코인 단위", substring = true)
+        click("미션 보내기")
+        assertTrue(TestMissionCalls.createRequests.isEmpty())
+        compose.onNodeWithTag("rewardPlus").performClick()
+        reward.assertTextContains("60")
+        reward.performTextReplacement("120")
+        compose.onNodeWithTag("rewardMinus").performClick()
+        reward.assertTextContains("110")
+        Espresso.closeSoftKeyboard()
+        click("미션 보내기")
+        waitText("서버 설명 9101")
+        assertEquals(110, TestMissionCalls.createRequests.single().second.rewardCoins)
     }
 
     @Test fun connectedMissionScreensHideSampleBanner() {

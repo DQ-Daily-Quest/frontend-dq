@@ -34,7 +34,8 @@ enum class MissionDueOption(val label: String, val hours: Long) {
 data class CreateMissionUiState(
     val myUserId: Long? = null,
     val content: String = "",
-    val rewardCoins: Int = MissionValidation.DEFAULT_REWARD,
+    /** 사용자가 입력 중인 보상 문자열. 입력 중에는 자유롭게 수정할 수 있다. */
+    val rewardText: String = MissionValidation.DEFAULT_REWARD.toString(),
     val due: MissionDueOption = MissionDueOption.HOURS_24,
     /** null이면 방 전체 멤버가 대상이다(생성자는 서버가 제외). */
     val assigneeUserId: Long? = null,
@@ -45,7 +46,11 @@ data class CreateMissionUiState(
     val outcomeUnknown: Boolean = false,
     /** 성공 이벤트. 화면은 이동 후 [CreateMissionViewModel.consumeCreated]로 비운다. */
     val created: Mission? = null,
-)
+) {
+    /** 숫자로 해석되는 보상. 비었거나 숫자가 아니면 null. */
+    val rewardCoins: Int? get() = rewardText.toIntOrNull()
+    val rewardError: String? get() = MissionValidation.rewardError(rewardCoins ?: -1)
+}
 
 /**
  * 미션 보내기(POST /rooms/{id}/missions). 서버에 멱등성 키가 없어 자동 재시도하지 않고, 진행 중·성공 후 submit은 무시한다.
@@ -88,7 +93,22 @@ class CreateMissionViewModel(
     fun onContentChange(v: String) = _ui.update { it.copy(content = v, contentError = null, serverError = null) }
     fun onDueChange(v: MissionDueOption) = _ui.update { it.copy(due = v, serverError = null) }
     fun onAssigneeChange(userId: Long?) = _ui.update { it.copy(assigneeUserId = userId, assigneeError = null, serverError = null) }
-    fun stepReward(delta: Int) = _ui.update { it.copy(rewardCoins = MissionValidation.stepReward(it.rewardCoins, delta), serverError = null) }
+    fun onRewardTextChange(v: String) {
+        val digits = v.filter { it.isDigit() }.take(4)
+        _ui.update { it.copy(rewardText = digits, serverError = null) }
+    }
+
+    /** 입력값이 10 단위가 아니면 증가는 다음 10 단위로, 감소는 이전 10 단위로 맞춘다. 비어 있으면 기본값에서 시작한다. */
+    fun stepReward(delta: Int) = _ui.update {
+        val step = MissionValidation.REWARD_STEP
+        val cur = it.rewardCoins ?: MissionValidation.DEFAULT_REWARD
+        val aligned = when {
+            cur % step == 0 -> MissionValidation.stepReward(cur, delta)
+            delta > 0 -> MissionValidation.stepReward(cur - cur % step, step)
+            else -> MissionValidation.stepReward(cur - cur % step + step, -step)
+        }
+        it.copy(rewardText = aligned.toString(), serverError = null)
+    }
 
     fun consumeCreated() = _ui.update { it.copy(created = null) }
 
@@ -97,16 +117,17 @@ class CreateMissionViewModel(
         if (s.submitting || s.created != null) return
         val contentError = MissionValidation.contentError(s.content)
         val assigneeError = MissionValidation.assigneeError(s.assigneeUserId, myUserId())
-        val rewardError = MissionValidation.rewardError(s.rewardCoins)
-        if (contentError != null || assigneeError != null || rewardError != null) {
-            _ui.update { it.copy(contentError = contentError, assigneeError = assigneeError, serverError = rewardError) }
+        val rewardError = s.rewardError
+        val reward = s.rewardCoins
+        if (contentError != null || assigneeError != null || rewardError != null || reward == null) {
+            _ui.update { it.copy(contentError = contentError, assigneeError = assigneeError) }
             return
         }
         val dueAt = now() + s.due.hours * 3_600_000L
         val gen = generation
         _ui.update { it.copy(submitting = true, serverError = null, outcomeUnknown = false) }
         job = viewModelScope.launch {
-            val r = repo.createMission(roomId, s.content, s.rewardCoins, dueAt, s.assigneeUserId)
+            val r = repo.createMission(roomId, s.content, reward, dueAt, s.assigneeUserId)
             if (gen != generation) return@launch
             when (r) {
                 is ApiResult.Success -> {
