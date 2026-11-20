@@ -45,6 +45,20 @@ class SessionManager(
     private val _state = MutableStateFlow<SessionState>(SessionState.Loading)
     val state: StateFlow<SessionState> = _state.asStateFlow()
 
+    @Volatile
+    private var avatarSetupPending = false
+
+    /** 신규 소셜 가입자를 로그인 직후 아바타 선택 화면으로 보내기 위한 1회성 표시. */
+    fun requestAvatarSetup() {
+        avatarSetupPending = true
+    }
+
+    fun consumeAvatarSetup(): Boolean {
+        val pending = avatarSetupPending
+        avatarSetupPending = false
+        return pending
+    }
+
     fun markAuthenticated(profile: UserProfile) {
         val previous = (_state.value as? SessionState.Authenticated)?.profile?.userId
         if (previous != null && previous != profile.userId) runCleaners()
@@ -66,6 +80,7 @@ class SessionManager(
     /** 토큰을 지우고 로그아웃 상태로 전환한다. 여러 번 호출해도 안전하다. */
     fun expire(reason: LogoutReason) {
         tokens.clear()
+        avatarSetupPending = false
         val wasUnauth = _state.value is SessionState.Unauthenticated
         if (!wasUnauth) runCleaners()
         _state.value = SessionState.Unauthenticated(reason)

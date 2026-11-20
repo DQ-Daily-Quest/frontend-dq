@@ -4,7 +4,11 @@ import com.dailyquest.app.data.remote.ApiException
 import com.dailyquest.app.data.remote.ApiResult
 import com.dailyquest.app.data.remote.DqApi
 import com.dailyquest.app.data.remote.apiCall
+import com.dailyquest.app.data.auth.social.SocialAuthClient
+import com.dailyquest.app.data.auth.social.SocialProvider
 import com.dailyquest.app.data.remote.dto.LoginRequest
+import com.dailyquest.app.data.remote.dto.OAuthLoginRequest
+import com.dailyquest.app.data.remote.dto.TokenResponse
 import com.dailyquest.app.data.remote.dto.SignupRequest
 import com.dailyquest.app.data.remote.dto.SignupResponse
 import kotlinx.coroutines.withTimeoutOrNull
@@ -15,6 +19,7 @@ class AuthRepository(
     private val api: DqApi,
     private val tokens: SessionTokens,
     private val session: SessionManager,
+    private val socialClients: Map<SocialProvider, SocialAuthClient> = emptyMap(),
 ) {
     // 로그인/로그아웃/부트스트랩이 겹쳐 토큰과 상태가 엇갈리지 않도록 직렬화한다.
     private val mutex = Mutex()
@@ -53,19 +58,30 @@ class AuthRepository(
     suspend fun login(email: String, password: String): ApiResult<Unit> = mutex.withLock {
         when (val r = apiCall { api.login(LoginRequest(email, password)) }) {
             is ApiResult.Failure -> r
+            is ApiResult.Success -> completeLogin(r.value)
+        }
+    }
+
+    /** 제공자 ID Token을 Daily Quest 백엔드에 보내 JWT를 발급받는다. 이후 세션 처리는 이메일 로그인과 동일하다. */
+    suspend fun socialLogin(provider: SocialProvider, idToken: String): ApiResult<Unit> = mutex.withLock {
+        when (val r = apiCall { api.oauthLogin(provider.path, OAuthLoginRequest(idToken)) }) {
+            is ApiResult.Failure -> r
+            is ApiResult.Success -> completeLogin(r.value)
+        }
+    }
+
+    private suspend fun completeLogin(token: TokenResponse): ApiResult<Unit> {
+        tokens.set(TokenPair(token.accessToken, token.refreshToken))
+        return when (val me = apiCall { api.me() }) {
             is ApiResult.Success -> {
-                tokens.set(TokenPair(r.value.accessToken, r.value.refreshToken))
-                when (val me = apiCall { api.me() }) {
-                    is ApiResult.Success -> {
-                        session.markAuthenticated(me.value.toProfile())
-                        ApiResult.Success(Unit)
-                    }
-                    is ApiResult.Failure -> {
-                        apiCall { api.logout() }
-                        tokens.clear()
-                        me
-                    }
-                }
+                if (token.isNewUser) session.requestAvatarSetup()
+                session.markAuthenticated(me.value.toProfile())
+                ApiResult.Success(Unit)
+            }
+            is ApiResult.Failure -> {
+                apiCall { api.logout() }
+                tokens.clear()
+                me
             }
         }
     }
@@ -73,6 +89,8 @@ class AuthRepository(
     /** 서버 로그아웃은 실패해도 로컬 인증 정보와 사용자 데이터는 항상 삭제한다. */
     suspend fun logout() = mutex.withLock {
         if (tokens.get() != null) apiCall { api.logout() }
+        // SDK 로컬 인증 상태를 정리해 다음 로그인에서 다른 계정을 고를 수 있게 한다. 계정 연결은 해제하지 않는다.
+        socialClients.values.forEach { runCatching { it.signOut() } }
         session.expire(LogoutReason.USER)
     }
 

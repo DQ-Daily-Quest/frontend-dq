@@ -6,7 +6,12 @@ import androidx.lifecycle.viewModelScope
 import androidx.compose.runtime.staticCompositionLocalOf
 import com.dailyquest.app.data.auth.AppContainer
 import com.dailyquest.app.data.auth.AuthErrorMessages
+import android.content.Context
 import com.dailyquest.app.data.auth.AuthValidator
+import com.dailyquest.app.data.auth.SocialErrorMessages
+import com.dailyquest.app.data.auth.social.NotConfiguredSocialClient
+import com.dailyquest.app.data.auth.social.SocialProvider
+import com.dailyquest.app.data.auth.social.SocialSignInResult
 import com.dailyquest.app.data.auth.SessionState
 import com.dailyquest.app.data.remote.ApiResult
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,6 +41,10 @@ class AuthViewModel(private val container: AppContainer) : ViewModel() {
     val session: StateFlow<SessionState> = container.session.state
     val startAfterAuth: String get() = container.startAfterAuth
 
+    /** 신규 소셜 가입자는 로그인 직후 아바타 선택 화면으로, 그 외에는 [startAfterAuth]로 보낸다. */
+    fun consumePostLoginRoute(): String =
+        if (container.session.consumeAvatarSetup()) com.dailyquest.app.navigation.Routes.SIGNUP_AVATAR else startAfterAuth
+
     private val _ui = MutableStateFlow(AuthUiState())
     val ui: StateFlow<AuthUiState> = _ui.asStateFlow()
 
@@ -61,6 +70,23 @@ class AuthViewModel(private val container: AppContainer) : ViewModel() {
         if (!beginRequest()) return
         viewModelScope.launch {
             when (val r = repo.login(email.trim(), password)) {
+                is ApiResult.Success -> _ui.update { it.copy(loading = false) }
+                is ApiResult.Failure -> _ui.update { it.copy(loading = false, error = AuthErrorMessages.forApi(r.error)) }
+            }
+        }
+    }
+
+    /** SDK로 ID Token을 받아 백엔드에 전달한다. 진행 중에는 다른 로그인 요청도 무시한다. */
+    fun socialLogin(provider: SocialProvider, context: Context) {
+        if (!beginRequest()) return
+        viewModelScope.launch {
+            val client = container.socialClients[provider] ?: NotConfiguredSocialClient
+            val sdk = client.signIn(context)
+            if (sdk !is SocialSignInResult.Token) {
+                _ui.update { it.copy(loading = false, error = SocialErrorMessages.forResult(provider, sdk)) }
+                return@launch
+            }
+            when (val r = repo.socialLogin(provider, sdk.idToken)) {
                 is ApiResult.Success -> _ui.update { it.copy(loading = false) }
                 is ApiResult.Failure -> _ui.update { it.copy(loading = false, error = AuthErrorMessages.forApi(r.error)) }
             }
