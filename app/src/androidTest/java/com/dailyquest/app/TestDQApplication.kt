@@ -47,7 +47,9 @@ class TestDQApplication : DQApplication() {
             ),
             page = 0, size = size, totalElements = 2, totalPages = 1,
         )
-        override suspend fun listMyRooms(): List<RoomSummaryDto> = error("not used")
+        override suspend fun listMyRooms(): List<RoomSummaryDto> = (1..5).map {
+            RoomSummaryDto(roomId = 9100L + it, name = "서버 내 방 $it", isPublic = it % 2 == 0, memberCount = it.toLong(), maxMembers = 10, joined = true)
+        }
         override suspend fun getRoom(roomId: Long): RoomDetailDto = error("not used")
         override suspend fun listRoomMembers(roomId: Long): List<RoomMemberDto> = error("not used")
         override suspend fun createRoom(body: CreateRoomRequest): CreateRoomResponse = error("not used")

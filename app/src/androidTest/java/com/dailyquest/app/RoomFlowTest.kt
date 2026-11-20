@@ -3,6 +3,12 @@ package com.dailyquest.app
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.espresso.Espresso
+import com.dailyquest.app.data.mock.MockRoomData
+import com.dailyquest.app.ui.room.RoomEntryGate
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 
@@ -10,6 +16,11 @@ class RoomFlowTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
 
     private fun click(text: String) = compose.onNode(hasText(text) and hasClickAction()).performClick()
+    // 방 생성·참여 화면은 아직 Mock 구현이라 기본적으로 진입이 막혀 있다. 화면 로직 검증을 위해서만 연다.
+    @Before fun openMockRoomEntries() { RoomEntryGate.mockRoomActionsEnabled = true }
+    @After fun closeMockRoomEntries() { RoomEntryGate.mockRoomActionsEnabled = false }
+
+    private fun mockRoomCount() = compose.runOnIdle { MockRoomData.myRooms.size }
     private fun back() { Espresso.pressBack(); compose.waitForIdle() }
 
     @Test
@@ -55,12 +66,11 @@ class RoomFlowTest {
         compose.onNodeWithText("아직 등록된 피드가 없어요.").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("지수").assertDoesNotExist()
         back()
-        compose.onNodeWithText("자동화 생성방").assertExists()
-        compose.onNodeWithText("2 / 2 페이지 · 5개 방").assertExists()
-        click("‹ 이전")
-        compose.onNodeWithText("우리들의 아지트").assertExists()
-        click("다음 ›")
-        compose.onNodeWithText("자동화 생성방").assertExists()
+        // 홈 지도는 서버 목록만 표시하므로 Mock 방 생성 결과는 데이터 계층에서 검증한다.
+        assertEquals(5, mockRoomCount())
+        compose.runOnIdle { assertTrue(MockRoomData.myRooms.any { it.name == "자동화 생성방" }) }
+        compose.onNodeWithText("자동화 생성방").assertDoesNotExist()
+        compose.onNodeWithText("1 / 2 페이지 · 5개 방").assertExists()
         click("초대코드 참여")
         click("참여하기")
         compose.onNodeWithText("초대코드를 입력해 주세요.").assertExists()
@@ -78,7 +88,7 @@ class RoomFlowTest {
         compose.onNodeWithText("초대코드 테스트방").assertExists()
         compose.onNodeWithText("멤버 2/2명").assertExists()
         back()
-        compose.onNodeWithText("2 / 2 페이지 · 6개 방").assertExists()
+        assertEquals(6, mockRoomCount())
         click("초대코드 참여")
         compose.onNode(hasSetTextAction()).performTextInput("DQ0009")
         Espresso.closeSoftKeyboard()
@@ -99,7 +109,7 @@ class RoomFlowTest {
         compose.onNodeWithText("입장하기").assertIsNotEnabled()
         click("닫기")
         compose.onNodeWithText("우리만").performClick()
-        compose.onNodeWithText("2 / 2 페이지 · 6개 방").assertExists()
+        assertEquals(6, mockRoomCount())
         compose.onNodeWithText("새벽 러닝클럽").assertDoesNotExist()
         compose.onNodeWithText("공개").performClick()
         click("+ 방 만들기")
@@ -114,5 +124,35 @@ class RoomFlowTest {
         }
         back()
         compose.onNodeWithText("다른 마을 구경하기").assertExists()
+    }
+
+    @Test
+    fun myRoomsMapShowsServerRoomsOnly() {
+        click("홈 · 우리만 (마을 지도)")
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("서버 내 방 1").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("1 / 2 페이지 · 5개 방").assertExists()
+        compose.onNodeWithText("우리들의 아지트").assertDoesNotExist()
+        compose.onNodeWithText("서버 내 방 4").assertExists()
+        compose.onNodeWithText("서버 내 방 5").assertDoesNotExist()
+        compose.onNodeWithText("‹ 이전").performClick()
+        compose.onNodeWithText("1 / 2 페이지 · 5개 방").assertExists()
+        click("다음 ›")
+        compose.onNodeWithText("2 / 2 페이지 · 5개 방").assertExists()
+        compose.onNodeWithText("서버 내 방 5").assertExists()
+        compose.onNodeWithText("서버 내 방 1").assertDoesNotExist()
+        click("다음 ›")
+        compose.onNodeWithText("2 / 2 페이지 · 5개 방").assertExists()
+        // 서버 방을 누르면 Mock 상세로 가지 않고 안내만 표시한다.
+        compose.onNodeWithText("서버 내 방 5").performClick()
+        compose.onNodeWithText("방 상세 보기는 아직 서버와 연결되지 않았어요. 곧 사용할 수 있어요.", substring = true).assertExists()
+        click("확인")
+        compose.onNodeWithText("아직 등록된 피드가 없어요.").assertDoesNotExist()
+        // 방 생성·초대코드 참여도 Mock으로 진입하지 않는다.
+        RoomEntryGate.mockRoomActionsEnabled = false
+        click("+ 방 만들기")
+        compose.onNodeWithText("방 만들기는 아직 서버와 연결되지 않았어요.", substring = true).assertExists()
+        click("확인")
+        click("초대코드 참여")
+        compose.onNodeWithText("초대코드 참여는 아직 서버와 연결되지 않았어요.", substring = true).assertExists()
     }
 }
