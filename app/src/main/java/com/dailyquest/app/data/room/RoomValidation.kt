@@ -26,4 +26,19 @@ object RoomValidation {
         val n = raw.trim().toIntOrNull()
         return if (n == null || n !in MEMBERS_MIN..MEMBERS_MAX) "최대 인원은 ${MEMBERS_MIN}~${MEMBERS_MAX}명으로 입력해 주세요." else null
     }
+
+    const val INVITE_CODE_LENGTH = 6
+
+    /** 서버는 trim·대문자 변환 후 6자리 코드로 조회한다. 클라이언트도 같은 정규화를 적용한다. */
+    fun normalizeInviteCode(raw: String): String = raw.trim().uppercase()
+
+    fun inviteCodeError(raw: String): String? {
+        val c = normalizeInviteCode(raw)
+        return when {
+            c.isEmpty() -> "초대코드를 입력해 주세요."
+            c.length != INVITE_CODE_LENGTH || !c.all { it in 'A'..'Z' || it in '0'..'9' } ->
+                "초대코드는 영문·숫자 ${INVITE_CODE_LENGTH}자리예요."
+            else -> null
+        }
+    }
 }
