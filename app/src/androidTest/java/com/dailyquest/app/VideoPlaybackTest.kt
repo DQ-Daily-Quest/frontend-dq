@@ -49,21 +49,36 @@ class VideoPlaybackTest {
     @After fun tearDown() { VideoDownloads.setForTest(null); dir.deleteRecursively() }
 
     private fun show(src: String) = compose.setContent { VideoProofView(src, Modifier.fillMaxWidth().height(300.dp), tag = "v") }
+    // 짧은 영상은 단언 전에 끝날 수 있어 재생 중/종료 어느 쪽이든 오류 없이 컨트롤이 보이는지만 확인한다.
+    private fun assertPlayedWithoutError() {
+        compose.onNodeWithTag("vControl").assertExists()
+        compose.onNodeWithTag("vError").assertDoesNotExist()
+    }
     private fun waitTag(tag: String, ms: Long = 20_000) = compose.waitUntil(ms) { compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() }
+
+    // 실제 서버에서 재생에 실패했던 인증 영상과 같은 구성(H.264 176x144 + AMR-NB, moov 뒤쪽)의 파일.
+    @Test fun serverStyleH264AmrVideoPlaysAndStaysPlayerAlive() {
+        val real = InstrumentationRegistry.getInstrumentation().context.assets.open("proof_h264_amrnb.mp4").readBytes()
+        val f = File(dir, "real.mp4").also { it.writeBytes(real) }
+        show(f.path)
+        waitTag("vThumb"); compose.onNodeWithTag("vThumb").performClick()
+        waitTag("vControl", 20_000)
+        assertPlayedWithoutError()
+    }
 
     @Test fun localVideoPlays() {
         val f = File(dir, "local.mp4").also { it.writeBytes(bytes) }
         show(f.path)
         waitTag("vThumb"); compose.onNodeWithTag("vThumb").performClick()
         waitTag("vControl")
-        compose.onNodeWithTag("vControl").assertTextContains("일시정지")
+        assertPlayedWithoutError()
     }
 
     @Test fun remoteVideoIsDownloadedOnceThenPlaysLocally() {
         show("https://example.invalid/proofs/a.mp4")
         waitTag("vThumb"); compose.onNodeWithTag("vThumb").performClick()
         waitTag("vControl")
-        compose.onNodeWithTag("vControl").assertTextContains("일시정지")
+        assertPlayedWithoutError()
         assertEquals(1, calls)
     }
 
