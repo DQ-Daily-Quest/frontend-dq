@@ -1,8 +1,17 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
 }
+
+// 소셜 로그인 설정값은 Git에 올리지 않는 local.properties 또는 환경 변수로 주입한다. (docs/social-login-setup.md)
+val localProps = Properties().apply {
+    rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
+}
+fun socialConfig(key: String, env: String): String =
+    (localProps.getProperty(key) ?: System.getenv(env) ?: "").trim()
 
 android {
     namespace = "com.dailyquest.app"
@@ -18,6 +27,12 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "com.dailyquest.app.DQTestRunner"
+
+        val googleServerClientId = socialConfig("dq.googleServerClientId", "DQ_GOOGLE_SERVER_CLIENT_ID")
+        val kakaoNativeAppKey = socialConfig("dq.kakaoNativeAppKey", "DQ_KAKAO_NATIVE_APP_KEY")
+        buildConfigField("String", "GOOGLE_SERVER_CLIENT_ID", "\"$googleServerClientId\"")
+        buildConfigField("String", "KAKAO_NATIVE_APP_KEY", "\"$kakaoNativeAppKey\"")
+        manifestPlaceholders["kakaoScheme"] = "kakao$kakaoNativeAppKey"
     }
 
     buildTypes {
@@ -33,6 +48,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -54,6 +70,10 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services.auth)
+    implementation(libs.google.id)
+    implementation(libs.kakao.sdk.user)
     testImplementation(libs.junit)
     testImplementation(libs.okhttp.mockwebserver)
     testImplementation(libs.kotlinx.coroutines.test)
