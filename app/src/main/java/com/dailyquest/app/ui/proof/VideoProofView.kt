@@ -5,7 +5,11 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.media.MediaMetadataRetriever
 import android.net.Uri
-import android.widget.VideoView
+import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
+import androidx.media3.common.Player
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.PlayerView
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -204,16 +208,17 @@ private fun VideoPlayer(source: String, tag: String) {
     var attempt by remember(source) { mutableIntStateOf(0) }
     var localPath by remember(source) { mutableStateOf<String?>(if (remote) null else source) }
     var errorText by remember(source) { mutableStateOf(PLAY_FAILED) }
-    var view by remember(source) { mutableStateOf<VideoView?>(null) }
+    var view by remember(source) { mutableStateOf<ExoPlayer?>(null) }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
 
-    // 화면을 벗어나면 일시정지하고, 컴포지션에서 제거되면 플레이어를 완전히 해제한다.
-    DisposableEffect(lifecycle, view) {
+    // 화면을 벗어나면 일시정지한다. 플레이어 해제는 AndroidView.onRelease에서 처리한다.
+    val latest by androidx.compose.runtime.rememberUpdatedState(view)
+    DisposableEffect(lifecycle) {
         val obs = LifecycleEventObserver { _, e ->
-            if (e == Lifecycle.Event.ON_STOP) view?.let { if (it.isPlaying) { it.pause(); state = PlayerState.PAUSED } }
+            if (e == Lifecycle.Event.ON_STOP) latest?.let { if (it.isPlaying) { it.pause(); state = PlayerState.PAUSED } }
         }
         lifecycle.addObserver(obs)
-        onDispose { lifecycle.removeObserver(obs); view?.let { runCatching { it.stopPlayback() } } }
+        onDispose { lifecycle.removeObserver(obs) }
     }
     // 내려받기와 준비 단계 모두 시간 제한을 둬 무한 로딩을 막는다. 내려받기는 OkHttp 제한(연결 10초·읽기 15초·전체 60초)을 따른다.
     LaunchedEffect(source, attempt) {
@@ -237,15 +242,24 @@ private fun VideoPlayer(source: String, tag: String) {
             AndroidView(
                 modifier = Modifier.fillMaxSize(),
                 factory = { ctx ->
-                    VideoView(ctx).apply {
-                        setOnPreparedListener { mp -> mp.isLooping = false; state = PlayerState.PLAYING; start() }
-                        setOnCompletionListener { state = PlayerState.ENDED }
-                        setOnErrorListener { _, _, _ -> errorText = PLAY_FAILED; state = PlayerState.ERROR; true }
-                        setVideoPath(path)
-                        view = this
+                    val player = ExoPlayer.Builder(ctx).build().apply {
+                        addListener(object : Player.Listener {
+                            override fun onPlaybackStateChanged(st: Int) {
+                                if (st == Player.STATE_READY && state == PlayerState.LOADING) { state = PlayerState.PLAYING; play() }
+                                if (st == Player.STATE_ENDED) state = PlayerState.ENDED
+                            }
+                            override fun onPlayerError(error: PlaybackException) {
+                                android.util.Log.w("DQVideo", "playback error code=${error.errorCodeName}")
+                                errorText = PLAY_FAILED; state = PlayerState.ERROR
+                            }
+                        })
+                        setMediaItem(MediaItem.fromUri(Uri.fromFile(File(path))))
+                        prepare()
                     }
+                    view = player
+                    PlayerView(ctx).apply { useController = false; this.player = player }
                 },
-                onRelease = { runCatching { it.stopPlayback() } },
+                onRelease = { v -> v.player?.let { runCatching { it.release() } }; v.player = null },
             )
         }
         when (state) {
@@ -274,8 +288,8 @@ private fun VideoPlayer(source: String, tag: String) {
                     val v = view ?: return@ControlPill
                     when (state) {
                         PlayerState.PLAYING -> { v.pause(); state = PlayerState.PAUSED }
-                        PlayerState.ENDED -> { v.seekTo(0); v.start(); state = PlayerState.PLAYING }
-                        else -> { v.start(); state = PlayerState.PLAYING }
+                        PlayerState.ENDED -> { v.seekTo(0); v.play(); state = PlayerState.PLAYING }
+                        else -> { v.play(); state = PlayerState.PLAYING }
                     }
                 }
             }
