@@ -41,6 +41,13 @@ import androidx.navigation.navArgument
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.dailyquest.app.data.proof.AndroidProofMediaPreparer
+import com.dailyquest.app.ui.proof.PendingProofsScreen
+import com.dailyquest.app.ui.proof.PendingProofsViewModel
+import com.dailyquest.app.ui.proof.ProofDetailScreen
+import com.dailyquest.app.ui.proof.ProofDetailViewModel
+import com.dailyquest.app.ui.proof.ProofSubmitScreen
+import com.dailyquest.app.ui.proof.ProofSubmitViewModel
 import com.dailyquest.app.ui.screens.*
 
 /** 로그인 없이 볼 수 있는 경로. 그 외 모든 경로는 인증된 세션이 있어야 한다. */
@@ -50,6 +57,7 @@ private val PUBLIC_ROUTES = setOf(Routes.SPLASH, Routes.LOGIN, Routes.SIGNUP_INF
 private val SERVER_BACKED_ROUTES = PUBLIC_ROUTES + setOf(
     Routes.SIGNUP_AVATAR, Routes.MY, Routes.JOIN_ROOM, Routes.CREATE_ROOM_ROUTE,
     Routes.MISSIONS, Routes.MISSION_DETAIL, Routes.SEND_ROOM_MISSION,
+    Routes.PROOF_SUBMIT, Routes.PROOF_DETAIL, Routes.PENDING_PROOFS,
 )
 
 @Composable
@@ -190,6 +198,52 @@ fun DQNavGraph() {
                     factory = MissionDetailViewModel.Factory(missionId, roomId, LocalAppContainer.current),
                 )
                 MissionDetailScreen(roomId = roomId, viewModel = vm)
+            }
+
+            composable(
+                route = Routes.PROOF_SUBMIT,
+                arguments = listOf(
+                    navArgument("missionId") { type = NavType.LongType },
+                    navArgument("roomId") { type = NavType.LongType; defaultValue = 0L },
+                )
+            ) { backStackEntry ->
+                val args = requireNotNull(backStackEntry.arguments)
+                val missionId = args.getLong("missionId")
+                val roomId = args.getLong("roomId")
+                val context = LocalContext.current
+                val preparer = remember { AndroidProofMediaPreparer(context.applicationContext) }
+                val vm: ProofSubmitViewModel = viewModel(
+                    key = "proof-submit-$missionId",
+                    factory = ProofSubmitViewModel.Factory(missionId, LocalAppContainer.current, preparer),
+                )
+                ProofSubmitScreen(missionId, roomId, vm)
+            }
+
+            composable(
+                route = Routes.PROOF_DETAIL,
+                arguments = listOf(
+                    navArgument("proofId") { type = NavType.LongType },
+                    navArgument("roomId") { type = NavType.LongType; defaultValue = 0L },
+                )
+            ) { backStackEntry ->
+                val proofId = requireNotNull(backStackEntry.arguments).getLong("proofId")
+                val vm: ProofDetailViewModel = viewModel(
+                    key = "proof-$proofId",
+                    factory = ProofDetailViewModel.Factory(proofId, LocalAppContainer.current),
+                )
+                ProofDetailScreen(vm)
+            }
+
+            composable(
+                route = Routes.PENDING_PROOFS,
+                arguments = listOf(navArgument("roomId") { type = NavType.LongType })
+            ) { backStackEntry ->
+                val roomId = requireNotNull(backStackEntry.arguments).getLong("roomId")
+                val vm: PendingProofsViewModel = viewModel(
+                    key = "pending-proofs-$roomId",
+                    factory = PendingProofsViewModel.Factory(roomId, LocalAppContainer.current),
+                )
+                PendingProofsScreen(roomId, vm)
             }
 
             composable(

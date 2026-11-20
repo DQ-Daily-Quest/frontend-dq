@@ -288,6 +288,7 @@ fun RoomScreen(roomId: Long, viewModel: RoomDetailViewModel, manage: RoomManageV
 private fun RoomMissionsTab(roomId: Long, vm: RoomMissionsViewModel, onOpen: (Long) -> Unit) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     val now = rememberNowMs(ui.missions)
+    val nav = LocalNav.current
     Column(Modifier.fillMaxWidth().padding(16.dp).testTag("roomMissions"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             com.dailyquest.app.ui.components.Chip("진행 중", ui.scope == MissionScope.ACTIVE) { vm.selectScope(MissionScope.ACTIVE) }
@@ -303,6 +304,9 @@ private fun RoomMissionsTab(roomId: Long, vm: RoomMissionsViewModel, onOpen: (Lo
                 if (ui.scope == MissionScope.ACTIVE) "진행 중인 미션이 없어요." else "마감된 미션이 없어요.",
                 Modifier.testTag("roomMissionsEmpty"),
             )
+        }
+        Btn("승인 대기 인증 확인", Modifier.fillMaxWidth().height(40.dp).testTag("roomPendingProofs"), com.dailyquest.app.ui.components.BtnStyle.Soft, size = 13f) {
+            nav.navigate(Routes.pendingProofs(roomId))
         }
         ui.missions.forEach { m -> MissionCard(m, null, ui.userId, now) { onOpen(m.missionId) } }
         if (ui.hasNext) Btn("더 보기", Modifier.fillMaxWidth().height(40.dp), size = 13f, enabled = !ui.loadingMore) { vm.loadMore() }
