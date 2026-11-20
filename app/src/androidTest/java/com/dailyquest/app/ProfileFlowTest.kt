@@ -138,7 +138,34 @@ class ProfileFlowTest {
         assertEquals(listOf("newpass12"), TestProfileCalls.passwordCalls)
     }
 
+    @Test fun emailAccountShowsPasswordMenuAndWithdrawPasswordField() {
+        openMy()
+        compose.onNodeWithTag("myChangePassword").assertExists()
+        menu("myWithdraw"); waitTag("withdrawScreen")
+        compose.onNodeWithTag("withdrawPasswordInput").assertExists()
+    }
+
+    @Test fun socialOnlyAccountHidesPasswordMenuAndWithdrawPasswordField() {
+        TestProfileCalls.hasPassword = false
+        openMy()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("myChangePassword").fetchSemanticsNodes().isEmpty() }
+        menu("myWithdraw"); waitTag("withdrawScreen")
+        compose.onNodeWithTag("withdrawPasswordInput").assertDoesNotExist()
+        compose.onNodeWithTag("withdrawAgree").performScrollTo().performClick()
+        compose.onNodeWithTag("withdrawSubmit").performScrollTo().performClick()
+        waitTag("withdrawConfirm"); compose.onNodeWithTag("withdrawConfirm").performClick()
+        waitText("회원 탈퇴가 완료됐어요")
+        assertEquals(listOf("<none>"), TestProfileCalls.withdrawCalls)
+    }
+
+    @Test fun missingHasPasswordKeepsMenuAndFallsBackToServerError() {
+        TestProfileCalls.hasPassword = null
+        openMy()
+        compose.onNodeWithTag("myChangePassword").assertExists()
+    }
+
     @Test fun socialAccountSeesUnsupportedMessage() {
+        TestProfileCalls.hasPassword = null
         TestProfileCalls.passwordFailure = TestShopCalls.http(409, "NO_PASSWORD_SET")
         openMy(); menu("myChangePassword"); waitTag("passwordScreen")
         fillPasswords("oldpass12", "newpass12", "newpass12")
