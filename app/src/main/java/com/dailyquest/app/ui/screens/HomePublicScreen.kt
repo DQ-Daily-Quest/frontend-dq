@@ -34,6 +34,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -245,14 +246,14 @@ fun HomePublicScreen() {
                         )
 
                         Txt(
-                            "전체보기 ›",
+                            "샘플 · 전체보기 ›",
                             size = 12f,
                             color = DQColors.Muted
                         )
                     }
 
                     Row(
-                        Modifier.padding(top = 10.dp),
+                        Modifier.padding(top = 10.dp).testTag("sampleRanking"),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         RANKS.forEach { r ->
@@ -332,6 +333,7 @@ fun HomePublicScreen() {
                         )
                     )
 
+                    Column(Modifier.fillMaxWidth().testTag("publicRoomList")) {
                     when {
                         ui.initialLoading -> StatusText("공개방을 불러오는 중이에요.")
 
@@ -386,6 +388,7 @@ fun HomePublicScreen() {
                                 }
                             }
                         }
+                    }
                     }
                 }
 
