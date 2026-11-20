@@ -4,6 +4,7 @@ import com.dailyquest.app.data.auth.social.SocialAuthClient
 import com.dailyquest.app.data.auth.social.SocialProvider
 import com.dailyquest.app.data.customization.CustomizationData
 import com.dailyquest.app.data.remote.DqApi
+import com.dailyquest.app.data.mission.MissionRepository
 import com.dailyquest.app.data.room.RoomRepository
 import com.dailyquest.app.data.remote.NetworkModule
 import com.dailyquest.app.navigation.Routes
@@ -26,4 +27,5 @@ class AppContainer(
     }
     val authRepository = AuthRepository(api, tokens, session, socialClients)
     val roomRepository = RoomRepository(api)
+    val missionRepository = MissionRepository(api)
 }
