@@ -10,6 +10,13 @@ fun mapAvatarCount(memberCount: Long, slotAvatarCount: Int): Int =
     memberCount.coerceIn(0L, slotAvatarCount.toLong()).toInt()
 
 /**
+ * 핀의 스토리 이미지(img_avatar_story_*)도 캐릭터 한 명으로 보이므로 그 몫(1명)을 뺀 추가 캐릭터 수.
+ * 표시되는 전체 캐릭터 수(스토리 이미지 + 추가)는 실제 멤버 수를 넘지 않는다.
+ */
+fun mapExtraAvatarCount(memberCount: Long, slotAvatarCount: Int): Int =
+    mapAvatarCount(memberCount - 1, slotAvatarCount)
+
+/**
  * 내가 참여한 방. GET /rooms/mine은 전체 배열이므로 [page]는 서버 페이지가 아닌 4개 단위 UI 페이지(0부터)다.
  * 방 순서는 서버가 준 그대로 유지한다.
  */

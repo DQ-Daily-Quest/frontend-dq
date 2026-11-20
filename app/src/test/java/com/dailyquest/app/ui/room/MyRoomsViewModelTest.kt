@@ -194,6 +194,18 @@ class MyRoomsViewModelTest {
         assertEquals(0, mapAvatarCount(-4, 3))
     }
 
+    @Test fun `story image counts as one so a one member room shows one character`() {
+        assertEquals(0, mapExtraAvatarCount(1, 3))
+        assertEquals(1, mapExtraAvatarCount(2, 3))
+        assertEquals(3, mapExtraAvatarCount(30, 3))
+        assertEquals(0, mapExtraAvatarCount(0, 3))
+        for (members in 0L..40L) for (slots in 1..3) {
+            val shown = (if (members >= 1) 1 else 0) + mapExtraAvatarCount(members, slots)
+            assertTrue("members=$members slots=$slots shown=$shown", shown <= maxOf(members, 0L))
+            assertTrue(shown <= slots + 1)
+        }
+    }
+
     @Test fun `unused map slots are never filled`() = runTest {
         for (n in 0..3) {
             api.handler = { rooms(n) }

@@ -43,7 +43,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dailyquest.app.ui.room.LocalMyRooms
 import com.dailyquest.app.ui.room.RoomEntryGate
-import com.dailyquest.app.ui.room.mapAvatarCount
+import com.dailyquest.app.ui.room.mapExtraAvatarCount
 import com.dailyquest.app.navigation.LocalNav
 import com.dailyquest.app.navigation.Routes
 import com.dailyquest.app.ui.components.Bold
@@ -127,8 +127,8 @@ private fun createMapRooms(rooms: List<Room>): List<MapRoom> {
         MapRoom(
             room = room,
             story = slot.story,
-            // 멤버 상세는 STEP 3-4 전이므로 임시 캐릭터만 쓰고 실제 멤버 수보다 많이 그리지 않는다.
-            avatars = slot.avatars.take(mapAvatarCount(room.memberCount, slot.avatars.size)),
+            // 멤버 상세는 STEP 3-4 전이므로 임시 캐릭터만 쓴다. 스토리 이미지가 이미 캐릭터 1명이므로 추가분은 멤버 수-1까지만 그린다.
+            avatars = slot.avatars.take(mapExtraAvatarCount(room.memberCount, slot.avatars.size)),
             pin = slot.pin,
             label = slot.label
         )
