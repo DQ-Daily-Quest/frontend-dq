@@ -33,7 +33,7 @@ import androidx.compose.ui.unit.dp
 import com.dailyquest.app.R
 import com.dailyquest.app.navigation.LocalNav
 import com.dailyquest.app.navigation.Routes
-import com.dailyquest.app.navigation.backOrCatalog
+import com.dailyquest.app.navigation.backOrHome
 import com.dailyquest.app.ui.components.Black
 import com.dailyquest.app.ui.components.Bold
 import com.dailyquest.app.ui.components.BottomCta
@@ -276,7 +276,7 @@ fun B4SendMissionScreen() {
             }
         }
         BottomCta {
-            Btn("미션 보내기", Modifier.weight(1f).height(54.dp), size = 16f) { nav.backOrCatalog() }
+            Btn("미션 보내기", Modifier.weight(1f).height(54.dp), size = 16f) { nav.backOrHome() }
         }
     }
 }

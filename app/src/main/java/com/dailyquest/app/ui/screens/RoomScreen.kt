@@ -38,7 +38,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dailyquest.app.R
 import com.dailyquest.app.navigation.LocalNav
 import com.dailyquest.app.navigation.Routes
-import com.dailyquest.app.navigation.backOrCatalog
+import com.dailyquest.app.navigation.backOrHome
 import com.dailyquest.app.ui.components.Bold
 import com.dailyquest.app.ui.components.Btn
 import com.dailyquest.app.ui.components.DqIcon

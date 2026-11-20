@@ -67,21 +67,27 @@ val LocalNav = staticCompositionLocalOf<NavHostController> {
     error("NavController not provided")
 }
 
-/** 탭 이동: 스택을 쌓지 않고 교체 */
+private val HOME_ROUTES = setOf(Routes.HOME, Routes.HOME_PUBLIC, Routes.B1_HOME)
+
+/**
+ * 탭 이동. 홈 계열 탭(공개/우리만)은 현재 화면을 교체하고, 그 외 탭은 홈 위에 쌓아 뒤로가기 시 홈으로 돌아가게 한다.
+ * 홈 계열로 돌아올 때는 스택을 비워 홈이 중복되지 않게 한다.
+ */
 fun NavHostController.switchTo(route: String) {
+    val current = currentDestination?.route
+    val currentIsHome = current in HOME_ROUTES
     navigate(route) {
-        currentDestination?.route?.let {
-            popUpTo(it) {
-                inclusive = true
-            }
+        when {
+            route in HOME_ROUTES && !currentIsHome -> popUpTo(0) { inclusive = true }
+            currentIsHome && route !in HOME_ROUTES -> Unit
+            current != null -> popUpTo(current) { inclusive = true }
         }
         launchSingleTop = true
     }
 }
 
-fun NavHostController.backOrCatalog() {
-    if (!popBackStack()) {
-        // Catalog는 디버그 빌드에만 등록되므로 없으면 홈으로 이동한다.
-        navigate(if (graph.findNode(Routes.CATALOG) != null) Routes.CATALOG else Routes.HOME)
-    }
+/** 이전 화면이 없으면 홈으로 이동한다. 개발용 Catalog로는 이동하지 않는다. */
+fun NavHostController.backOrHome() {
+    if (previousBackStackEntry != null) popBackStack()
+    else navigate(Routes.HOME) { popUpTo(0) { inclusive = true } }
 }
