@@ -63,7 +63,8 @@ class ProfileRepository(
      */
     suspend fun withdraw(password: String?): AccountResult {
         val userId = session.currentUserId()
-        val body = WithdrawRequest(password?.takeIf { it.isNotEmpty() })
+        // 소셜 전용 계정(hasPassword=false)은 입력된 값이 있어도 password를 보내지 않는다.
+        val body = WithdrawRequest(if (session.currentHasPassword() == false) null else password?.takeIf { it.isNotEmpty() })
         return when (val r = apiCall { api.withdraw(body) }) {
             is ApiResult.Success -> finishWithdraw(userId)
             is ApiResult.Failure -> {

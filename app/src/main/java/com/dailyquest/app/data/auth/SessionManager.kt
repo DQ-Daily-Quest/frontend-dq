@@ -17,13 +17,15 @@ data class UserProfile(
     val roomCount: Long,
     val completedMissionCount: Long,
     val createdAt: String? = null,
+    /** null은 서버가 알려 주지 않은 상태이며 true/false로 추정하지 않는다. */
+    val hasPassword: Boolean? = null,
 )
 
 fun UserMeResponse.toProfile() = UserProfile(
     userId = userId, email = email, nickname = nickname, coins = coins,
     streakCurrent = streak.current, streakLongest = streak.longest,
     roomCount = stats.roomCount, completedMissionCount = stats.completedMissionCount,
-    createdAt = createdAt,
+    createdAt = createdAt, hasPassword = hasPassword,
 )
 
 /** [PASSWORD_CHANGED]: 서버가 Refresh Token을 모두 폐기했다. [WITHDRAWN]: 회원 탈퇴가 확정됐다. */
@@ -87,6 +89,8 @@ class SessionManager(
         }
         return applied
     }
+
+    fun currentHasPassword(): Boolean? = (_state.value as? SessionState.Authenticated)?.profile?.hasPassword
 
     fun currentUserId(): Long? = (_state.value as? SessionState.Authenticated)?.profile?.userId
 

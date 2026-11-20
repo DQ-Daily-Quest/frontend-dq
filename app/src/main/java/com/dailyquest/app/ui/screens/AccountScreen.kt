@@ -113,7 +113,9 @@ fun AccountScreen() {
                     StatsRow(profile)
                     MenuGroup {
                         MenuItem("프로필 수정", "myEditProfile") { nav.navigate(Routes.PROFILE_EDIT) { launchSingleTop = true } }
-                        MenuItem("비밀번호 변경", "myChangePassword") { nav.navigate(Routes.PASSWORD_CHANGE) { launchSingleTop = true } }
+                        if (profile.hasPassword != false) {
+                            MenuItem("비밀번호 변경", "myChangePassword") { nav.navigate(Routes.PASSWORD_CHANGE) { launchSingleTop = true } }
+                        }
                         MenuItem("보유 아이템", "myInventory") { nav.navigate(Routes.INVENTORY) { launchSingleTop = true } }
                         MenuItem("코인 이용 내역", "myCoinHistory") { nav.navigate(Routes.COIN_HISTORY) { launchSingleTop = true } }
                     }
