@@ -5,6 +5,7 @@ import com.dailyquest.app.data.auth.InMemoryTokenStore
 import com.dailyquest.app.data.auth.TokenPair
 import com.dailyquest.app.data.remote.DqApi
 import com.dailyquest.app.data.remote.dto.LoginRequest
+import com.dailyquest.app.data.remote.dto.OAuthLoginRequest
 import com.dailyquest.app.data.remote.dto.RefreshRequest
 import com.dailyquest.app.data.remote.dto.SignupRequest
 import com.dailyquest.app.data.remote.dto.SignupResponse
@@ -23,6 +24,7 @@ class TestDQApplication : DQApplication() {
     private object FakeApi : DqApi {
         override suspend fun signup(body: SignupRequest): SignupResponse = error("not used")
         override suspend fun login(body: LoginRequest): TokenResponse = error("not used")
+        override suspend fun oauthLogin(provider: String, body: OAuthLoginRequest): TokenResponse = error("not used")
         override suspend fun refresh(body: RefreshRequest): TokenResponse = error("not used")
         override suspend fun logout() = Unit
         override suspend fun me() = UserMeResponse(userId = 1, email = "ui-test@example.com", nickname = "uitest")
