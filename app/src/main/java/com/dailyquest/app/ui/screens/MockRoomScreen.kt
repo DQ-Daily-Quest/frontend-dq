@@ -32,7 +32,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.dailyquest.app.R
-import com.dailyquest.app.data.mock.MockRoomData
+import com.dailyquest.app.data.model.Room
 import com.dailyquest.app.navigation.LocalNav
 import com.dailyquest.app.navigation.Routes
 import com.dailyquest.app.navigation.backOrCatalog
@@ -53,58 +53,20 @@ import com.dailyquest.app.ui.theme.DQColors
 
 private val TABS = listOf("피드", "미션", "랭킹")
 
+private val SAMPLE_ROOM = Room(1L, "우리들의 아지트", 4L, false, joined = true)
+
 /** 03 · 방 내부 (Mock 전용). 실제 서버 roomId는 절대 전달하지 않는다. 게이트가 열린 Mock 생성·참여와 개발용 카탈로그에서만 진입한다. */
 @Composable
 fun MockRoomScreen(roomId: Long) {
 
     val nav = LocalNav.current
 
-    // 전달받은 roomId로 방 정보 조회
-    val room = MockRoomData.getRoomById(roomId)
-
-    // 존재하지 않는 방에 접근했을 경우
-    if (room == null) {
-        DqScreen {
-            Column(
-                Modifier
-                    .fillMaxSize()
-                    .padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Txt(
-                    "방을 찾을 수 없습니다.",
-                    size = 18f,
-                    weight = Bold
-                )
-
-                Txt(
-                    "존재하지 않거나 삭제된 방입니다.",
-                    size = 13f,
-                    color = DQColors.Muted,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
-
-                Btn(
-                    "돌아가기",
-                    Modifier
-                        .padding(top = 20.dp)
-                        .width(160.dp)
-                        .height(44.dp)
-                ) {
-                    nav.backOrCatalog()
-                }
-            }
-        }
-
-        return
-    }
+    // 서버와 무관한 고정 샘플 방. 전달받은 roomId는 조회에 쓰지 않는다.
+    val room = SAMPLE_ROOM
 
     var tab by remember(roomId) {
         mutableStateOf("피드")
     }
-
-    val isNewRoom = MockRoomData.isCreatedRoom(roomId)
 
     // 임시 멤버 데이터
     // 추후 GET /rooms/{roomId}/members API로 교체
@@ -193,18 +155,16 @@ fun MockRoomScreen(roomId: Long) {
                 )
 
                 Txt(
-                    "초대코드: ${MockRoomData.inviteCodeFor(roomId)} · Mock 테스트용",
+                    "샘플 방 · 서버와 연결되지 않은 미리보기",
                     size = 11f, color = DQColors.Muted,
                     modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp)
                 )
-                if (!isNewRoom) {
-                    Txt("멤버·아바타·피드는 공통 샘플 데이터입니다.", size = 11f,
-                        color = DQColors.Muted, modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp))
-                }
+                Txt("멤버·아바타·피드는 공통 샘플 데이터입니다.", size = 11f,
+                    color = DQColors.Muted, modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp))
 
                 // 방 멤버 목록
                 MemberRow(
-                    members = if (isNewRoom) listOf(Member("나", avatar = R.drawable.img_avatar_boy)) else mockMembers,
+                    members = mockMembers,
                     size = 52.dp,
                     inviteSize = 44.dp,
                     showInviteLabel = true,
@@ -217,7 +177,7 @@ fun MockRoomScreen(roomId: Long) {
                 // 방 내부 및 아바타
                 RoomInterior(
                     height = 252f,
-                    avatars = if (isNewRoom) listOf(PlacedAvatar(R.drawable.img_avatar_boy, 167f, 165f)) else listOf(
+                    avatars = listOf(
                         PlacedAvatar(
                             R.drawable.img_avatar_girl,
                             95f,
@@ -315,11 +275,6 @@ fun MockRoomScreen(roomId: Long) {
                 when (tab) {
 
                     "피드" -> {
-                        if (isNewRoom) {
-                            Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                                Txt("아직 등록된 피드가 없어요.", size = 14f, color = DQColors.Muted)
-                            }
-                        } else {
                         DqCard(
                             Modifier
                                 .padding(
@@ -438,7 +393,6 @@ fun MockRoomScreen(roomId: Long) {
                                     )
                                 }
                             }
-                        }
                         }
                     }
 

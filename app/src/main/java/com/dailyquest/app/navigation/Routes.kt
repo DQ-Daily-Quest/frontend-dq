@@ -23,7 +23,7 @@ object Routes {
         return "room/$roomId"
     }
 
-    // Mock 전용 방 화면. 실제 서버 roomId는 ROOM 경로로만 이동한다.
+    // 미션·피드·꾸미기 미연동 샘플 방 화면(고정 샘플, roomId 무관). 실제 서버 roomId는 ROOM 경로로만 이동한다.
     const val MOCK_ROOM = "mock_room/{roomId}"
 
     fun mockRoom(roomId: Long): String = "mock_room/$roomId"
@@ -33,11 +33,6 @@ object Routes {
     const val CREATE_ROOM_ROUTE = "$CREATE_ROOM?isPublic={isPublic}"
 
     fun createRoom(isPublic: Boolean): String = "$CREATE_ROOM?isPublic=$isPublic"
-
-    // Mock 전용 방 생성 화면(테스트·카탈로그용). 실제 방 생성은 CREATE_ROOM만 사용한다.
-    const val MOCK_CREATE_ROOM_ROUTE = "mock_create_room?isPublic={isPublic}"
-
-    fun mockCreateRoom(isPublic: Boolean): String = "mock_create_room?isPublic=$isPublic"
 
     const val JOIN_ROOM = "join_room"
 

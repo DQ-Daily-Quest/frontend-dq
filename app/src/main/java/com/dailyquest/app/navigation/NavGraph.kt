@@ -113,16 +113,6 @@ fun DQNavGraph() {
                 CreateRoomScreen(viewModel = vm)
             }
 
-            composable(
-                route = Routes.MOCK_CREATE_ROOM_ROUTE,
-                arguments = listOf(navArgument("isPublic") {
-                    type = NavType.BoolType
-                    defaultValue = false
-                })
-            ) { backStackEntry ->
-                MockCreateRoomScreen(initialIsPublic = backStackEntry.arguments?.getBoolean("isPublic") ?: false)
-            }
-
             composable(Routes.JOIN_ROOM) {
                 val myRooms = LocalMyRooms.current
                 val publicRooms = LocalPublicRooms.current
