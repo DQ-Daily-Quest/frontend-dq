@@ -104,7 +104,7 @@ fun MissionVerifyScreen() {
             ) {
                 // 테스트용 1번 방으로 이동
                 // TODO: 실제 미션이 속한 roomId로 변경
-                nav.navigate(Routes.room(1L))
+                nav.navigate(Routes.mockRoom(1L))
             }
         }
     }

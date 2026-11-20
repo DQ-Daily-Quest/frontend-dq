@@ -41,7 +41,7 @@ fun JoinRoomScreen() {
                             if (result.alreadyJoined) {
                                 Toast.makeText(context, "이미 참여 중인 방입니다.", Toast.LENGTH_SHORT).show()
                             }
-                            nav.navigate(Routes.room(result.room.roomId)) {
+                            nav.navigate(Routes.mockRoom(result.room.roomId)) {
                                 popUpTo(Routes.JOIN_ROOM) { inclusive = true }
                                 launchSingleTop = true
                             }

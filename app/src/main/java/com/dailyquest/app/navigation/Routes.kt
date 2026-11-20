@@ -23,6 +23,11 @@ object Routes {
         return "room/$roomId"
     }
 
+    // Mock 전용 방 화면. 실제 서버 roomId는 ROOM 경로로만 이동한다.
+    const val MOCK_ROOM = "mock_room/{roomId}"
+
+    fun mockRoom(roomId: Long): String = "mock_room/$roomId"
+
     // 방 생성 및 초대코드 참여
     const val CREATE_ROOM = "create_room"
     const val CREATE_ROOM_ROUTE = "$CREATE_ROOM?isPublic={isPublic}"

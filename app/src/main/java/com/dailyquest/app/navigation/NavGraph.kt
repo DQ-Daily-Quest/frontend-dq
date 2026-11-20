@@ -115,6 +115,13 @@ fun DQNavGraph() {
                 RoomScreen(roomId = roomId)
             }
 
+            composable(
+                route = Routes.MOCK_ROOM,
+                arguments = listOf(navArgument("roomId") { type = NavType.LongType })
+            ) { backStackEntry ->
+                MockRoomScreen(roomId = requireNotNull(backStackEntry.arguments).getLong("roomId"))
+            }
+
             composable(Routes.STORY) {
                 StoryScreen()
             }

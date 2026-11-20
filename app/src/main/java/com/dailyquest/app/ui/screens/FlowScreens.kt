@@ -236,7 +236,7 @@ fun DailyQuestScreen() {
                 size = 14f,
                 weight = Bold,
                 modifier = Modifier.clickable {
-                    nav.navigate(Routes.room(1L))
+                    nav.navigate(Routes.mockRoom(1L))
                 }
             )
 

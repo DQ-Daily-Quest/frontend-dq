@@ -50,7 +50,7 @@ fun CreateRoomScreen(initialIsPublic: Boolean = false) {
                         try {
                             val room = MockRoomData.createRoom(name, description, isPublic, count)
                             submitted = true
-                            nav.navigate(Routes.room(room.roomId)) {
+                            nav.navigate(Routes.mockRoom(room.roomId)) {
                                 popUpTo(Routes.CREATE_ROOM_ROUTE) { inclusive = true }
                                 launchSingleTop = true
                             }
