@@ -49,6 +49,8 @@ import com.dailyquest.app.ui.components.MemberRow
 import com.dailyquest.app.ui.components.NavHeader
 import com.dailyquest.app.ui.components.RoomInterior
 import com.dailyquest.app.ui.components.Txt
+import com.dailyquest.app.ui.mission.RoomMissionsViewModel
+import com.dailyquest.app.data.mission.MissionScope
 import com.dailyquest.app.ui.room.ROLE_OWNER
 import com.dailyquest.app.ui.room.RoomDetailFailure
 import com.dailyquest.app.ui.room.RoomDetailViewModel
@@ -60,7 +62,7 @@ private val TABS = listOf("피드", "미션", "랭킹")
 
 /** 03 · 방 내부 — 서버의 방 상세·멤버 데이터만 사용한다. Mock 방은 [MockRoomScreen]에서만 열린다. */
 @Composable
-fun RoomScreen(roomId: Long, viewModel: RoomDetailViewModel, manage: RoomManageViewModel) {
+fun RoomScreen(roomId: Long, viewModel: RoomDetailViewModel, manage: RoomManageViewModel, missions: RoomMissionsViewModel) {
     val nav = LocalNav.current
     val ui by viewModel.ui.collectAsStateWithLifecycle()
     var tab by remember(roomId) { mutableStateOf("피드") }
@@ -238,21 +240,18 @@ fun RoomScreen(roomId: Long, viewModel: RoomDetailViewModel, manage: RoomManageV
                     }
                 }
 
-                val mission = detail.todayMission
-                Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                    when (tab) {
-                        "피드" -> Txt("피드는 아직 서버와 연결되지 않았어요. 준비 중이에요.", size = 14f, color = DQColors.Muted)
-                        "미션" ->
-                            if (ui.isMember && mission != null) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Txt("오늘의 미션", size = 12f, color = DQColors.Muted)
-                                    Txt(mission.content, size = 15f, weight = Bold, modifier = Modifier.padding(top = 6.dp))
-                                    Txt("인증·보상은 준비 중이에요.", size = 11f, color = DQColors.Muted, modifier = Modifier.padding(top = 6.dp))
-                                }
-                            } else {
-                                Txt("미션 목록 준비 중", size = 14f, color = DQColors.Muted)
-                            }
-                        else -> Txt("랭킹 정보 준비 중", size = 14f, color = DQColors.Muted)
+                when (tab) {
+                    "피드" -> Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                        Txt("피드는 아직 서버와 연결되지 않았어요. 준비 중이에요.", size = 14f, color = DQColors.Muted)
+                    }
+                    "미션" ->
+                        if (ui.isMember) RoomMissionsTab(roomId, missions) { missionId ->
+                            nav.navigate(Routes.missionDetail(missionId, roomId))
+                        } else Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                            Txt("참여 후 방의 미션을 볼 수 있어요.", size = 14f, color = DQColors.Muted)
+                        }
+                    else -> Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                        Txt("랭킹 정보 준비 중", size = 14f, color = DQColors.Muted)
                     }
                 }
             }
@@ -270,7 +269,7 @@ fun RoomScreen(roomId: Long, viewModel: RoomDetailViewModel, manage: RoomManageV
                     .width(148.dp),
                 radius = 25.dp,
             ) {
-                notice = "미션 보내기는 아직 서버와 연결되지 않았어요. 곧 사용할 수 있어요."
+                nav.navigate(Routes.sendRoomMission(roomId))
             }
         }
 
@@ -281,5 +280,31 @@ fun RoomScreen(roomId: Long, viewModel: RoomDetailViewModel, manage: RoomManageV
                 text = { Text(it) },
             )
         }
+    }
+}
+
+/** 방 미션 탭 — GET /rooms/{id}/missions 결과만 보여준다. 진행 중/마감 범위는 서버 status 필터다. */
+@Composable
+private fun RoomMissionsTab(roomId: Long, vm: RoomMissionsViewModel, onOpen: (Long) -> Unit) {
+    val ui by vm.ui.collectAsStateWithLifecycle()
+    val now = rememberNowMs(ui.missions)
+    Column(Modifier.fillMaxWidth().padding(16.dp).testTag("roomMissions"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            com.dailyquest.app.ui.components.Chip("진행 중", ui.scope == MissionScope.ACTIVE) { vm.selectScope(MissionScope.ACTIVE) }
+            com.dailyquest.app.ui.components.Chip("마감", ui.scope == MissionScope.EXPIRED) { vm.selectScope(MissionScope.EXPIRED) }
+        }
+        when {
+            ui.error != null -> Row(verticalAlignment = Alignment.CenterVertically) {
+                Txt(ui.error.orEmpty(), size = 12f, color = DQColors.Orange, modifier = Modifier.weight(1f).testTag("roomMissionsError"))
+                Btn("다시 시도", Modifier.width(88.dp).height(34.dp), size = 12f) { if (ui.loaded) vm.refresh() else vm.retry() }
+            }
+            !ui.loaded -> MissionEmptyNote("미션을 불러오는 중이에요.")
+            ui.missions.isEmpty() -> MissionEmptyNote(
+                if (ui.scope == MissionScope.ACTIVE) "진행 중인 미션이 없어요." else "마감된 미션이 없어요.",
+                Modifier.testTag("roomMissionsEmpty"),
+            )
+        }
+        ui.missions.forEach { m -> MissionCard(m, null, ui.userId, now) { onOpen(m.missionId) } }
+        if (ui.hasNext) Btn("더 보기", Modifier.fillMaxWidth().height(40.dp), size = 13f, enabled = !ui.loadingMore) { vm.loadMore() }
     }
 }

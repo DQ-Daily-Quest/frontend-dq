@@ -1,10 +1,14 @@
 package com.dailyquest.app.data.remote
 
+import com.dailyquest.app.data.remote.dto.CreateMissionRequest
 import com.dailyquest.app.data.remote.dto.CreateRoomRequest
 import com.dailyquest.app.data.remote.dto.CreateRoomResponse
 import com.dailyquest.app.data.remote.dto.InviteCodeDto
 import com.dailyquest.app.data.remote.dto.JoinByCodeRequest
 import com.dailyquest.app.data.remote.dto.LoginRequest
+import com.dailyquest.app.data.remote.dto.MissionDetailDto
+import com.dailyquest.app.data.remote.dto.MissionDto
+import com.dailyquest.app.data.remote.dto.MyRoomMissionsDto
 import com.dailyquest.app.data.remote.dto.OAuthLoginRequest
 import com.dailyquest.app.data.remote.dto.PageDto
 import com.dailyquest.app.data.remote.dto.RefreshRequest
@@ -121,4 +125,28 @@ interface DqApi {
         /** 이 헤더가 있는 요청에는 Bearer를 붙이지 않고 토큰 갱신도 하지 않는다. 전송 전에 제거된다. */
         const val NO_AUTH_HEADER = "X-DQ-No-Auth"
     }
+
+    // ---- 미션 ----
+
+    /** status: ACTIVE(기본) | EXPIRED | ALL, type: APP | MEMBER. ACTIVE/ALL·전체 유형이면 서버가 오늘의 APP 미션을 지연 생성한다. */
+    @GET("rooms/{roomId}/missions")
+    suspend fun listRoomMissions(
+        @Path("roomId") roomId: Long,
+        @Query("status") status: String? = null,
+        @Query("type") type: String? = null,
+        @Query("page") page: Int = 0,
+        @Query("size") size: Int = 20,
+    ): PageDto<MissionDto>
+
+    /** 내 모든 방의 진행 중 미션을 방별로 묶어 반환한다. 서버가 방마다 오늘의 APP 미션을 지연 생성한다. */
+    @GET("missions/mine")
+    suspend fun listMyMissions(): List<MyRoomMissionsDto>
+
+    @GET("missions/{missionId}")
+    suspend fun getMission(@Path("missionId") missionId: Long): MissionDetailDto
+
+    /** 201. 멱등성 키가 없어 응답을 잃어도 서버에는 생성됐을 수 있으므로 연결 재시도를 끈다. */
+    @Headers("X-DQ-No-Retry: true")
+    @POST("rooms/{roomId}/missions")
+    suspend fun createMission(@Path("roomId") roomId: Long, @Body body: CreateMissionRequest): MissionDto
 }

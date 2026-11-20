@@ -131,7 +131,7 @@ fun TabBar(active: Tab, modifier: Modifier = Modifier, set: String = "a") {
     val routes = if (set == "b") {
         mapOf(Tab.Home to Routes.B1_HOME, Tab.Mission to Routes.B3_MISSION_VERIFY, Tab.Shop to Routes.B5_SHOP, Tab.My to Routes.MY)
     } else {
-        mapOf(Tab.Home to Routes.HOME, Tab.Mission to Routes.MISSION_VERIFY, Tab.Shop to Routes.SHOP, Tab.My to Routes.MY)
+        mapOf(Tab.Home to Routes.HOME, Tab.Mission to Routes.MISSIONS, Tab.Shop to Routes.SHOP, Tab.My to Routes.MY)
     }
     val shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp)
     Row(

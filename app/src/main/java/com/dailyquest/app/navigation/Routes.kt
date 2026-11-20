@@ -40,6 +40,16 @@ object Routes {
     const val MISSION_VERIFY = "mission_verify"
     const val VERIFY_CHECK = "verify_check"
     const val SEND_MISSION = "send_mission"
+
+    // 실제 서버와 연결된 미션 화면. 인증(STEP 5)이 붙을 때 missionId·roomId를 그대로 넘겨받는다.
+    const val MISSIONS = "missions"
+    const val MISSION_DETAIL = "mission/{missionId}?roomId={roomId}"
+
+    fun missionDetail(missionId: Long, roomId: Long): String = "mission/$missionId?roomId=$roomId"
+
+    const val SEND_ROOM_MISSION = "room/{roomId}/send-mission"
+
+    fun sendRoomMission(roomId: Long): String = "room/$roomId/send-mission"
     const val SHOP = "shop"
 
     // 로그인 및 회원가입

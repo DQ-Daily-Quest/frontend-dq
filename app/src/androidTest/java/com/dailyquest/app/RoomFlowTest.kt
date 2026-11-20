@@ -151,6 +151,7 @@ class RoomFlowTest {
 
     @Test
     fun ownerRoomShowsServerDetailMembersInviteCodeAndMission() {
+        TestMissionCalls.seeded = true // 방 미션 목록은 방 진입 시 조회되므로 테스트 중 설정해도 된다.
         openMyRoom(1, "서버 설명 9101")
         compose.onNodeWithText("멤버 2/10명 · 방장 서버방장").assertExists()
         compose.waitUntil(5_000) { compose.onAllNodesWithText("서버멤버").fetchSemanticsNodes().isNotEmpty() }
@@ -158,14 +159,14 @@ class RoomFlowTest {
         compose.onNodeWithText("방장").assertExists()
         compose.onNodeWithTag("roomInviteCode").assertTextEquals("초대코드: SRV9101")
         click("미션")
-        compose.onNodeWithText("서버 오늘의 미션").assertExists()
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("서버 앱 미션 9101").fetchSemanticsNodes().isNotEmpty() }
         // 서버 방에서는 Mock 피드·멤버·초대코드가 나타나지 않는다.
         click("피드")
         compose.onNodeWithText("지수").assertDoesNotExist()
         compose.onNodeWithText("민수").assertDoesNotExist()
         compose.onNodeWithText("피드는 아직 서버와 연결되지 않았어요.", substring = true).assertExists()
         click("+ 미션 보내기")
-        compose.onNodeWithText("미션 보내기는 아직 서버와 연결되지 않았어요.", substring = true).assertExists()
+        compose.onNodeWithTag("sendRoomMission").assertExists()
     }
 
     @Test

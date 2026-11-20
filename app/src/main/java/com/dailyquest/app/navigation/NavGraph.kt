@@ -12,6 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -25,6 +26,10 @@ import com.dailyquest.app.ui.components.Txt
 import com.dailyquest.app.ui.theme.DQColors
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
+import com.dailyquest.app.ui.mission.CreateMissionViewModel
+import com.dailyquest.app.ui.mission.LocalMyMissions
+import com.dailyquest.app.ui.mission.MissionDetailViewModel
+import com.dailyquest.app.ui.mission.RoomMissionsViewModel
 import com.dailyquest.app.ui.room.CreateRoomViewModel
 import com.dailyquest.app.ui.room.LocalAppContainer
 import com.dailyquest.app.ui.room.LocalMyRooms
@@ -42,7 +47,10 @@ import com.dailyquest.app.ui.screens.*
 private val PUBLIC_ROUTES = setOf(Routes.SPLASH, Routes.LOGIN, Routes.SIGNUP_INFO)
 
 /** 서버와 연동된 화면. 이 외 화면은 아직 Mock 데이터를 사용한다. */
-private val SERVER_BACKED_ROUTES = PUBLIC_ROUTES + setOf(Routes.SIGNUP_AVATAR, Routes.MY, Routes.JOIN_ROOM, Routes.CREATE_ROOM_ROUTE)
+private val SERVER_BACKED_ROUTES = PUBLIC_ROUTES + setOf(
+    Routes.SIGNUP_AVATAR, Routes.MY, Routes.JOIN_ROOM, Routes.CREATE_ROOM_ROUTE,
+    Routes.MISSIONS, Routes.MISSION_DETAIL, Routes.SEND_ROOM_MISSION,
+)
 
 @Composable
 fun DQNavGraph() {
@@ -101,12 +109,13 @@ fun DQNavGraph() {
             ) { backStackEntry ->
                 val initialIsPublic = backStackEntry.arguments?.getBoolean("isPublic") ?: false
                 val myRooms = LocalMyRooms.current
+                val myMissions = LocalMyMissions.current
                 val publicRooms = LocalPublicRooms.current
                 val container = LocalAppContainer.current
                 val vm: CreateRoomViewModel = viewModel(
                     factory = CreateRoomViewModel.Factory(
                         initialIsPublic, container,
-                        onCreated = { myRooms.refresh(); publicRooms.refresh() },
+                        onCreated = { myRooms.refresh(); publicRooms.refresh(); myMissions.refresh() },
                         onOutcomeUnknown = { myRooms.refresh() },
                     ),
                 )
@@ -115,11 +124,12 @@ fun DQNavGraph() {
 
             composable(Routes.JOIN_ROOM) {
                 val myRooms = LocalMyRooms.current
+                val myMissions = LocalMyMissions.current
                 val publicRooms = LocalPublicRooms.current
                 val vm: RoomJoinViewModel = viewModel(
                     factory = RoomJoinViewModel.Factory(
                         LocalAppContainer.current,
-                        onChanged = { myRooms.refresh(); publicRooms.refresh() },
+                        onChanged = { myRooms.refresh(); publicRooms.refresh(); myMissions.refresh() },
                         onOutcomeUnknown = { myRooms.refresh() },
                     ),
                 )
@@ -145,15 +155,74 @@ fun DQNavGraph() {
                     factory = RoomDetailViewModel.Factory(roomId, LocalAppContainer.current),
                 )
                 val myRooms = LocalMyRooms.current
+                val myMissions = LocalMyMissions.current
                 val publicRooms = LocalPublicRooms.current
                 val manage: RoomManageViewModel = viewModel(
                     key = "room-manage-$roomId",
                     factory = RoomManageViewModel.Factory(
                         roomId, LocalAppContainer.current,
-                        onListsChanged = { myRooms.refresh(); publicRooms.refresh() },
+                        onListsChanged = { myRooms.refresh(); publicRooms.refresh(); myMissions.refresh() },
                     ),
                 )
-                RoomScreen(roomId = roomId, viewModel = vm, manage = manage)
+                val roomMissions: RoomMissionsViewModel = viewModel(
+                    key = "room-missions-$roomId",
+                    factory = RoomMissionsViewModel.Factory(roomId, LocalAppContainer.current),
+                )
+                RoomScreen(roomId = roomId, viewModel = vm, manage = manage, missions = roomMissions)
+            }
+
+            composable(Routes.MISSIONS) {
+                MissionListScreen()
+            }
+
+            composable(
+                route = Routes.MISSION_DETAIL,
+                arguments = listOf(
+                    navArgument("missionId") { type = NavType.LongType },
+                    navArgument("roomId") { type = NavType.LongType; defaultValue = 0L },
+                )
+            ) { backStackEntry ->
+                val args = requireNotNull(backStackEntry.arguments)
+                val missionId = args.getLong("missionId")
+                val roomId = args.getLong("roomId")
+                val vm: MissionDetailViewModel = viewModel(
+                    key = "mission-$missionId",
+                    factory = MissionDetailViewModel.Factory(missionId, roomId, LocalAppContainer.current),
+                )
+                MissionDetailScreen(roomId = roomId, viewModel = vm)
+            }
+
+            composable(
+                route = Routes.SEND_ROOM_MISSION,
+                arguments = listOf(navArgument("roomId") { type = NavType.LongType })
+            ) { backStackEntry ->
+                val roomId = requireNotNull(backStackEntry.arguments).getLong("roomId")
+                val container = LocalAppContainer.current
+                val myMissions = LocalMyMissions.current
+                // 방 화면의 미션 목록을 함께 갱신한다. 방 화면이 back stack에 없으면 전역 목록만 갱신한다.
+                val roomEntry = remember(backStackEntry) {
+                    nav.previousBackStackEntry?.takeIf {
+                        it.destination.route == Routes.ROOM && it.arguments?.getLong("roomId") == roomId
+                    }
+                }
+                val roomMissions: RoomMissionsViewModel? = roomEntry?.let {
+                    viewModel(
+                        viewModelStoreOwner = it, key = "room-missions-$roomId",
+                        factory = RoomMissionsViewModel.Factory(roomId, container),
+                    )
+                }
+                val vm: CreateMissionViewModel = viewModel(
+                    factory = CreateMissionViewModel.Factory(
+                        roomId, container,
+                        onCreated = { myMissions.refresh(); roomMissions?.refresh() },
+                        onOutcomeUnknown = { myMissions.refresh(); roomMissions?.refresh() },
+                    ),
+                )
+                val room: RoomDetailViewModel = viewModel(
+                    key = "send-mission-room-$roomId",
+                    factory = RoomDetailViewModel.Factory(roomId, container),
+                )
+                SendRoomMissionScreen(viewModel = vm, room = room)
             }
 
             composable(

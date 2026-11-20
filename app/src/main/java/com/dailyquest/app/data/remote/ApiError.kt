@@ -31,6 +31,9 @@ object ApiErrorCode {
     const val NOT_A_MEMBER = "NOT_A_MEMBER"
     const val CANNOT_KICK_SELF = "CANNOT_KICK_SELF"
     const val ALREADY_OWNER = "ALREADY_OWNER"
+    const val MISSION_NOT_FOUND = "MISSION_NOT_FOUND"
+    const val NO_ACTIVE_TEMPLATE = "NO_ACTIVE_TEMPLATE"
+    const val MISSION_EXPIRED = "MISSION_EXPIRED"
 }
 
 sealed class ApiException(message: String?, cause: Throwable? = null) : Exception(message, cause) {
