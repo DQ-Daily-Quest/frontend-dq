@@ -16,15 +16,18 @@ data class UserProfile(
     val streakLongest: Int,
     val roomCount: Long,
     val completedMissionCount: Long,
+    val createdAt: String? = null,
 )
 
 fun UserMeResponse.toProfile() = UserProfile(
     userId = userId, email = email, nickname = nickname, coins = coins,
     streakCurrent = streak.current, streakLongest = streak.longest,
     roomCount = stats.roomCount, completedMissionCount = stats.completedMissionCount,
+    createdAt = createdAt,
 )
 
-enum class LogoutReason { NONE, USER, EXPIRED }
+/** [PASSWORD_CHANGED]: 서버가 Refresh Token을 모두 폐기했다. [WITHDRAWN]: 회원 탈퇴가 확정됐다. */
+enum class LogoutReason { NONE, USER, EXPIRED, PASSWORD_CHANGED, WITHDRAWN }
 
 sealed interface SessionState {
     data object Loading : SessionState
@@ -72,6 +75,20 @@ class SessionManager(
             if (cur is SessionState.Authenticated && cur.profile.userId == expectedUserId) cur.copy(profile = cur.profile.copy(coins = coins)) else cur
         }
     }
+
+    /** 프로필 수정 응답처럼 현재 사용자의 새 정보를 반영한다. 다른 사용자로 바뀐 뒤 도착한 늦은 응답은 무시한다. */
+    fun applyProfileIfCurrent(expectedUserId: Long, profile: UserProfile): Boolean {
+        var applied = false
+        _state.update { cur ->
+            if (cur is SessionState.Authenticated && cur.profile.userId == expectedUserId && profile.userId == expectedUserId) {
+                applied = true
+                SessionState.Authenticated(profile)
+            } else cur
+        }
+        return applied
+    }
+
+    fun currentUserId(): Long? = (_state.value as? SessionState.Authenticated)?.profile?.userId
 
     fun markLoading() {
         _state.value = SessionState.Loading
