@@ -138,8 +138,15 @@ private fun Body(d: ProofDetail, myUserId: Long?, error: String?) {
 
     DqCard(Modifier.padding(top = 14.dp).fillMaxWidth(), radius = 16.dp, soft = true) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Txt(p.status.label(), size = 14f, weight = Bold, modifier = Modifier.testTag("proofStatus"))
-            Txt("승인 ${p.approval.approved} · 거절 ${p.approval.rejected} · 필요 승인 ${p.approval.required}명", size = 12.5f, modifier = Modifier.testTag("proofCounts"))
+            if (d.isAutoApproved) {
+                Txt("자동 승인 완료", size = 14f, weight = Bold, modifier = Modifier.testTag("proofStatus"))
+                Txt("혼자 참여 중인 방의 오늘의 미션은 자동으로 승인돼요.", size = 12.5f, modifier = Modifier.testTag("proofAutoApproved"))
+            } else {
+                Txt(p.status.label(), size = 14f, weight = Bold, modifier = Modifier.testTag("proofStatus"))
+                // 필요 승인 수는 아직 투표가 진행 중일 때만 의미가 있어, 확정된 인증에서는 생략한다.
+                val needed = if (p.status == ProofStatus.PENDING) " · 필요 승인 ${p.approval.required}명" else ""
+                Txt("승인 ${p.approval.approved} · 거절 ${p.approval.rejected}$needed", size = 12.5f, modifier = Modifier.testTag("proofCounts"))
+            }
             p.approval.myVote?.let {
                 Txt("내 투표: ${if (it == VoteChoice.APPROVE) "승인" else "거절"} (투표 완료)", size = 12.5f, color = DQColors.Muted, modifier = Modifier.testTag("proofMyVote"))
             }

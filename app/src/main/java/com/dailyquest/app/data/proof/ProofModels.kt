@@ -89,6 +89,14 @@ data class ProofDetail(
     }
 
     fun isMine(myUserId: Long?): Boolean = myUserId != null && proof.user.userId == myUserId
+
+    /**
+     * 혼자 있는 방의 APP 미션 자동 승인 여부. 백엔드는 이 경우에만 투표 없이 APPROVED로 확정하고(ProofService),
+     * 정상 승인은 승인 투표가 필요 수 이상 쌓여야 확정되며 확정 뒤에는 투표가 바뀌지 않는다.
+     * 따라서 "승인 완료인데 승인 투표가 0건인 APP 인증"만 자동 승인으로 본다. 현재 방 인원으로는 판단하지 않는다.
+     */
+    val isAutoApproved: Boolean
+        get() = missionType == MissionType.APP && proof.status == ProofStatus.APPROVED && proof.approval.approved == 0
 }
 
 data class PendingProof(
