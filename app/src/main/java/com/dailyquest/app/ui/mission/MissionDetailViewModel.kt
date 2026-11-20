@@ -11,6 +11,9 @@ import com.dailyquest.app.data.mission.MissionRepository
 import com.dailyquest.app.data.remote.ApiException
 import com.dailyquest.app.data.remote.ApiResult
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -36,6 +39,7 @@ class MissionDetailViewModel(
     private val roomId: Long,
     private val repo: MissionRepository,
     session: StateFlow<SessionState>,
+    refreshSignal: Flow<Int> = emptyFlow(),
 ) : ViewModel() {
 
     private val _ui = MutableStateFlow(MissionDetailUiState(missionId))
@@ -45,6 +49,7 @@ class MissionDetailViewModel(
     private var generation = 0
 
     init {
+        viewModelScope.launch { refreshSignal.drop(1).collect { if (_ui.value.userId != null) load() } }
         viewModelScope.launch {
             session
                 .filter { it is SessionState.Authenticated || it is SessionState.Unauthenticated }
@@ -88,6 +93,6 @@ class MissionDetailViewModel(
     class Factory(private val missionId: Long, private val roomId: Long, private val container: AppContainer) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T =
-            MissionDetailViewModel(missionId, roomId, container.missionRepository, container.session.state) as T
+            MissionDetailViewModel(missionId, roomId, container.missionRepository, container.session.state, container.proofSync.version) as T
     }
 }

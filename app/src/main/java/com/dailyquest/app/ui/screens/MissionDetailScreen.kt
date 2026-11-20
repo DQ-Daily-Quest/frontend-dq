@@ -1,5 +1,6 @@
 package com.dailyquest.app.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -19,6 +20,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dailyquest.app.R
 import com.dailyquest.app.data.mission.MissionDetail
+import com.dailyquest.app.data.mission.MissionState
+import com.dailyquest.app.data.proof.proofStatusLabel
 import com.dailyquest.app.navigation.LocalNav
 import com.dailyquest.app.navigation.Routes
 import com.dailyquest.app.navigation.backOrHome
@@ -34,8 +37,8 @@ import com.dailyquest.app.ui.mission.MissionDetailViewModel
 import com.dailyquest.app.ui.theme.DQColors
 
 /**
- * 미션 상세 — 서버 GET /missions/{id}. 인증 제출·승인은 STEP 5에서 연결하므로 지금은 안내만 보여주며,
- * 그때 필요한 missionId·roomId·유형·보상·상태는 이 화면의 경로 인자와 서버 응답으로 이미 유지된다.
+ * 미션 상세 — 서버 GET /missions/{id}. 수행 가능한 미션이면 인증하기, 이미 낸 인증이 있으면 내 인증 보기로 이어진다.
+ * 인증 가능 여부의 최종 판단은 서버(제출 API)가 한다.
  */
 @Composable
 fun MissionDetailScreen(roomId: Long, viewModel: MissionDetailViewModel) {
@@ -64,8 +67,9 @@ fun MissionDetailScreen(roomId: Long, viewModel: MissionDetailViewModel) {
 
 @Composable
 private fun DetailBody(d: MissionDetail, routeRoomId: Long, myUserId: Long?, now: Long, error: String?) {
+    val nav = LocalNav.current
     val m = d.mission
-    val state = m.state(myUserId, now)
+    val state = m.state(myUserId, now, rejected = d.hasMyRejectedProof(myUserId))
     Txt(m.originLabel(myUserId), size = 12f, color = DQColors.Muted)
     Txt(m.content, size = 20f, weight = Bold, modifier = Modifier.padding(top = 6.dp))
     DqCard(Modifier.padding(top = 16.dp).fillMaxWidth(), radius = 16.dp, soft = true) {
@@ -84,12 +88,25 @@ private fun DetailBody(d: MissionDetail, routeRoomId: Long, myUserId: Long?, now
     if (d.proofs.isNotEmpty()) {
         FieldLabel("인증 현황")
         d.proofs.forEach {
-            Txt("${it.user.nickname} · ${it.status}", size = 12.5f, modifier = Modifier.padding(start = 4.dp, bottom = 4.dp))
+            Txt(
+                "${it.user.nickname} · ${proofStatusLabel(it.status)}", size = 12.5f,
+                modifier = Modifier.clickable { nav.navigate(Routes.proofDetail(it.proofId, m.roomId)) }.padding(start = 4.dp, bottom = 8.dp, top = 2.dp)
+                    .testTag("missionProof-${it.proofId}"),
+            )
         }
     }
     if (error != null) Txt(error, size = 11.5f, color = DQColors.Orange, modifier = Modifier.padding(top = 10.dp))
-    Txt(
-        "미션 인증 제출과 승인은 아직 서버와 연결되지 않았어요. 곧 사용할 수 있어요.",
-        size = 12f, color = DQColors.Muted, modifier = Modifier.padding(top = 16.dp).testTag("missionProofNotice"),
-    )
+    when {
+        state == MissionState.DOABLE || state == MissionState.RESUBMIT_NEEDED -> {
+            val again = state == MissionState.RESUBMIT_NEEDED
+            if (again) Txt("이전 인증이 거절됐어요. 다시 인증할 수 있어요.", size = 12f, color = DQColors.Muted, modifier = Modifier.padding(top = 16.dp).testTag("missionReproofHint"))
+            Btn(if (again) "다시 인증하기" else "인증하기", Modifier.padding(top = 16.dp).fillMaxWidth().height(50.dp).testTag("missionProofAction")) {
+                nav.navigate(Routes.proofSubmit(m.missionId, m.roomId))
+            }
+        }
+        (state == MissionState.PENDING_REVIEW || state == MissionState.DONE) && m.myProofId != null ->
+            Btn("내 인증 보기", Modifier.padding(top = 16.dp).fillMaxWidth().height(50.dp).testTag("missionProofAction")) {
+                nav.navigate(Routes.proofDetail(m.myProofId, m.roomId))
+            }
+    }
 }

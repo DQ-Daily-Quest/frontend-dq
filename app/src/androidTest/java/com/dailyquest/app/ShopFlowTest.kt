@@ -42,7 +42,8 @@ class ShopFlowTest {
         click("240 코인으로 구매하기")
         compose.onNodeWithText("코인이 부족합니다.").assertExists()
         compose.onNodeWithText("홈").performClick()
-        compose.onNodeWithText("200").assertExists()
+        // 홈의 코인은 서버 잔액만 보여 주므로 Mock 쇼핑의 잔액이 새어 나오면 안 된다.
+        compose.onNodeWithText("200").assertDoesNotExist()
         compose.onNodeWithText("쇼핑").performClick()
         compose.onNodeWithText("200").assertExists()
         compose.onNodeWithText("상의: 민트 상의").assertExists()

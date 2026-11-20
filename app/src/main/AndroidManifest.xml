@@ -4,6 +4,12 @@
     <uses-permission android:name="android.permission.INTERNET" />
 
     <queries>
+        <intent>
+            <action android:name="android.media.action.IMAGE_CAPTURE" />
+        </intent>
+        <intent>
+            <action android:name="android.media.action.VIDEO_CAPTURE" />
+        </intent>
         <package android:name="com.kakao.talk" />
     </queries>
 
@@ -28,6 +34,16 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <!-- 인증 사진·영상 촬영 결과를 카메라 앱이 쓰는 캐시 파일(proof_capture)만 공유한다. 카메라·저장소 권한은 쓰지 않는다. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
         <!-- Kakao 계정(브라우저) 로그인 Redirect. 스킴은 빌드 시 주입된 앱 키로 만든다. -->
         <activity
             android:name="com.kakao.sdk.auth.AuthCodeHandlerActivity"

@@ -5,9 +5,15 @@ import com.dailyquest.app.data.auth.social.SocialProvider
 import com.dailyquest.app.data.customization.CustomizationData
 import com.dailyquest.app.data.remote.DqApi
 import com.dailyquest.app.data.mission.MissionRepository
+import com.dailyquest.app.data.proof.ProofRepository
+import com.dailyquest.app.data.proof.ProofSync
+import com.dailyquest.app.data.proof.UploadRepository
 import com.dailyquest.app.data.room.RoomRepository
 import com.dailyquest.app.data.remote.NetworkModule
 import com.dailyquest.app.navigation.Routes
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 
 /** 수동 DI 컨테이너. 테스트에서는 [DQApplication.createContainer]를 오버라이드해 가짜 저장소·API를 주입한다. */
 class AppContainer(
@@ -28,4 +34,12 @@ class AppContainer(
     val authRepository = AuthRepository(api, tokens, session, socialClients)
     val roomRepository = RoomRepository(api)
     val missionRepository = MissionRepository(api)
+    val proofRepository = ProofRepository(api)
+    val uploadRepository = UploadRepository(api)
+
+    /** 화면 수명과 무관하게 이어져야 하는 갱신(코인 잔액 등)을 위한 앱 범위. */
+    val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    val proofSync = ProofSync(appScope) {
+        if (session.state.value is SessionState.Authenticated) authRepository.refreshProfile()
+    }
 }

@@ -47,6 +47,15 @@ object Routes {
 
     fun missionDetail(missionId: Long, roomId: Long): String = "mission/$missionId?roomId=$roomId"
 
+    // 미션 인증(STEP 5): 실제 missionId·proofId·roomId만 받는다.
+    const val PROOF_SUBMIT = "mission/{missionId}/proof?roomId={roomId}"
+    const val PROOF_DETAIL = "proof/{proofId}?roomId={roomId}"
+    const val PENDING_PROOFS = "room/{roomId}/proofs/pending"
+
+    fun proofSubmit(missionId: Long, roomId: Long): String = "mission/$missionId/proof?roomId=$roomId"
+    fun proofDetail(proofId: Long, roomId: Long = 0L): String = "proof/$proofId?roomId=$roomId"
+    fun pendingProofs(roomId: Long): String = "room/$roomId/proofs/pending"
+
     const val SEND_ROOM_MISSION = "room/{roomId}/send-mission"
 
     fun sendRoomMission(roomId: Long): String = "room/$roomId/send-mission"

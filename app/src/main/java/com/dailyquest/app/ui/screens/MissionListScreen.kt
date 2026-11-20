@@ -8,10 +8,15 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -23,6 +28,7 @@ import com.dailyquest.app.navigation.LocalNav
 import com.dailyquest.app.navigation.Routes
 import com.dailyquest.app.ui.components.Bold
 import com.dailyquest.app.ui.components.Btn
+import com.dailyquest.app.ui.components.Chip
 import com.dailyquest.app.ui.components.BtnStyle
 import com.dailyquest.app.ui.components.DqScreen
 import com.dailyquest.app.ui.components.NavHeader
@@ -30,6 +36,7 @@ import com.dailyquest.app.ui.components.Tab
 import com.dailyquest.app.ui.components.TabBar
 import com.dailyquest.app.ui.components.Txt
 import com.dailyquest.app.ui.mission.LocalMyMissions
+import com.dailyquest.app.ui.mission.MissionFilter
 import com.dailyquest.app.ui.mission.RoomMission
 import com.dailyquest.app.ui.theme.DQColors
 
@@ -43,10 +50,21 @@ fun MissionListScreen() {
     val vm = LocalMyMissions.current
     val ui by vm.ui.collectAsStateWithLifecycle()
     val now = rememberNowMs(ui.groups)
+    var filterName by rememberSaveable { mutableStateOf(MissionFilter.ALL.name) }
+    val filter = MissionFilter.valueOf(filterName)
 
     DqScreen {
         Column(Modifier.fillMaxSize().testTag("missionList")) {
             NavHeader("미션", divider = true)
+            if (ui.loaded && ui.groups.isNotEmpty()) LazyRow(
+                Modifier.fillMaxWidth().testTag("missionFilters"),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                items(MissionFilter.values().toList()) { f ->
+                    Chip("${f.label} ${ui.count(f, now)}", f == filter, Modifier.testTag("missionFilter-${f.name}")) { filterName = f.name }
+                }
+            }
             Column(
                 Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 12.dp),
             ) {
@@ -68,8 +86,16 @@ fun MissionListScreen() {
                     when {
                         ui.groups.isEmpty() -> MissionEmptyNote("참여한 방이 없어요. 방에 참여하면 오늘의 미션이 보여요.", Modifier.testTag("missionListNoRooms"))
                         ui.isEmpty -> MissionEmptyNote("진행 중인 미션이 없어요.", Modifier.testTag("missionListEmpty"))
+                        filter != MissionFilter.ALL -> {
+                            val items = ui.filtered(filter, now)
+                            if (items.isEmpty()) MissionEmptyNote(emptyMessage(filter), Modifier.testTag("missionFilterEmpty"))
+                            else MissionSection(filter.label, items, ui.userId, now) { rm ->
+                                nav.navigate(Routes.missionDetail(rm.mission.missionId, rm.roomId))
+                            }
+                        }
                         else -> {
                             val order = listOf(
+                                MissionState.RESUBMIT_NEEDED to "재인증이 필요한 미션",
                                 MissionState.DOABLE to "수행 가능한 미션",
                                 MissionState.PENDING_REVIEW to "인증 대기 중인 미션",
                                 MissionState.DONE to "완료한 미션",
@@ -110,4 +136,13 @@ private fun MissionSection(
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         items.forEach { rm -> MissionCard(rm.mission, rm.roomName, userId, now) { onClick(rm) } }
     }
+}
+
+private fun emptyMessage(f: MissionFilter): String = when (f) {
+    MissionFilter.ALL -> "진행 중인 미션이 없어요."
+    MissionFilter.TODO -> "아직 인증하지 않은 미션이 없어요."
+    MissionFilter.PENDING -> "승인을 기다리는 인증이 없어요."
+    MissionFilter.DONE -> "완료한 미션이 없어요."
+    MissionFilter.REJECTED -> "거절된 인증이 없어요."
+    MissionFilter.SENT -> "내가 보낸 미션이 없어요."
 }

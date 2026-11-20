@@ -28,6 +28,7 @@ data class Mission(
     val dueAtRaw: String,
     val myProofStatus: String?,
     val proofCount: Long,
+    val myProofId: Long? = null,
 ) {
     fun isExpired(nowMs: Long): Boolean = dueAtMs != null && dueAtMs <= nowMs
 
@@ -45,14 +46,23 @@ data class Mission(
         else -> assignee == null || assignee.userId == userId
     }
 
-    fun state(userId: Long?, nowMs: Long): MissionState = when {
+    /**
+     * [rejected]는 내 인증이 거절된 적이 있다는 뜻(서버의 myProof에는 PENDING·APPROVED만 오므로 미션 상세의 인증 목록에서 확인한 값).
+     * 아직 마감 전이고 내가 수행 대상이면 재인증이 필요한 상태가 된다.
+     */
+    fun state(userId: Long?, nowMs: Long, rejected: Boolean = false): MissionState = when {
         myProofStatus == PROOF_APPROVED -> MissionState.DONE
         myProofStatus == PROOF_PENDING -> MissionState.PENDING_REVIEW
         myProofStatus != null -> MissionState.PROOF_OTHER
         isExpired(nowMs) -> MissionState.EXPIRED
         !isEligible(userId) -> MissionState.NOT_APPLICABLE
+        rejected -> MissionState.RESUBMIT_NEEDED
         else -> MissionState.DOABLE
     }
+
+    /** 거절 이력을 확인할 가치가 있는 미션: 내 인증이 없고, 마감 전이며, 내가 수행 대상이고, 제출된 인증이 하나라도 있다. */
+    fun mayHaveRejectedProof(userId: Long?, nowMs: Long): Boolean =
+        myProofStatus == null && proofCount > 0 && !isExpired(nowMs) && isEligible(userId)
 
     companion object {
         const val PROOF_PENDING = "PENDING"
@@ -62,11 +72,15 @@ data class Mission(
 
 /**
  * DOABLE 수행 가능, PENDING_REVIEW 인증 대기, DONE 완료, EXPIRED 마감, NOT_APPLICABLE 내가 수행 대상이 아님(내가 보낸 미션 등),
- * PROOF_OTHER 문서에 없는 인증 상태(예: REJECTED) — 서버 값을 그대로 보존하기 위한 분류.
+ * RESUBMIT_NEEDED 이전 인증이 거절돼 다시 인증해야 하는 상태, PROOF_OTHER 문서에 없는 인증 상태(예: REJECTED) — 서버 값을 그대로 보존하기 위한 분류.
  */
-enum class MissionState { DOABLE, PENDING_REVIEW, DONE, EXPIRED, NOT_APPLICABLE, PROOF_OTHER }
+enum class MissionState { DOABLE, RESUBMIT_NEEDED, PENDING_REVIEW, DONE, EXPIRED, NOT_APPLICABLE, PROOF_OTHER }
 
-data class MissionDetail(val mission: Mission, val proofs: List<MissionProof>)
+data class MissionDetail(val mission: Mission, val proofs: List<MissionProof>) {
+    /** 내 인증 중 거절된 것이 있는지. 마감·권한 판단은 [Mission.state]가 한다. */
+    fun hasMyRejectedProof(userId: Long?): Boolean =
+        userId != null && proofs.any { it.user.userId == userId && it.status.equals("REJECTED", ignoreCase = true) }
+}
 
 data class RoomMissions(val roomId: Long, val roomName: String, val missions: List<Mission>)
 
@@ -92,6 +106,7 @@ fun MissionDto.toMission(roomId: Long, roomName: String? = null) = Mission(
     dueAtRaw = dueAt,
     myProofStatus = myProof?.status,
     proofCount = proofCount,
+    myProofId = myProof?.proofId,
 )
 
 /** 상세 응답에는 방 정보가 없으므로 호출자가 아는 roomId(없으면 0)를 넣는다. */

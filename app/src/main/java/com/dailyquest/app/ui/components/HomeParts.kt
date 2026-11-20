@@ -17,6 +17,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.dailyquest.app.data.auth.SessionState
+import com.dailyquest.app.ui.auth.LocalAuth
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -68,7 +72,9 @@ fun HomeHeader(scope: Scope, variantB: Boolean = false) {
                         DqIcon(R.drawable.ic_bell, 54.dp, Modifier.offset((-8).dp, (-6).dp))
                     }
                 }
-                CoinPill(amount = com.dailyquest.app.data.customization.CustomizationData.store.state.coins)
+                // 실제 서버 코인. 쇼핑(Mock)의 가짜 잔액과 섞지 않는다.
+                val session by LocalAuth.current.session.collectAsStateWithLifecycle()
+                CoinPill(amount = (session as? SessionState.Authenticated)?.profile?.coins ?: 0)
             }
         }
         if (!variantB) {
