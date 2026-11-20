@@ -19,6 +19,17 @@ enum class ProofStatus {
     }
 }
 
+/** 사용자에게 보이는 인증 상태 문구. 모든 화면이 이 함수를 쓰며, 알 수 없는 서버 값은 원문을 노출하지 않고 대체 문구를 쓴다. */
+fun proofStatusLabel(raw: String?): String = proofStatusLabel(ProofStatus.parse(raw))
+
+fun proofStatusLabel(status: ProofStatus): String = when (status) {
+    ProofStatus.PENDING -> "승인 대기"
+    ProofStatus.APPROVED -> "승인 완료"
+    ProofStatus.REJECTED -> "인증 거절"
+    ProofStatus.EXPIRED -> "인증 만료"
+    ProofStatus.UNKNOWN -> "상태 확인 중"
+}
+
 enum class ProofMediaType {
     IMAGE, VIDEO, TEXT;
 

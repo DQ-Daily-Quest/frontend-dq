@@ -21,6 +21,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dailyquest.app.R
 import com.dailyquest.app.data.mission.MissionDetail
 import com.dailyquest.app.data.mission.MissionState
+import com.dailyquest.app.data.proof.proofStatusLabel
 import com.dailyquest.app.navigation.LocalNav
 import com.dailyquest.app.navigation.Routes
 import com.dailyquest.app.navigation.backOrHome
@@ -68,7 +69,7 @@ fun MissionDetailScreen(roomId: Long, viewModel: MissionDetailViewModel) {
 private fun DetailBody(d: MissionDetail, routeRoomId: Long, myUserId: Long?, now: Long, error: String?) {
     val nav = LocalNav.current
     val m = d.mission
-    val state = m.state(myUserId, now)
+    val state = m.state(myUserId, now, rejected = d.hasMyRejectedProof(myUserId))
     Txt(m.originLabel(myUserId), size = 12f, color = DQColors.Muted)
     Txt(m.content, size = 20f, weight = Bold, modifier = Modifier.padding(top = 6.dp))
     DqCard(Modifier.padding(top = 16.dp).fillMaxWidth(), radius = 16.dp, soft = true) {
@@ -88,18 +89,18 @@ private fun DetailBody(d: MissionDetail, routeRoomId: Long, myUserId: Long?, now
         FieldLabel("인증 현황")
         d.proofs.forEach {
             Txt(
-                "${it.user.nickname} · ${it.status}", size = 12.5f,
+                "${it.user.nickname} · ${proofStatusLabel(it.status)}", size = 12.5f,
                 modifier = Modifier.clickable { nav.navigate(Routes.proofDetail(it.proofId, m.roomId)) }.padding(start = 4.dp, bottom = 8.dp, top = 2.dp)
                     .testTag("missionProof-${it.proofId}"),
             )
         }
     }
     if (error != null) Txt(error, size = 11.5f, color = DQColors.Orange, modifier = Modifier.padding(top = 10.dp))
-    val rejected = d.proofs.any { it.user.userId == myUserId && it.status.equals("REJECTED", ignoreCase = true) }
     when {
-        state == MissionState.DOABLE -> {
-            if (rejected) Txt("이전 인증이 거절됐어요. 다시 인증할 수 있어요.", size = 12f, color = DQColors.Muted, modifier = Modifier.padding(top = 16.dp).testTag("missionReproofHint"))
-            Btn("인증하기", Modifier.padding(top = 16.dp).fillMaxWidth().height(50.dp).testTag("missionProofAction")) {
+        state == MissionState.DOABLE || state == MissionState.RESUBMIT_NEEDED -> {
+            val again = state == MissionState.RESUBMIT_NEEDED
+            if (again) Txt("이전 인증이 거절됐어요. 다시 인증할 수 있어요.", size = 12f, color = DQColors.Muted, modifier = Modifier.padding(top = 16.dp).testTag("missionReproofHint"))
+            Btn(if (again) "다시 인증하기" else "인증하기", Modifier.padding(top = 16.dp).fillMaxWidth().height(50.dp).testTag("missionProofAction")) {
                 nav.navigate(Routes.proofSubmit(m.missionId, m.roomId))
             }
         }

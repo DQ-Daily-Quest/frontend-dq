@@ -36,6 +36,7 @@ import com.dailyquest.app.data.mission.MissionType
 import com.dailyquest.app.data.proof.ProofDetail
 import com.dailyquest.app.data.proof.ProofMediaType
 import com.dailyquest.app.data.proof.ProofStatus
+import com.dailyquest.app.data.proof.proofStatusLabel
 import com.dailyquest.app.data.proof.VoteChoice
 import com.dailyquest.app.navigation.LocalNav
 import com.dailyquest.app.navigation.backOrHome
@@ -49,13 +50,7 @@ import com.dailyquest.app.ui.components.NavHeader
 import com.dailyquest.app.ui.components.Txt
 import com.dailyquest.app.ui.theme.DQColors
 
-fun ProofStatus.label(): String = when (this) {
-    ProofStatus.PENDING -> "승인 대기 중"
-    ProofStatus.APPROVED -> "승인 완료"
-    ProofStatus.REJECTED -> "거절됨"
-    ProofStatus.EXPIRED -> "기간 만료"
-    ProofStatus.UNKNOWN -> "확인 필요"
-}
+fun ProofStatus.label(): String = proofStatusLabel(this)
 
 /** 인증 상세 — 서버 GET /proofs/{id}가 주는 정보만 표시하고, 승인·거절 버튼은 서버가 허용할 때만 보인다. */
 @Composable
