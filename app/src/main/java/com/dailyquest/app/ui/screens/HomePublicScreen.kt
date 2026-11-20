@@ -42,7 +42,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dailyquest.app.R
 import com.dailyquest.app.data.model.Room
-import com.dailyquest.app.data.mock.MockRoomData
+import com.dailyquest.app.data.room.RoomSort
+import com.dailyquest.app.ui.room.LocalPublicRooms
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dailyquest.app.navigation.LocalNav
 import com.dailyquest.app.navigation.Routes
 import com.dailyquest.app.ui.components.Black
@@ -86,51 +88,15 @@ private data class PublicRoom(
     val story: Boolean
 )
 
-// 공통 Room 데이터를 공개방 카드 데이터로 변환
-private fun createPublicRooms(
-    rooms: List<Room>
-): List<PublicRoom> {
+private val HOUSES = listOf(
+    R.drawable.img_house_1, R.drawable.img_house_2, R.drawable.img_house_3, R.drawable.img_house_4
+)
 
-    return rooms.map { room ->
-
-        when (room.roomId) {
-            5L -> PublicRoom(
-                room,
-                R.drawable.img_house_1,
-                R.drawable.img_avatar_story_sm_1,
-                true
-            )
-
-            6L -> PublicRoom(
-                room,
-                R.drawable.img_house_2,
-                R.drawable.img_avatar_boy,
-                false
-            )
-
-            7L -> PublicRoom(
-                room,
-                R.drawable.img_house_3,
-                R.drawable.img_avatar_story_sm_2,
-                true
-            )
-
-            8L -> PublicRoom(
-                room,
-                R.drawable.img_house_4,
-                R.drawable.img_avatar_boy,
-                false
-            )
-
-            else -> PublicRoom(
-                room,
-                R.drawable.img_house_1,
-                R.drawable.img_avatar_boy,
-                false
-            )
-        }
+// 서버가 집 이미지·방장 아바타를 내려주지 않으므로 roomId로 기본 집 이미지를 고른다.
+private fun createPublicRooms(rooms: List<Room>): List<PublicRoom> =
+    rooms.map { room ->
+        PublicRoom(room, HOUSES[Math.floorMod(room.roomId, HOUSES.size.toLong()).toInt()], R.drawable.img_avatar_boy, false)
     }
-}
 
 /** 02 · 홈 · 공개 (다른 마을 구경) */
 @Composable
@@ -138,53 +104,17 @@ fun HomePublicScreen() {
 
     val nav = LocalNav.current
 
-    var filter by remember {
-        mutableStateOf("인기")
-    }
+    val vm = LocalPublicRooms.current
+    val ui by vm.ui.collectAsStateWithLifecycle()
+    val filter = if (ui.sort == RoomSort.NEWEST) "신규" else "인기"
+    val query = ui.keyword
 
-    var query by remember {
-        mutableStateOf("")
-    }
-
-    // 미참여 방을 선택했을 때 표시할 미리보기
+    // 미참여 방을 선택했을 때 표시할 미리보기 (서버 목록 데이터만 사용)
     var selectedRoom by remember {
         mutableStateOf<Room?>(null)
     }
 
-    var joinError by remember { mutableStateOf<String?>(null) }
-
-    // 공개방 목록 조회
-    val publicRooms = createPublicRooms(
-        MockRoomData.publicRooms
-    )
-
-    // 검색 및 정렬 처리
-    val filteredRooms = publicRooms
-        .filter { item ->
-            query.isBlank() ||
-                    item.room.name.contains(
-                        query.trim(),
-                        ignoreCase = true
-                    )
-        }
-        .let { rooms ->
-            when (filter) {
-
-                // 현재 백엔드의 임시 인기 기준과 동일하게
-                // 멤버 수 기준으로 정렬
-                "인기" -> rooms.sortedByDescending {
-                    it.room.memberCount
-                }
-
-                // 현재 Mock 데이터에서는 ID를
-                // 임시 생성 순서로 사용
-                "신규" -> rooms.sortedByDescending {
-                    it.room.roomId
-                }
-
-                else -> rooms
-            }
-        }
+    val publicRooms = createPublicRooms(ui.rooms)
 
     DqScreen(statusBarPadding = false) {
 
@@ -257,9 +187,7 @@ fun HomePublicScreen() {
 
                             BasicTextField(
                                 value = query,
-                                onValueChange = {
-                                    query = it
-                                },
+                                onValueChange = vm::setKeyword,
                                 singleLine = true,
                                 textStyle = TextStyle(
                                     fontFamily = NotoSansKr,
@@ -282,7 +210,7 @@ fun HomePublicScreen() {
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             FILTERS.forEach { f ->
-                                Chip(f, f == filter) { filter = f }
+                                Chip(f, f == filter) { vm.setSort(if (f == "신규") RoomSort.NEWEST else RoomSort.POPULARITY) }
                             }
                         }
                         Btn("+ 방 만들기", Modifier.height(34.dp).width(104.dp), size = 12f) {
@@ -404,60 +332,57 @@ fun HomePublicScreen() {
                         )
                     )
 
-                    // 검색 결과가 없는 경우
-                    if (filteredRooms.isEmpty()) {
+                    when {
+                        ui.initialLoading -> StatusText("공개방을 불러오는 중이에요.")
 
-                        Box(
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 40.dp),
-                            contentAlignment = Alignment.Center
+                        ui.error != null && publicRooms.isEmpty() -> Column(
+                            Modifier.fillMaxWidth().padding(vertical = 32.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            Txt(
-                                "검색 결과가 없습니다.",
-                                size = 14f,
-                                color = DQColors.Muted
-                            )
+                            Txt(ui.error ?: "", size = 14f, color = DQColors.Muted)
+                            Btn("다시 시도", Modifier.height(36.dp).width(110.dp), size = 12f) { vm.retry() }
                         }
 
-                    } else {
+                        ui.isEmptyForSearch -> StatusText("검색 결과가 없습니다.")
 
-                        filteredRooms.chunked(2).forEach { row ->
+                        ui.isEmptyOverall -> StatusText("아직 공개된 방이 없어요.")
 
-                            Row(
-                                Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 10.dp),
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-
-                                row.forEach { item ->
-
-                                    PublicRoomCard(
-                                        item,
-                                        Modifier.weight(1f)
-                                    ) {
-                                        if (item.room.joined) {
-
-                                            // 이미 참여한 방은 바로 입장
-                                            nav.navigate(
-                                                Routes.room(
-                                                    item.room.roomId
-                                                )
-                                            )
-
-                                        } else {
-
-                                            // 미참여 방은 미리보기 표시
-                                            joinError = null
+                        else -> {
+                            ui.error?.let { msg ->
+                                Txt(msg, size = 12f, color = DQColors.Orange, modifier = Modifier.padding(top = 8.dp, start = 4.dp))
+                            }
+                            publicRooms.chunked(2).forEach { row ->
+                                Row(
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 10.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    row.forEach { item ->
+                                        // 방 상세·참여는 아직 서버 연동 전이므로 미리보기만 연다.
+                                        PublicRoomCard(item, Modifier.weight(1f)) {
                                             selectedRoom = item.room
                                         }
                                     }
+                                    // 홀수 개의 방이 있어도 카드 크기 유지
+                                    if (row.size == 1) {
+                                        Spacer(Modifier.weight(1f))
+                                    }
                                 }
-
-                                // 홀수 개의 방이 있어도 카드 크기 유지
-                                if (row.size == 1) {
-                                    Spacer(Modifier.weight(1f))
+                            }
+                            when {
+                                ui.loadingMore -> StatusText("불러오는 중…")
+                                ui.loadMoreError != null -> Column(
+                                    Modifier.fillMaxWidth().padding(top = 12.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Txt(ui.loadMoreError ?: "", size = 12f, color = DQColors.Orange)
+                                    Btn("다시 시도", Modifier.height(34.dp).width(110.dp), size = 12f) { vm.loadMore() }
+                                }
+                                ui.hasNext -> Box(Modifier.fillMaxWidth().padding(top = 14.dp), contentAlignment = Alignment.Center) {
+                                    Btn("더 보기", Modifier.height(36.dp).width(110.dp), size = 12f) { vm.loadMore() }
                                 }
                             }
                         }
@@ -470,75 +395,37 @@ fun HomePublicScreen() {
     }
 
     // 공개방 상세 미리보기
-    selectedRoom?.let { selected ->
-        val room = MockRoomData.getRoomById(selected.roomId) ?: selected
-
+    selectedRoom?.let { room ->
         AlertDialog(
-            onDismissRequest = {
-                selectedRoom = null
-            },
-
-            title = {
-                Text(room.name)
-            },
-
+            onDismissRequest = { selectedRoom = null },
+            title = { Text(room.name) },
             text = {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("공개 마을")
-
-                    Text(
-                        "멤버 ${room.memberCount}/${room.maxMembers}명"
-                    )
-
+                    Text("멤버 ${room.memberCount}/${room.maxMembers}명")
                     Text(
                         room.description
                             ?.takeIf { it.isNotBlank() }
                             ?: "친구들과 함께 미션을 수행하는 마을입니다."
                     )
-
-                    Text(
-                        if (room.memberCount >= room.maxMembers.toLong()) {
-                            "현재 정원이 가득 찼습니다."
-                        } else {
-                            "참여하면 우리만 지도에 방이 추가됩니다."
-                        }
-                    )
-                    joinError?.let { Text(it, color = DQColors.Orange) }
+                    Text("방 참여와 상세 보기는 아직 서버와 연결되지 않았어요. 곧 사용할 수 있어요.", color = DQColors.Muted)
                 }
             },
-
             confirmButton = {
-                TextButton(
-                    enabled = room.joined || room.memberCount < room.maxMembers.toLong(),
-                    onClick = {
-                        when (val result = MockRoomData.joinPublicRoom(room.roomId)) {
-                            is MockRoomData.JoinResult.Success -> {
-                                selectedRoom = null
-                                nav.navigate(Routes.room(result.room.roomId)) { launchSingleTop = true }
-                            }
-                            is MockRoomData.JoinResult.Failure -> joinError = result.message
-                        }
-                    }
-                ) {
+                TextButton(enabled = false, onClick = {}) {
                     Text(if (room.joined) "입장하기" else "참여하기")
                 }
             },
-
-            dismissButton = {
-                TextButton(
-                    onClick = {
-                        selectedRoom = null
-                    }
-                ) {
-                    Text("닫기")
-                }
-            },
-
+            dismissButton = { TextButton(onClick = { selectedRoom = null }) { Text("닫기") } },
             containerColor = DQColors.White
         )
+    }
+}
+
+@Composable
+private fun StatusText(text: String) {
+    Box(Modifier.fillMaxWidth().padding(vertical = 40.dp), contentAlignment = Alignment.Center) {
+        Txt(text, size = 14f, color = DQColors.Muted)
     }
 }
 
