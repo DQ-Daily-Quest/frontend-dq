@@ -1,17 +1,30 @@
 package com.dailyquest.app.data.remote
 
+import com.dailyquest.app.data.remote.dto.CreateRoomRequest
+import com.dailyquest.app.data.remote.dto.CreateRoomResponse
+import com.dailyquest.app.data.remote.dto.InviteCodeDto
+import com.dailyquest.app.data.remote.dto.JoinByCodeRequest
 import com.dailyquest.app.data.remote.dto.LoginRequest
 import com.dailyquest.app.data.remote.dto.OAuthLoginRequest
+import com.dailyquest.app.data.remote.dto.PageDto
 import com.dailyquest.app.data.remote.dto.RefreshRequest
+import com.dailyquest.app.data.remote.dto.RoomDetailDto
+import com.dailyquest.app.data.remote.dto.RoomMemberDto
+import com.dailyquest.app.data.remote.dto.RoomSummaryDto
+import com.dailyquest.app.data.remote.dto.TransferOwnerRequest
+import com.dailyquest.app.data.remote.dto.UpdateRoomRequest
 import com.dailyquest.app.data.remote.dto.SignupRequest
 import com.dailyquest.app.data.remote.dto.SignupResponse
 import com.dailyquest.app.data.remote.dto.TokenResponse
 import com.dailyquest.app.data.remote.dto.UserMeResponse
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.Headers
+import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.Path
+import retrofit2.http.Query
 
 /** 경로는 Base URL 뒤에 붙으므로 앞에 '/'를 쓰지 않는다. */
 interface DqApi {
@@ -38,6 +51,58 @@ interface DqApi {
 
     @GET("users/me")
     suspend fun me(): UserMeResponse
+
+    // ---- 방 관리 (모두 Bearer 필요). 정적 경로(mine, join)는 {roomId} 경로와 겹치지 않게 선언한다. ----
+
+    /** sort: popularity,desc(기본) | createdAt,desc. 서버는 size를 1~100으로 보정한다. */
+    @GET("rooms")
+    suspend fun listPublicRooms(
+        @Query("keyword") keyword: String? = null,
+        @Query("sort") sort: String? = null,
+        @Query("page") page: Int = 0,
+        @Query("size") size: Int = 20,
+    ): PageDto<RoomSummaryDto>
+
+    /** 페이지네이션 없는 전체 배열. */
+    @GET("rooms/mine")
+    suspend fun listMyRooms(): List<RoomSummaryDto>
+
+    @GET("rooms/{roomId}")
+    suspend fun getRoom(@Path("roomId") roomId: Long): RoomDetailDto
+
+    @GET("rooms/{roomId}/members")
+    suspend fun listRoomMembers(@Path("roomId") roomId: Long): List<RoomMemberDto>
+
+    /** 성공 201. */
+    @POST("rooms")
+    suspend fun createRoom(@Body body: CreateRoomRequest): CreateRoomResponse
+
+    @POST("rooms/{roomId}/join")
+    suspend fun joinPublicRoom(@Path("roomId") roomId: Long): RoomDetailDto
+
+    @POST("rooms/join")
+    suspend fun joinRoomByCode(@Body body: JoinByCodeRequest): RoomDetailDto
+
+    @PATCH("rooms/{roomId}")
+    suspend fun updateRoom(@Path("roomId") roomId: Long, @Body body: UpdateRoomRequest): RoomDetailDto
+
+    /** 성공 204. */
+    @DELETE("rooms/{roomId}")
+    suspend fun deleteRoom(@Path("roomId") roomId: Long)
+
+    /** 성공 204. */
+    @DELETE("rooms/{roomId}/leave")
+    suspend fun leaveRoom(@Path("roomId") roomId: Long)
+
+    @POST("rooms/{roomId}/invite-code")
+    suspend fun regenerateInviteCode(@Path("roomId") roomId: Long): InviteCodeDto
+
+    /** 성공 204. */
+    @DELETE("rooms/{roomId}/members/{userId}")
+    suspend fun kickMember(@Path("roomId") roomId: Long, @Path("userId") userId: Long)
+
+    @POST("rooms/{roomId}/transfer-owner")
+    suspend fun transferOwner(@Path("roomId") roomId: Long, @Body body: TransferOwnerRequest): RoomDetailDto
 
     companion object {
         /** 이 헤더가 있는 요청에는 Bearer를 붙이지 않고 토큰 갱신도 하지 않는다. 전송 전에 제거된다. */
