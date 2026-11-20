@@ -65,7 +65,7 @@ private val ITEMS = listOf(
 
 /** 08 · 쇼핑 (아바타 · 우리 집) */
 @Composable
-fun ShopScreen() = AvatarShopContent()
+fun ShopScreen(startOwned: Boolean = false) = AvatarShopContent(startOwned)
 
 /** 16 · B5 쇼핑 */
 @Composable

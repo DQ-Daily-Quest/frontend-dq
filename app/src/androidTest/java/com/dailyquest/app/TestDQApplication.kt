@@ -5,6 +5,9 @@ import com.dailyquest.app.data.auth.InMemoryTokenStore
 import com.dailyquest.app.data.auth.TokenPair
 import com.dailyquest.app.data.remote.DqApi
 import com.dailyquest.app.data.remote.dto.ApprovalDto
+import com.dailyquest.app.data.remote.dto.ChangePasswordRequest
+import com.dailyquest.app.data.remote.dto.UpdateMeRequest
+import com.dailyquest.app.data.remote.dto.WithdrawRequest
 import com.dailyquest.app.data.remote.dto.CoinTransactionDto
 import com.dailyquest.app.data.remote.dto.ItemDto
 import com.dailyquest.app.data.remote.dto.MyItemDto
@@ -65,7 +68,27 @@ class TestDQApplication : DQApplication() {
         override suspend fun oauthLogin(provider: String, body: OAuthLoginRequest): TokenResponse = error("not used")
         override suspend fun refresh(body: RefreshRequest): TokenResponse = error("not used")
         override suspend fun logout() = Unit
-        override suspend fun me() = UserMeResponse(userId = 1, email = "ui-test@example.com", nickname = "uitest", coins = TestShopCalls.coins)
+        private fun meResponse() = UserMeResponse(
+            userId = 1, email = "ui-test@example.com", nickname = TestProfileCalls.nickname, coins = TestShopCalls.coins,
+            streak = com.dailyquest.app.data.remote.dto.StreakDto(current = 3, longest = 8),
+            stats = com.dailyquest.app.data.remote.dto.UserStatsDto(roomCount = 2, completedMissionCount = 11),
+            createdAt = "2025-03-04T01:02:03Z",
+        )
+        override suspend fun updateMe(body: UpdateMeRequest): UserMeResponse {
+            TestProfileCalls.updates += body.nickname
+            if (body.nickname == TestProfileCalls.TAKEN) throw http(409, "DUPLICATE_NICKNAME")
+            TestProfileCalls.nickname = body.nickname
+            return meResponse()
+        }
+        override suspend fun changePassword(body: ChangePasswordRequest) {
+            TestProfileCalls.passwordCalls += body.newPassword
+            TestProfileCalls.passwordFailure?.let { throw it }
+        }
+        override suspend fun withdraw(body: WithdrawRequest) {
+            TestProfileCalls.withdrawCalls += (body.password ?: "<none>")
+            TestProfileCalls.withdrawFailure?.let { throw it }
+        }
+        override suspend fun me() = meResponse()
 
         // 방 API는 아직 화면에서 사용하지 않는다(Mock UI 유지). 호출되면 테스트가 실패하도록 한다.
         override suspend fun listPublicRooms(keyword: String?, sort: String?, page: Int, size: Int): PageDto<RoomSummaryDto> = PageDto(
@@ -325,6 +348,22 @@ class TestDQApplication : DQApplication() {
     }
 }
 
+/** 프로필·계정 관리 FakeApi 상태. 실제 서버에는 어떤 변경 요청도 보내지 않는다. */
+object TestProfileCalls {
+    const val TAKEN = "사용중닉"
+    @Volatile var nickname = "uitest"
+    val updates: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
+    val passwordCalls: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
+    val withdrawCalls: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
+    @Volatile var passwordFailure: Throwable? = null
+    @Volatile var withdrawFailure: Throwable? = null
+
+    fun reset() {
+        nickname = "uitest"; updates.clear(); passwordCalls.clear(); withdrawCalls.clear()
+        passwordFailure = null; withdrawFailure = null
+    }
+}
+
 /** 상점·인벤토리·코인 내역을 흉내 내는 가짜 서버. 서버처럼 소유·잔액·거래를 직접 갱신하며 테스트 후 reset()으로 비운다. */
 object TestShopCalls {
     class Stock(val itemId: Long, val name: String, val type: String, val category: String, val price: Int, val imageUrl: String? = null, val isDefault: Boolean = false)
@@ -448,7 +487,7 @@ object TestRoomCalls {
         calls.clear(); joined.clear(); left.clear(); gone.clear(); kicked.clear(); transferred.clear()
         renamed.clear(); describedAs.clear(); maxOverride.clear(); publicOverride.clear(); inviteOverride.clear()
         mutationFailure = null; lastUpdate = null
-        TestMissionCalls.reset(); TestProofCalls.reset(); TestShopCalls.reset()
+        TestMissionCalls.reset(); TestProofCalls.reset(); TestShopCalls.reset(); TestProfileCalls.reset()
     }
     /** 방 참여·관리 FakeApi 상태. 서버 응답을 흉내 내는 상태이며 테스트 후 reset()으로 비운다. */
     val calls: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())

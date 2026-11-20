@@ -76,6 +76,13 @@ fun LoginScreen() {
     var email by remember { mutableStateOf("") }
     var pw by remember { mutableStateOf("") }
     var showPw by remember { mutableStateOf(false) }
+    val session by auth.session.collectAsStateWithLifecycle()
+    val logoutNotice = when ((session as? com.dailyquest.app.data.auth.SessionState.Unauthenticated)?.reason) {
+        com.dailyquest.app.data.auth.LogoutReason.PASSWORD_CHANGED -> "비밀번호가 변경되었어요. 새 비밀번호로 다시 로그인해 주세요."
+        com.dailyquest.app.data.auth.LogoutReason.WITHDRAWN -> "회원 탈퇴가 완료됐어요."
+        com.dailyquest.app.data.auth.LogoutReason.WITHDRAW_UNCONFIRMED -> "탈퇴 처리 결과를 확인하지 못했어요. 로그인되면 탈퇴되지 않은 것이고, 로그인되지 않으면 탈퇴가 처리됐을 수 있어요."
+        else -> null
+    }
 
     DqScreen(statusBarPadding = false) {
         Column(Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 32.dp)) {
@@ -110,7 +117,7 @@ fun LoginScreen() {
                     leading = R.drawable.ic_lock_gray, shadow = true,
                     trailing = { DqIcon(R.drawable.ic_eye, 20.dp, Modifier.clip(CircleShape).clickable { showPw = !showPw }) },
                 )
-                FormMessage(ui.error, ui.notice)
+                FormMessage(ui.error, ui.notice ?: logoutNotice)
                 Btn(
                     if (ui.loading) "로그인 중…" else "로그인",
                     Modifier.padding(top = 18.dp).fillMaxWidth().height(54.dp), size = 16f, enabled = !ui.loading,

@@ -32,3 +32,15 @@ data class UserMeResponse(
     val stats: UserStatsDto = UserStatsDto(),
     val createdAt: String? = null,
 )
+
+/** PATCH /users/me. 닉네임만 보낸다(avatar 슬롯은 STEP 9에서 다루며, 보내지 않으면 서버가 그대로 둔다). */
+@Serializable
+data class UpdateMeRequest(val nickname: String)
+
+/** PATCH /users/me/password (성공 204, 서버가 모든 Refresh Token을 폐기한다) */
+@Serializable
+data class ChangePasswordRequest(val currentPassword: String, val newPassword: String)
+
+/** DELETE /users/me 본문. 비밀번호가 있는 계정만 password가 필요하다. */
+@Serializable
+data class WithdrawRequest(val password: String? = null)

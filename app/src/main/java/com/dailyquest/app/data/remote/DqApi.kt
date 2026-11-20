@@ -30,11 +30,15 @@ import com.dailyquest.app.data.remote.dto.UpdateRoomRequest
 import com.dailyquest.app.data.remote.dto.SignupRequest
 import com.dailyquest.app.data.remote.dto.SignupResponse
 import com.dailyquest.app.data.remote.dto.TokenResponse
+import com.dailyquest.app.data.remote.dto.ChangePasswordRequest
+import com.dailyquest.app.data.remote.dto.UpdateMeRequest
 import com.dailyquest.app.data.remote.dto.UserMeResponse
+import com.dailyquest.app.data.remote.dto.WithdrawRequest
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
 import okhttp3.MultipartBody
+import retrofit2.http.HTTP
 import retrofit2.http.Headers
 import retrofit2.http.Multipart
 import retrofit2.http.Part
@@ -68,6 +72,21 @@ interface DqApi {
 
     @GET("users/me")
     suspend fun me(): UserMeResponse
+
+    /** 닉네임 수정. 멱등하지만 응답 유실 시 결과를 재조회로 확인하므로 자동 재전송은 끈다. */
+    @Headers("X-DQ-No-Retry: true")
+    @PATCH("users/me")
+    suspend fun updateMe(@Body body: UpdateMeRequest): UserMeResponse
+
+    /** 성공 204. 서버가 모든 기기의 Refresh Token을 폐기한다. */
+    @Headers("X-DQ-No-Retry: true")
+    @PATCH("users/me/password")
+    suspend fun changePassword(@Body body: ChangePasswordRequest)
+
+    /** 성공 204. Retrofit의 @DELETE는 본문을 허용하지 않아 @HTTP를 사용한다. */
+    @Headers("X-DQ-No-Retry: true")
+    @HTTP(method = "DELETE", path = "users/me", hasBody = true)
+    suspend fun withdraw(@Body body: WithdrawRequest)
 
     // ---- 방 관리 (모두 Bearer 필요). 정적 경로(mine, join)는 {roomId} 경로와 겹치지 않게 선언한다. ----
 

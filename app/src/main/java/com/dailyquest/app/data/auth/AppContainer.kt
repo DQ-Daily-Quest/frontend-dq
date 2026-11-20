@@ -7,6 +7,7 @@ import com.dailyquest.app.data.shop.InventoryRepository
 import com.dailyquest.app.data.shop.ShopRepository
 import com.dailyquest.app.data.remote.DqApi
 import com.dailyquest.app.data.mission.MissionRepository
+import com.dailyquest.app.data.profile.ProfileRepository
 import com.dailyquest.app.data.proof.ProofRepository
 import com.dailyquest.app.data.proof.ProofSync
 import com.dailyquest.app.data.proof.UploadRepository
@@ -34,6 +35,7 @@ class AppContainer(
         session.expire(LogoutReason.EXPIRED)
     }
     val authRepository = AuthRepository(api, tokens, session, socialClients)
+    val profileRepository = ProfileRepository(api, session, authRepository)
     val roomRepository = RoomRepository(api)
     val missionRepository = MissionRepository(api)
     val proofRepository = ProofRepository(api)

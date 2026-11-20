@@ -94,12 +94,25 @@ class AuthRepository(
         session.expire(LogoutReason.USER)
     }
 
-    suspend fun refreshProfile(): ApiResult<UserProfile> = when (val r = apiCall { api.me() }) {
-        is ApiResult.Success -> {
-            val profile = r.value.toProfile()
-            session.markAuthenticated(profile)
-            ApiResult.Success(profile)
+    /**
+     * 서버가 이미 세션을 끝낸 경우(비밀번호 변경으로 Refresh Token 폐기, 회원 탈퇴)의 로컬 정리.
+     * 서버 로그아웃은 호출하지 않고 토큰·SDK 상태·사용자별 메모리 데이터만 지운다.
+     */
+    suspend fun endSession(reason: LogoutReason) = mutex.withLock {
+        socialClients.values.forEach { runCatching { it.signOut() } }
+        session.expire(reason)
+    }
+
+    /** 응답은 요청 시점의 사용자에게만 반영한다. 그 사이 다른 계정으로 바뀌었다면 늦은 응답은 버린다. */
+    suspend fun refreshProfile(): ApiResult<UserProfile> {
+        val expected = session.currentUserId()
+        return when (val r = apiCall { api.me() }) {
+            is ApiResult.Success -> {
+                val profile = r.value.toProfile()
+                if (expected == null) session.markAuthenticated(profile) else session.applyProfileIfCurrent(expected, profile)
+                ApiResult.Success(profile)
+            }
+            is ApiResult.Failure -> r
         }
-        is ApiResult.Failure -> r
     }
 }

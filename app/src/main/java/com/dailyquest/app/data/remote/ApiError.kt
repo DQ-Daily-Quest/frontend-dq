@@ -47,6 +47,9 @@ object ApiErrorCode {
     const val ITEM_NOT_FOUND = "ITEM_NOT_FOUND"
     const val ITEM_ALREADY_OWNED = "ITEM_ALREADY_OWNED"
     const val INSUFFICIENT_COINS = "INSUFFICIENT_COINS"
+    const val NO_PASSWORD_SET = "NO_PASSWORD_SET"
+    const val OWNER_MUST_TRANSFER = "OWNER_MUST_TRANSFER"
+    const val USER_NOT_FOUND = "USER_NOT_FOUND"
 }
 
 sealed class ApiException(message: String?, cause: Throwable? = null) : Exception(message, cause) {

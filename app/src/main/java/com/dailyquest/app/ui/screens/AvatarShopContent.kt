@@ -55,7 +55,7 @@ private fun InventoryItem.toCard() = ShopCardData(itemId, name, imageUrl, true, 
  * 코인과 보유 여부는 서버 응답만 사용하며, 아바타 착용·가구 배치는 이후 단계에서 제공한다.
  */
 @Composable
-fun AvatarShopContent() {
+fun AvatarShopContent(startOwned: Boolean = false) {
     val context = LocalContext.current
     val nav = LocalNav.current
     val shopVm = LocalShop.current
@@ -65,7 +65,8 @@ fun AvatarShopContent() {
     val purchaseVersion by shopVm.purchaseVersion.collectAsStateWithLifecycle()
     val session by LocalAuth.current.session.collectAsStateWithLifecycle()
     val coins = (session as? SessionState.Authenticated)?.profile?.coins ?: 0
-    var ownedOnly by rememberSaveable { mutableStateOf(false) }
+    var ownedOnly by rememberSaveable { mutableStateOf(startOwned) }
+    LaunchedEffect(Unit) { if (startOwned) invVm.refresh() }
 
     // 구매가 확정되면 인벤토리를 다시 조회한다(첫 값은 건너뛴다).
     LaunchedEffect(purchaseVersion) { if (purchaseVersion > 0) invVm.refresh() }
@@ -80,11 +81,7 @@ fun AvatarShopContent() {
         Column(Modifier.fillMaxSize()) {
             Row(Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Txt("꾸미기", size = 26f, weight = Black, modifier = Modifier.weight(1f))
-                CoinPill(
-                    amount = coins,
-                    modifier = Modifier.testTag("shopCoin").clickable { nav.navigate(Routes.COIN_HISTORY) { launchSingleTop = true } },
-                    onPlus = { nav.navigate(Routes.COIN_HISTORY) { launchSingleTop = true } },
-                )
+                SessionCoinPill("shopCoin")
             }
             Column(Modifier.padding(horizontal = 16.dp).padding(top = 8.dp)) {
                 Row(Modifier.fillMaxWidth().height(42.dp).background(DQColors.Soft, RoundedCornerShape(21.dp)).padding(4.dp)) {

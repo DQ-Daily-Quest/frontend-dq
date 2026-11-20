@@ -73,8 +73,7 @@ fun HomeHeader(scope: Scope, variantB: Boolean = false) {
                     }
                 }
                 // 실제 서버 코인. 쇼핑(Mock)의 가짜 잔액과 섞지 않는다.
-                val session by LocalAuth.current.session.collectAsStateWithLifecycle()
-                CoinPill(amount = (session as? SessionState.Authenticated)?.profile?.coins ?: 0)
+                SessionCoinPill("homeCoin")
             }
         }
         if (!variantB) {
