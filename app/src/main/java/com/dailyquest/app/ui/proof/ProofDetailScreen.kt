@@ -130,17 +130,10 @@ private fun Body(d: ProofDetail, myUserId: Long?, error: String?) {
         ProofMediaType.IMAGE -> RemoteImage(
             p.mediaUrl, Modifier.padding(top = 14.dp).fillMaxWidth().height(300.dp).clip(RoundedCornerShape(20.dp)).background(DQColors.Soft).testTag("proofImage"),
         )
-        ProofMediaType.VIDEO -> Column(Modifier.padding(top = 14.dp)) {
-            RemoteImage(
-                p.thumbnailUrl, Modifier.fillMaxWidth().height(240.dp).clip(RoundedCornerShape(20.dp)).background(DQColors.Soft).testTag("proofVideoThumb"),
-                placeholder = "영상 인증이에요",
-            )
-            Btn("영상 보기", Modifier.padding(top = 8.dp).fillMaxWidth().height(42.dp), BtnStyle.Soft, size = 13f, enabled = !p.mediaUrl.isNullOrBlank()) {
-                try {
-                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(p.mediaUrl)).setDataAndType(Uri.parse(p.mediaUrl), "video/*"))
-                } catch (_: ActivityNotFoundException) { }
-            }
-        }
+        ProofMediaType.VIDEO -> VideoProofView(
+            p.mediaUrl, Modifier.padding(top = 14.dp).fillMaxWidth().height(300.dp).clip(RoundedCornerShape(20.dp)),
+            fallbackThumbUrl = p.thumbnailUrl, tag = "proofVideo",
+        )
     }
     if (!p.text.isNullOrBlank()) {
         DqCard(Modifier.padding(top = 12.dp).fillMaxWidth(), radius = 14.dp, soft = true) {

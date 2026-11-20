@@ -2,7 +2,6 @@ package com.dailyquest.app.ui.proof
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.media.MediaMetadataRetriever
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -127,31 +126,30 @@ fun ProofSubmitScreen(missionId: Long, roomId: Long, viewModel: ProofSubmitViewM
 
 @Composable
 private fun MediaPreview(media: PreparedMedia) {
+    val shape = RoundedCornerShape(22.dp)
+    if (media.type == ProofMediaType.VIDEO) {
+        VideoProofView(
+            media.file.path, Modifier.fillMaxWidth().height(282.dp).clip(shape).border(1.dp, DQColors.Line, shape).testTag("proofPreview"),
+            knownDurationMs = media.durationMs, tag = "proofPreviewVideo",
+        )
+        return
+    }
     val thumb by produceState<Bitmap?>(null, media.file) {
         value = withContext(Dispatchers.IO) { runCatching { decodePreview(media) }.getOrNull() }
     }
     Box(
-        Modifier.fillMaxWidth().height(282.dp).clip(RoundedCornerShape(22.dp)).background(DQColors.White)
-            .border(1.dp, DQColors.Line, RoundedCornerShape(22.dp)).testTag("proofPreview"),
+        Modifier.fillMaxWidth().height(282.dp).clip(shape).background(DQColors.White)
+            .border(1.dp, DQColors.Line, shape).testTag("proofPreview"),
         contentAlignment = Alignment.Center,
     ) {
-        val b = thumb
-        if (b != null) Image(b.asImageBitmap(), "선택한 미디어 미리보기", Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-        if (media.type == ProofMediaType.VIDEO) {
-            val sec = media.durationMs?.let { "%.1f초".format(it / 1000f) }.orEmpty()
-            Txt("▶ 영상 $sec", size = 14f, weight = Bold, color = if (b != null) DQColors.White else DQColors.Ink)
-        }
+        thumb?.let { Image(it.asImageBitmap(), "선택한 미디어 미리보기", Modifier.fillMaxSize(), contentScale = ContentScale.Crop) }
     }
 }
 
-private fun decodePreview(media: PreparedMedia): Bitmap? =
-    if (media.type == ProofMediaType.IMAGE) {
-        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        BitmapFactory.decodeFile(media.file.path, bounds)
-        var sample = 1
-        while (bounds.outWidth / sample > 1280 || bounds.outHeight / sample > 1280) sample *= 2
-        BitmapFactory.decodeFile(media.file.path, BitmapFactory.Options().apply { inSampleSize = sample })
-    } else {
-        val r = MediaMetadataRetriever()
-        try { r.setDataSource(media.file.path); r.getFrameAtTime(0) } finally { r.release() }
-    }
+private fun decodePreview(media: PreparedMedia): Bitmap? {
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    BitmapFactory.decodeFile(media.file.path, bounds)
+    var sample = 1
+    while (bounds.outWidth / sample > 1280 || bounds.outHeight / sample > 1280) sample *= 2
+    return BitmapFactory.decodeFile(media.file.path, BitmapFactory.Options().apply { inSampleSize = sample })
+}
