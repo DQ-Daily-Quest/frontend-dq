@@ -23,6 +23,11 @@ data class LoginRequest(val email: String, val password: String) {
 }
 
 @Serializable
+data class OAuthLoginRequest(val idToken: String) {
+    override fun toString() = "OAuthLoginRequest(idToken=***)"
+}
+
+@Serializable
 data class RefreshRequest(val refreshToken: String) {
     override fun toString() = "RefreshRequest(refreshToken=***)"
 }
