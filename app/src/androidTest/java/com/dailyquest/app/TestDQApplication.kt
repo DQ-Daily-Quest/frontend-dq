@@ -18,6 +18,7 @@ import com.dailyquest.app.data.remote.dto.VoteDto
 import com.dailyquest.app.data.remote.dto.CreateRoomRequest
 import com.dailyquest.app.data.remote.dto.MissionDetailDto
 import com.dailyquest.app.data.remote.dto.MissionDto
+import com.dailyquest.app.data.remote.dto.MissionProofItemDto
 import com.dailyquest.app.data.remote.dto.MissionRewardDto
 import com.dailyquest.app.data.remote.dto.MissionRoomBriefDto
 import com.dailyquest.app.data.remote.dto.MyProofDto
@@ -174,7 +175,8 @@ class TestDQApplication : DQApplication() {
                 9102L -> listOf(missionDto(8003, "APP", "서버 앱 미션 9102", proof = MyProofDto(1, "PENDING")))
                 else -> emptyList()
             }
-            return base + TestMissionCalls.created.filter { it.first == roomId }.map { it.second }
+            return (base + TestMissionCalls.created.filter { it.first == roomId }.map { it.second })
+                .map { if (it.missionId in TestMissionCalls.rejectedMissionIds) it.copy(proofCount = 1) else it }
         }
         private fun isMyRoom(roomId: Long) = roomId in 9101L..9105L && roomId !in TestRoomCalls.gone && roomId !in TestRoomCalls.left
         override suspend fun listMyMissions(): List<MyRoomMissionsDto> {
@@ -197,7 +199,8 @@ class TestDQApplication : DQApplication() {
         }
         override suspend fun getMission(missionId: Long): MissionDetailDto {
             val m = (9101L..9105L).flatMap { missionsOf(it) }.firstOrNull { it.missionId == missionId } ?: throw http(404, "MISSION_NOT_FOUND")
-            return MissionDetailDto(m.missionId, m.type, m.content, m.reward, m.createdBy, m.assignee, m.date, m.dueAt, m.myProof, m.proofCount, m.createdAt)
+            return MissionDetailDto(m.missionId, m.type, m.content, m.reward, m.createdBy, m.assignee, m.date, m.dueAt, m.myProof, m.proofCount, m.createdAt,
+                if (m.missionId in TestMissionCalls.rejectedMissionIds) listOf(MissionProofItemDto(7700 + m.missionId, RoomOwnerDto(1, "uitest"), "REJECTED")) else emptyList())
         }
         override suspend fun createMission(roomId: Long, body: CreateMissionRequest): MissionDto {
             TestMissionCalls.createRequests.add(roomId to body)
@@ -325,9 +328,11 @@ object TestProofCalls {
         calls.clear(); submitRequests.clear(); proofs.clear(); uploadFailure = null; submitFailure = null; voteFailure = null
     }
     /** 방 [roomId]의 APP 미션 [missionId]에 다른 멤버가 낸 승인 대기 인증을 시드한다. */
-    fun seedPending(proofId: Long, roomId: Long, missionId: Long, type: String = "APP", required: Int = 1, user: RoomOwnerDto = RoomOwnerDto(7, "서버방장")) {
+    fun seedPending(proofId: Long, roomId: Long, missionId: Long, type: String = "APP", required: Int = 1, user: RoomOwnerDto = RoomOwnerDto(7, "서버방장"),
+        mediaType: String = "IMAGE", status: String = "PENDING") {
         proofs[proofId] = ProofDetailDto(
-            proofId, missionId, user, "https://cdn.example/p$proofId.jpg", "https://cdn.example/p$proofId-t.jpg", "IMAGE", "오늘의 인증", "PENDING",
+            proofId, missionId, user, "https://cdn.example/p$proofId" + if (mediaType == "VIDEO") ".mp4" else ".jpg",
+            if (mediaType == "VIDEO") null else "https://cdn.example/p$proofId-t.jpg", mediaType, "오늘의 인증", status,
             ApprovalDto(0, 0, required, null, emptyList()), "2025-04-17T00:00:00Z",
             ProofMissionBriefDto(missionId, type, "서버 앱 미션 $roomId"), ProofRoomRefDto(roomId, "서버 내 방 ${roomId - 9100}"),
         )
@@ -342,10 +347,12 @@ object TestMissionCalls {
     @Volatile var noRooms = false
     /** false(기본)면 서버 미션이 없는 상태로 응답해 기존 방 테스트의 화면 구성을 바꾸지 않는다. */
     @Volatile var seeded = false
+    /** 내 인증이 거절된 상태로 응답할 미션 id(서버는 상세의 proofs에만 거절 인증을 내려준다). */
+    val rejectedMissionIds: MutableSet<Long> = java.util.concurrent.ConcurrentHashMap.newKeySet()
     @Volatile var createFailure: Throwable? = null
     @Volatile var listFailure: Throwable? = null
     fun reset() {
-        created.clear(); createRequests.clear(); roomCalls.clear(); mineCalls = 0
+        created.clear(); createRequests.clear(); roomCalls.clear(); rejectedMissionIds.clear(); mineCalls = 0
         noRooms = false; seeded = false; createFailure = null; listFailure = null
     }
 }
