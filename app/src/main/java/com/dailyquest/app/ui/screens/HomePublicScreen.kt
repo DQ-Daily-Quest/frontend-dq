@@ -45,6 +45,7 @@ import com.dailyquest.app.R
 import com.dailyquest.app.data.model.Room
 import com.dailyquest.app.data.room.RoomSort
 import com.dailyquest.app.ui.room.LocalPublicRooms
+import com.dailyquest.app.ui.room.RoomEntryGate
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dailyquest.app.navigation.LocalNav
 import com.dailyquest.app.navigation.Routes
@@ -116,6 +117,7 @@ fun HomePublicScreen() {
     }
 
     val publicRooms = createPublicRooms(ui.rooms)
+    var createNotice by remember { mutableStateOf(false) }
 
     DqScreen(statusBarPadding = false) {
 
@@ -215,7 +217,8 @@ fun HomePublicScreen() {
                             }
                         }
                         Btn("+ 방 만들기", Modifier.height(34.dp).width(104.dp), size = 12f) {
-                            nav.navigate(Routes.createRoom(isPublic = true))
+                            if (RoomEntryGate.mockRoomActionsEnabled) nav.navigate(Routes.createRoom(isPublic = true))
+                            else createNotice = true
                         }
                     }
 
@@ -398,6 +401,15 @@ fun HomePublicScreen() {
     }
 
     // 공개방 상세 미리보기
+    if (createNotice) {
+        AlertDialog(
+            onDismissRequest = { createNotice = false },
+            text = { Text("방 만들기는 아직 서버와 연결되지 않았어요. 곧 사용할 수 있어요.") },
+            confirmButton = { TextButton(onClick = { createNotice = false }) { Text("확인") } },
+            containerColor = DQColors.White
+        )
+    }
+
     selectedRoom?.let { room ->
         AlertDialog(
             onDismissRequest = { selectedRoom = null },
