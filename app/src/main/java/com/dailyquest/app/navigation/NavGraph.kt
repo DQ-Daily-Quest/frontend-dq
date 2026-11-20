@@ -23,7 +23,10 @@ import com.dailyquest.app.ui.auth.LocalAuth
 import com.dailyquest.app.ui.components.Medium
 import com.dailyquest.app.ui.components.Txt
 import com.dailyquest.app.ui.theme.DQColors
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
+import com.dailyquest.app.ui.room.LocalAppContainer
+import com.dailyquest.app.ui.room.RoomDetailViewModel
 import androidx.navigation.navArgument
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -112,7 +115,11 @@ fun DQNavGraph() {
                     backStackEntry.arguments
                 ).getLong("roomId")
 
-                RoomScreen(roomId = roomId)
+                val vm: RoomDetailViewModel = viewModel(
+                    key = "room-$roomId",
+                    factory = RoomDetailViewModel.Factory(roomId, LocalAppContainer.current),
+                )
+                RoomScreen(roomId = roomId, viewModel = vm)
             }
 
             composable(
@@ -189,7 +196,7 @@ fun DQNavGraph() {
         }
         if (route != null && route !in SERVER_BACKED_ROUTES) {
             Txt(
-                if (route == Routes.HOME_PUBLIC || route == Routes.HOME) "일부 샘플 데이터 포함" else "샘플 데이터 · 서버 미연동", size = 10.5f, weight = Medium, color = DQColors.White,
+                if (route == Routes.HOME_PUBLIC || route == Routes.HOME || route == Routes.ROOM) "일부 샘플 데이터 포함" else "샘플 데이터 · 서버 미연동", size = 10.5f, weight = Medium, color = DQColors.White,
                 modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 2.dp)
                     .background(DQColors.Ink.copy(alpha = 0.6f), RoundedCornerShape(10.dp))
                     .padding(horizontal = 8.dp, vertical = 2.dp),

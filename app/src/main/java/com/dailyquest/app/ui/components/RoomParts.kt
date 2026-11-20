@@ -24,11 +24,11 @@ import com.dailyquest.app.R
 import com.dailyquest.app.ui.theme.DQColors
 
 /** 멤버: story 가 있으면 핑크 링(새 인증) 아바타 */
-data class Member(val name: String, @DrawableRes val story: Int? = null, @DrawableRes val avatar: Int? = null)
+data class Member(val name: String, @DrawableRes val story: Int? = null, @DrawableRes val avatar: Int? = null, val badge: String? = null)
 
 /** 방 멤버 줄 (03 · 13) — 멤버 + 초대 버튼 */
 @Composable
-fun MemberRow(members: List<Member>, size: Dp, inviteSize: Dp, showInviteLabel: Boolean, onStory: () -> Unit, modifier: Modifier = Modifier) {
+fun MemberRow(members: List<Member>, size: Dp, inviteSize: Dp, showInviteLabel: Boolean, onStory: () -> Unit, modifier: Modifier = Modifier, showInvite: Boolean = true) {
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
         members.forEach { m ->
             Column(Modifier.width(size), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -38,13 +38,14 @@ fun MemberRow(members: List<Member>, size: Dp, inviteSize: Dp, showInviteLabel: 
                     DqAvatar(m.avatar!!, size)
                 }
                 Txt(
-                    m.name, size = 11.5f,
+                    m.name, size = 11.5f, maxLines = 1,
                     weight = if (m.story != null) Bold else androidx.compose.ui.text.font.FontWeight.Normal,
                     color = if (m.story != null) DQColors.Ink else DQColors.Muted,
                 )
+                if (m.badge != null) Txt(m.badge, size = 10f, weight = Bold, color = DQColors.Green)
             }
         }
-        Column(Modifier.width(size), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        if (showInvite) Column(Modifier.width(size), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Box(
                 Modifier.padding(vertical = (size - inviteSize) / 2).size(inviteSize).clip(CircleShape)
                     .background(DQColors.White)

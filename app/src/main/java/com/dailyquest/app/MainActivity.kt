@@ -9,6 +9,7 @@ import androidx.lifecycle.ViewModelProvider
 import com.dailyquest.app.navigation.DQNavGraph
 import com.dailyquest.app.ui.auth.AuthViewModel
 import com.dailyquest.app.ui.auth.LocalAuth
+import com.dailyquest.app.ui.room.LocalAppContainer
 import com.dailyquest.app.ui.room.LocalMyRooms
 import com.dailyquest.app.ui.room.LocalPublicRooms
 import com.dailyquest.app.ui.room.MyRoomsViewModel
@@ -25,7 +26,7 @@ class MainActivity : ComponentActivity() {
         val myRooms = ViewModelProvider(this, MyRoomsViewModel.Factory(container))[MyRoomsViewModel::class.java]
         setContent {
             DailyQuestTheme {
-                CompositionLocalProvider(LocalAuth provides authViewModel, LocalPublicRooms provides publicRooms, LocalMyRooms provides myRooms) {
+                CompositionLocalProvider(LocalAuth provides authViewModel, LocalPublicRooms provides publicRooms, LocalMyRooms provides myRooms, LocalAppContainer provides container) {
                     DQNavGraph()
                 }
             }
