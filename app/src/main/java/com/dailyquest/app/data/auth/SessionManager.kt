@@ -27,7 +27,7 @@ fun UserMeResponse.toProfile() = UserProfile(
 )
 
 /** [PASSWORD_CHANGED]: 서버가 Refresh Token을 모두 폐기했다. [WITHDRAWN]: 회원 탈퇴가 확정됐다. */
-enum class LogoutReason { NONE, USER, EXPIRED, PASSWORD_CHANGED, WITHDRAWN }
+enum class LogoutReason { NONE, USER, EXPIRED, PASSWORD_CHANGED, WITHDRAWN, WITHDRAW_UNCONFIRMED }
 
 sealed interface SessionState {
     data object Loading : SessionState

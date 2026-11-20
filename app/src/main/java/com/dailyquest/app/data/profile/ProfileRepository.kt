@@ -58,7 +58,8 @@ class ProfileRepository(
 
     /**
      * 회원 탈퇴. 응답을 알 수 없으면 성공 여부를 추정하지 않고 GET /users/me로 확인한다.
-     * 탈퇴한 계정의 토큰은 서버가 401로 거절하므로, 401이면 탈퇴 확정, 정상 응답이면 미처리, 그 외는 확인 불가로 본다.
+     * 정상 응답이면 미처리로 확정한다. 401은 탈퇴한 계정뿐 아니라 만료·폐기된 토큰에도 같은 UNAUTHORIZED로 내려와
+     * 구별할 수 없으므로 탈퇴 성공으로 보지 않고 확인 불가로 처리한다(서버에 삭제 여부를 직접 묻는 API가 없다).
      */
     suspend fun withdraw(password: String?): AccountResult {
         val userId = session.currentUserId()
@@ -70,9 +71,9 @@ class ProfileRepository(
                 when (val check = apiCall { api.me() }) {
                     is ApiResult.Success -> AccountResult.Failed(r.error, verifiedNotApplied = true)
                     is ApiResult.Failure -> {
-                        val e = check.error
-                        if (e is ApiException.Http && e.status == 401) finishWithdraw(userId)
-                        else AccountResult.Unconfirmed(r.error)
+                        // 401 응답은 세션 가드가 이미 로그아웃시켰을 수 있다. 그 경우에도 이유를 "결과 확인 불가"로 남긴다.
+                        if (session.currentUserId() == null) auth.endSession(LogoutReason.WITHDRAW_UNCONFIRMED)
+                        AccountResult.Unconfirmed(r.error)
                     }
                 }
             }

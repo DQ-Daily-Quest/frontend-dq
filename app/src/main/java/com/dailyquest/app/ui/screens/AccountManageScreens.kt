@@ -107,7 +107,7 @@ fun PasswordChangeScreen() {
                         Txt("비밀번호 표시", size = 13f)
                     }
                     Msg(ui.error, "passwordError")
-                    Txt("변경하면 모든 기기에서 로그아웃되며 새 비밀번호로 다시 로그인해야 해요.", size = 12f, color = DQColors.Muted, modifier = Modifier.padding(start = 4.dp, top = 12.dp))
+                    Txt("변경하면 이 기기에서 바로 로그아웃돼요. 다른 기기는 저장된 로그인이 해제되어, 현재 로그인 유지 시간(최대 약 30분)이 지나면 새 비밀번호로 다시 로그인해야 해요.", size = 12f, color = DQColors.Muted, modifier = Modifier.padding(start = 4.dp, top = 12.dp))
                     Btn(
                         if (ui.saving) "변경 중…" else "비밀번호 변경",
                         Modifier.padding(top = 20.dp).fillMaxWidth().height(54.dp).testTag("passwordSubmit"),

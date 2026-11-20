@@ -128,12 +128,20 @@ class ProfileRepositoryTest {
         assertTrue(session.state.value is SessionState.Authenticated)
     }
 
-    @Test fun withdrawLostResponseVerifiedDeletedBy401() = runBlocking {
+    @Test fun withdrawLostResponseThen401IsNotConfirmedAsWithdrawn() = runBlocking {
         server.enqueue(MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AFTER_REQUEST))
         server.enqueue(err(401, "UNAUTHORIZED"))
-        assertEquals(AccountResult.Success, repo.withdraw("pw123456"))
-        assertEquals(LogoutReason.WITHDRAWN, unauthenticatedReason())
+        assertTrue(repo.withdraw("pw123456") is AccountResult.Unconfirmed)
+        assertEquals(LogoutReason.WITHDRAW_UNCONFIRMED, unauthenticatedReason())
         assertEquals(2, server.requestCount)
+    }
+
+    @Test fun withdrawLostResponseThenExpiredTokenIsNotConfirmedAsWithdrawn() = runBlocking {
+        server.enqueue(MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AFTER_REQUEST))
+        server.enqueue(err(401, "TOKEN_EXPIRED"))
+        server.enqueue(err(401, "INVALID_REFRESH_TOKEN"))
+        assertTrue(repo.withdraw("pw123456") is AccountResult.Unconfirmed)
+        assertEquals(LogoutReason.WITHDRAW_UNCONFIRMED, unauthenticatedReason())
     }
 
     @Test fun withdrawLostResponseVerifiedNotAppliedBy200() = runBlocking {

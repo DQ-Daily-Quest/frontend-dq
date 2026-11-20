@@ -80,6 +80,7 @@ fun LoginScreen() {
     val logoutNotice = when ((session as? com.dailyquest.app.data.auth.SessionState.Unauthenticated)?.reason) {
         com.dailyquest.app.data.auth.LogoutReason.PASSWORD_CHANGED -> "비밀번호가 변경되었어요. 새 비밀번호로 다시 로그인해 주세요."
         com.dailyquest.app.data.auth.LogoutReason.WITHDRAWN -> "회원 탈퇴가 완료됐어요."
+        com.dailyquest.app.data.auth.LogoutReason.WITHDRAW_UNCONFIRMED -> "탈퇴 처리 결과를 확인하지 못했어요. 로그인되면 탈퇴되지 않은 것이고, 로그인되지 않으면 탈퇴가 처리됐을 수 있어요."
         else -> null
     }
 
