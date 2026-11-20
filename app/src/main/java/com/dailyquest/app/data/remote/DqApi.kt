@@ -11,6 +11,12 @@ import com.dailyquest.app.data.remote.dto.MissionDto
 import com.dailyquest.app.data.remote.dto.MyRoomMissionsDto
 import com.dailyquest.app.data.remote.dto.OAuthLoginRequest
 import com.dailyquest.app.data.remote.dto.PageDto
+import com.dailyquest.app.data.remote.dto.PendingProofDto
+import com.dailyquest.app.data.remote.dto.ProofDetailDto
+import com.dailyquest.app.data.remote.dto.ProofDto
+import com.dailyquest.app.data.remote.dto.SubmitProofRequest
+import com.dailyquest.app.data.remote.dto.UploadDto
+import com.dailyquest.app.data.remote.dto.VoteDto
 import com.dailyquest.app.data.remote.dto.RefreshRequest
 import com.dailyquest.app.data.remote.dto.RoomDetailDto
 import com.dailyquest.app.data.remote.dto.RoomMemberDto
@@ -24,7 +30,10 @@ import com.dailyquest.app.data.remote.dto.UserMeResponse
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
+import okhttp3.MultipartBody
 import retrofit2.http.Headers
+import retrofit2.http.Multipart
+import retrofit2.http.Part
 import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.Path
@@ -149,4 +158,35 @@ interface DqApi {
     @Headers("X-DQ-No-Retry: true")
     @POST("rooms/{roomId}/missions")
     suspend fun createMission(@Path("roomId") roomId: Long, @Body body: CreateMissionRequest): MissionDto
+
+    // ---- 인증 ----
+
+    /** 201. purpose는 PROOF | ROOM_THUMBNAIL(쿼리). 업로드는 멱등하지 않으므로 연결 재시도를 끈다. */
+    @Headers("X-DQ-No-Retry: true")
+    @Multipart
+    @POST("uploads")
+    suspend fun upload(@Part file: MultipartBody.Part, @Query("purpose") purpose: String? = null): UploadDto
+
+    /** 201. 같은 미션에 PENDING/APPROVED 인증이 있으면 거부되지만 응답 유실 시 중복 방지를 위해 재시도를 끈다. */
+    @Headers("X-DQ-No-Retry: true")
+    @POST("missions/{missionId}/proofs")
+    suspend fun submitProof(@Path("missionId") missionId: Long, @Body body: SubmitProofRequest): ProofDto
+
+    @GET("proofs/{proofId}")
+    suspend fun getProof(@Path("proofId") proofId: Long): ProofDetailDto
+
+    @GET("rooms/{roomId}/proofs/pending")
+    suspend fun listPendingProofs(
+        @Path("roomId") roomId: Long,
+        @Query("page") page: Int = 0,
+        @Query("size") size: Int = 20,
+    ): PageDto<PendingProofDto>
+
+    @Headers("X-DQ-No-Retry: true")
+    @POST("proofs/{proofId}/approve")
+    suspend fun approveProof(@Path("proofId") proofId: Long): VoteDto
+
+    @Headers("X-DQ-No-Retry: true")
+    @POST("proofs/{proofId}/reject")
+    suspend fun rejectProof(@Path("proofId") proofId: Long): VoteDto
 }

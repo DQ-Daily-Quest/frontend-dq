@@ -34,6 +34,16 @@ object ApiErrorCode {
     const val MISSION_NOT_FOUND = "MISSION_NOT_FOUND"
     const val NO_ACTIVE_TEMPLATE = "NO_ACTIVE_TEMPLATE"
     const val MISSION_EXPIRED = "MISSION_EXPIRED"
+    const val PROOF_NOT_FOUND = "PROOF_NOT_FOUND"
+    const val PROOF_ALREADY_SUBMITTED = "PROOF_ALREADY_SUBMITTED"
+    const val PROOF_ALREADY_FINALIZED = "PROOF_ALREADY_FINALIZED"
+    const val CREATOR_CANNOT_SUBMIT = "CREATOR_CANNOT_SUBMIT"
+    const val NOT_MISSION_ASSIGNEE = "NOT_MISSION_ASSIGNEE"
+    const val NOT_MISSION_APPROVER = "NOT_MISSION_APPROVER"
+    const val CANNOT_VOTE_OWN_PROOF = "CANNOT_VOTE_OWN_PROOF"
+    const val FILE_TOO_LARGE = "FILE_TOO_LARGE"
+    const val FILE_EMPTY = "FILE_EMPTY"
+    const val UNSUPPORTED_MEDIA_TYPE = "UNSUPPORTED_MEDIA_TYPE"
 }
 
 sealed class ApiException(message: String?, cause: Throwable? = null) : Exception(message, cause) {
