@@ -42,7 +42,7 @@ import com.dailyquest.app.ui.screens.*
 private val PUBLIC_ROUTES = setOf(Routes.SPLASH, Routes.LOGIN, Routes.SIGNUP_INFO)
 
 /** 서버와 연동된 화면. 이 외 화면은 아직 Mock 데이터를 사용한다. */
-private val SERVER_BACKED_ROUTES = PUBLIC_ROUTES + setOf(Routes.SIGNUP_AVATAR, Routes.MY)
+private val SERVER_BACKED_ROUTES = PUBLIC_ROUTES + setOf(Routes.SIGNUP_AVATAR, Routes.MY, Routes.JOIN_ROOM, Routes.CREATE_ROOM_ROUTE)
 
 @Composable
 fun DQNavGraph() {
