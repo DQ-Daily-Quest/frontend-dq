@@ -4,6 +4,7 @@ import com.dailyquest.app.data.remote.dto.UserMeResponse
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 
 /** 서버 /users/me 기준의 현재 사용자. Mock 데이터와 섞이지 않도록 별도 모델로 둔다. */
 data class UserProfile(
@@ -63,6 +64,13 @@ class SessionManager(
         val previous = (_state.value as? SessionState.Authenticated)?.profile?.userId
         if (previous != null && previous != profile.userId) runCleaners()
         _state.value = SessionState.Authenticated(profile)
+    }
+
+    /** 서버가 응답한 잔액(구매 응답의 remainingCoins)을 현재 사용자 프로필에 반영한다. 사용자가 바뀐 뒤의 늦은 응답은 [expectedUserId]로 막는다. */
+    fun applyServerCoins(expectedUserId: Long, coins: Int) {
+        _state.update { cur ->
+            if (cur is SessionState.Authenticated && cur.profile.userId == expectedUserId) cur.copy(profile = cur.profile.copy(coins = coins)) else cur
+        }
     }
 
     fun markLoading() {

@@ -58,6 +58,7 @@ private val SERVER_BACKED_ROUTES = PUBLIC_ROUTES + setOf(
     Routes.SIGNUP_AVATAR, Routes.MY, Routes.JOIN_ROOM, Routes.CREATE_ROOM_ROUTE,
     Routes.MISSIONS, Routes.MISSION_DETAIL, Routes.SEND_ROOM_MISSION,
     Routes.PROOF_SUBMIT, Routes.PROOF_DETAIL, Routes.PENDING_PROOFS,
+    Routes.SHOP, Routes.COIN_HISTORY,
 )
 
 @Composable
@@ -304,6 +305,10 @@ fun DQNavGraph() {
 
             composable(Routes.SHOP) {
                 ShopScreen()
+            }
+
+            composable(Routes.COIN_HISTORY) {
+                CoinHistoryScreen()
             }
 
             composable(Routes.LOGIN) {

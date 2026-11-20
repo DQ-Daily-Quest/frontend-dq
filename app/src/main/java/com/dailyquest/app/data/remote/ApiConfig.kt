@@ -8,4 +8,15 @@ object ApiConfig {
     const val CONNECT_TIMEOUT_SEC = 15L
     const val READ_TIMEOUT_SEC = 30L
     const val WRITE_TIMEOUT_SEC = 30L
+
+    /** 서버가 내려주는 파일 경로(/files/...)를 이미지 요청용 절대 주소로 바꾼다. 절대 http(s) 주소는 그대로 쓰고 그 외는 null. */
+    fun resolveFileUrl(url: String?): String? {
+        val u = url?.trim().orEmpty()
+        return when {
+            u.isEmpty() -> null
+            u.startsWith("https://") || u.startsWith("http://") -> u
+            u.startsWith("/") -> BASE_URL.substringBefore("/api/").trimEnd('/') + u
+            else -> null
+        }
+    }
 }
