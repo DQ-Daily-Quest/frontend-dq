@@ -20,7 +20,7 @@ class RoomFlowTest {
     @Before fun openMockRoomEntries() { RoomEntryGate.mockRoomActionsEnabled = true }
     @After fun closeMockRoomEntries() {
         RoomEntryGate.mockRoomActionsEnabled = false
-        TestRoomCalls.forbiddenRoomId = null
+        TestRoomCalls.reset()
     }
 
     private fun mockRoomCount() = compose.runOnIdle { MockRoomData.myRooms.size }
@@ -153,11 +153,11 @@ class RoomFlowTest {
         compose.onNodeWithText("아직 등록된 피드가 없어요.").assertDoesNotExist()
         compose.onNodeWithText("지수").assertDoesNotExist()
         back()
-        // 방 생성·초대코드 참여도 Mock으로 진입하지 않는다.
+        // 방 생성은 이제 서버 연동 화면으로 진입하고(Mock 생성 화면이 아님), 초대코드 참여는 계속 막혀 있다.
         RoomEntryGate.mockRoomActionsEnabled = false
         click("+ 방 만들기")
-        compose.onNodeWithText("방 만들기는 아직 서버와 연결되지 않았어요.", substring = true).assertExists()
-        click("확인")
+        compose.onNodeWithTag("realCreateRoom").assertExists()
+        back()
         click("초대코드 참여")
         compose.onNodeWithText("초대코드 참여는 아직 서버와 연결되지 않았어요.", substring = true).assertExists()
     }
@@ -243,5 +243,85 @@ class RoomFlowTest {
         click("홈으로")
         compose.onNodeWithText("서버 내 방 1").assertExists()
         compose.onNodeWithText("접근 권한이 없어요.").assertDoesNotExist()
+    }
+
+    private fun gateOff() { RoomEntryGate.mockRoomActionsEnabled = false }
+
+    private fun createRoom(name: String, makePublic: Boolean) {
+        compose.onAllNodes(hasSetTextAction())[0].performTextInput(name)
+        compose.onNodeWithText(if (makePublic) "공개" else "우리만 · 비공개").performClick()
+        click("방 만들기")
+    }
+
+    @Test
+    fun realCreateEntryDefaultsFollowTabAndRemainEditable() {
+        gateOff()
+        click("홈 · 우리만 (마을 지도)")
+        click("+ 방 만들기")
+        compose.onNodeWithText("초대코드로만 참여할 수 있어요.").assertExists()
+        click("공개")
+        compose.onNodeWithText("누구나 공개방 목록에서 참여할 수 있어요.").assertExists()
+        back()
+        compose.onNodeWithText("공개").performClick()
+        click("+ 방 만들기")
+        compose.onNodeWithText("누구나 공개방 목록에서 참여할 수 있어요.").assertExists()
+        click("우리만 · 비공개")
+        compose.onNodeWithText("초대코드로만 참여할 수 있어요.").assertExists()
+        assertEquals(0, TestRoomCalls.createCalls)
+    }
+
+    @Test
+    fun invalidInputShowsFieldErrorsWithoutServerCall() {
+        gateOff()
+        click("홈 · 우리만 (마을 지도)")
+        click("+ 방 만들기")
+        click("방 만들기")
+        compose.onNodeWithText("방 이름을 입력해 주세요.").assertExists()
+        assertEquals(0, TestRoomCalls.createCalls)
+    }
+
+    @Test
+    fun privateRoomCreationOpensRealRoomWithServerInviteCodeAndAppearsOnMap() {
+        gateOff()
+        click("홈 · 우리만 (마을 지도)")
+        click("+ 방 만들기")
+        val mockCountBefore = mockRoomCount()
+        createRoom("  새 비공개방  ", makePublic = false)
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("멤버 1/10명 · 방장 uitest").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("새 비공개방").assertExists()
+        compose.onNodeWithTag("roomInviteCode").assertTextEquals("초대코드: NEW9301")
+        assertEquals(1, TestRoomCalls.createCalls)
+        assertEquals(mockCountBefore, mockRoomCount())
+        // 뒤로가기는 생성 화면이 아니라 홈으로 돌아가며 중복 생성되지 않는다.
+        back()
+        compose.onNodeWithTag("realCreateRoom").assertDoesNotExist()
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("1 / 2 페이지 · 6개 방").fetchSemanticsNodes().isNotEmpty() }
+        click("다음 ›")
+        compose.onNodeWithText("새 비공개방").assertExists()
+        assertEquals(1, TestRoomCalls.createCalls)
+    }
+
+    @Test
+    fun publicRoomCreationShowsNoInviteCodeAndAppearsInPublicList() {
+        gateOff()
+        click("홈 · 공개 (다른 마을 구경)")
+        click("+ 방 만들기")
+        createRoom("새 공개방", makePublic = true)
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("멤버 1/10명 · 방장 uitest").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("roomInviteCode").assertDoesNotExist()
+        back()
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("새 공개방").fetchSemanticsNodes().isNotEmpty() }
+    }
+
+    @Test
+    fun uncertainCreateOutcomeShowsGuidanceAndDoesNotRetry() {
+        gateOff()
+        TestRoomCalls.createFailure = java.io.IOException("lost")
+        click("홈 · 우리만 (마을 지도)")
+        click("+ 방 만들기")
+        createRoom("응답유실방", makePublic = false)
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("createOutcomeUnknown").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("생성되었").assertDoesNotExist()
+        assertEquals(1, TestRoomCalls.createCalls)
     }
 }
