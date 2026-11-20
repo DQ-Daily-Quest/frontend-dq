@@ -40,7 +40,13 @@ class TestDQApplication : DQApplication() {
         override suspend fun me() = UserMeResponse(userId = 1, email = "ui-test@example.com", nickname = "uitest")
 
         // 방 API는 아직 화면에서 사용하지 않는다(Mock UI 유지). 호출되면 테스트가 실패하도록 한다.
-        override suspend fun listPublicRooms(keyword: String?, sort: String?, page: Int, size: Int): PageDto<RoomSummaryDto> = error("not used")
+        override suspend fun listPublicRooms(keyword: String?, sort: String?, page: Int, size: Int): PageDto<RoomSummaryDto> = PageDto(
+            content = listOf(
+                RoomSummaryDto(roomId = 9001, name = "서버 공개방 A", isPublic = true, memberCount = 3, maxMembers = 10, isHot = true),
+                RoomSummaryDto(roomId = 9002, name = "서버 공개방 B", isPublic = true, memberCount = 10, maxMembers = 10, joined = true),
+            ),
+            page = 0, size = size, totalElements = 2, totalPages = 1,
+        )
         override suspend fun listMyRooms(): List<RoomSummaryDto> = error("not used")
         override suspend fun getRoom(roomId: Long): RoomDetailDto = error("not used")
         override suspend fun listRoomMembers(roomId: Long): List<RoomMemberDto> = error("not used")
