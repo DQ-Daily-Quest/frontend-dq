@@ -186,7 +186,7 @@ fun HomeScreen() {
 
                 mapRooms.forEach { r ->
                     MapRoomPin(r) {
-                        notice = "${r.room.name}\n멤버 ${r.room.memberCount}/${r.room.maxMembers}명\n\n방 상세 보기는 아직 서버와 연결되지 않았어요. 곧 사용할 수 있어요."
+                        nav.navigate(Routes.room(r.room.roomId))
                     }
                 }
             }

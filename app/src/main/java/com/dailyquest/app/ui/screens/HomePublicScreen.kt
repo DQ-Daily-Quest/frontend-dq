@@ -44,7 +44,11 @@ import androidx.compose.ui.unit.sp
 import com.dailyquest.app.R
 import com.dailyquest.app.data.model.Room
 import com.dailyquest.app.data.room.RoomSort
+import androidx.compose.runtime.LaunchedEffect
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.dailyquest.app.ui.room.LocalAppContainer
 import com.dailyquest.app.ui.room.LocalPublicRooms
+import com.dailyquest.app.ui.room.RoomDetailViewModel
 import com.dailyquest.app.ui.room.RoomEntryGate
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dailyquest.app.navigation.LocalNav
@@ -411,30 +415,53 @@ fun HomePublicScreen() {
     }
 
     selectedRoom?.let { room ->
-        AlertDialog(
-            onDismissRequest = { selectedRoom = null },
-            title = { Text(room.name) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("공개 마을")
-                    Text("멤버 ${room.memberCount}/${room.maxMembers}명")
-                    Text(
-                        room.description
-                            ?.takeIf { it.isNotBlank() }
-                            ?: "친구들과 함께 미션을 수행하는 마을입니다."
-                    )
-                    Text("방 참여와 상세 보기는 아직 서버와 연결되지 않았어요. 곧 사용할 수 있어요.", color = DQColors.Muted)
-                }
-            },
-            confirmButton = {
-                TextButton(enabled = false, onClick = {}) {
-                    Text(if (room.joined) "입장하기" else "참여하기")
-                }
-            },
-            dismissButton = { TextButton(onClick = { selectedRoom = null }) { Text("닫기") } },
-            containerColor = DQColors.White
-        )
+        RoomPreviewDialog(room, onDismiss = { selectedRoom = null })
     }
+}
+
+/** 공개방 미리보기. 상세는 서버(GET /rooms/{id})로 갱신하며 입장 여부는 서버의 myRole로만 판단한다. */
+@Composable
+private fun RoomPreviewDialog(room: Room, onDismiss: () -> Unit) {
+    val nav = LocalNav.current
+    val vm: RoomDetailViewModel = viewModel(
+        key = "preview-${room.roomId}",
+        factory = RoomDetailViewModel.Factory(room.roomId, LocalAppContainer.current, withMembers = false),
+    )
+    val ui by vm.ui.collectAsStateWithLifecycle()
+    LaunchedEffect(Unit) { if (ui.detail != null) vm.refresh() }
+    val detail = ui.detail
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(detail?.name ?: room.name) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("공개 마을")
+                Text("멤버 ${detail?.memberCount ?: room.memberCount}/${detail?.maxMembers ?: room.maxMembers}명")
+                Text(
+                    (detail?.description ?: room.description)
+                        ?.takeIf { it.isNotBlank() }
+                        ?: "친구들과 함께 미션을 수행하는 마을입니다."
+                )
+                when {
+                    ui.error != null -> Text(ui.error.orEmpty(), color = DQColors.Orange)
+                    detail == null -> Text("방 정보를 불러오는 중이에요…", color = DQColors.Muted)
+                    ui.isMember -> Unit
+                    else -> Text("방 참여는 아직 서버와 연결되지 않았어요. 곧 사용할 수 있어요.", color = DQColors.Muted)
+                }
+            }
+        },
+        confirmButton = {
+            if (ui.error != null && detail == null) {
+                TextButton(onClick = { vm.retry() }) { Text("다시 시도") }
+            } else if (ui.isMember) {
+                TextButton(onClick = { onDismiss(); nav.navigate(Routes.room(room.roomId)) }) { Text("입장하기") }
+            } else {
+                TextButton(enabled = false, onClick = {}) { Text("참여하기") }
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("닫기") } },
+        containerColor = DQColors.White
+    )
 }
 
 @Composable
