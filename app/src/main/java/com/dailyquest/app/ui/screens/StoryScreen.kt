@@ -39,7 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dailyquest.app.R
 import com.dailyquest.app.navigation.LocalNav
-import com.dailyquest.app.navigation.backOrCatalog
+import com.dailyquest.app.navigation.backOrHome
 import com.dailyquest.app.ui.components.Bold
 import com.dailyquest.app.ui.components.Btn
 import com.dailyquest.app.ui.components.BtnStyle
@@ -85,7 +85,7 @@ fun StoryScreen() {
                     Txt("지수", size = 14f, weight = Bold, color = Color.White)
                     Txt("2시간 전", size = 11f, color = Color.White, modifier = Modifier.padding(top = 2.dp))
                 }
-                DqIcon(R.drawable.ic_close_white, 24.dp, Modifier.clip(CircleShape).clickable { nav.backOrCatalog() })
+                DqIcon(R.drawable.ic_close_white, 24.dp, Modifier.clip(CircleShape).clickable { nav.backOrHome() })
             }
         }
 

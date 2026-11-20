@@ -23,7 +23,15 @@ import com.dailyquest.app.ui.auth.LocalAuth
 import com.dailyquest.app.ui.components.Medium
 import com.dailyquest.app.ui.components.Txt
 import com.dailyquest.app.ui.theme.DQColors
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
+import com.dailyquest.app.ui.room.CreateRoomViewModel
+import com.dailyquest.app.ui.room.LocalAppContainer
+import com.dailyquest.app.ui.room.LocalMyRooms
+import com.dailyquest.app.ui.room.RoomJoinViewModel
+import com.dailyquest.app.ui.room.RoomManageViewModel
+import com.dailyquest.app.ui.room.LocalPublicRooms
+import com.dailyquest.app.ui.room.RoomDetailViewModel
 import androidx.navigation.navArgument
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -34,7 +42,7 @@ import com.dailyquest.app.ui.screens.*
 private val PUBLIC_ROUTES = setOf(Routes.SPLASH, Routes.LOGIN, Routes.SIGNUP_INFO)
 
 /** 서버와 연동된 화면. 이 외 화면은 아직 Mock 데이터를 사용한다. */
-private val SERVER_BACKED_ROUTES = PUBLIC_ROUTES + setOf(Routes.SIGNUP_AVATAR, Routes.MY)
+private val SERVER_BACKED_ROUTES = PUBLIC_ROUTES + setOf(Routes.SIGNUP_AVATAR, Routes.MY, Routes.JOIN_ROOM, Routes.CREATE_ROOM_ROUTE)
 
 @Composable
 fun DQNavGraph() {
@@ -91,11 +99,31 @@ fun DQNavGraph() {
                     defaultValue = false
                 })
             ) { backStackEntry ->
-                CreateRoomScreen(initialIsPublic = backStackEntry.arguments?.getBoolean("isPublic") ?: false)
+                val initialIsPublic = backStackEntry.arguments?.getBoolean("isPublic") ?: false
+                val myRooms = LocalMyRooms.current
+                val publicRooms = LocalPublicRooms.current
+                val container = LocalAppContainer.current
+                val vm: CreateRoomViewModel = viewModel(
+                    factory = CreateRoomViewModel.Factory(
+                        initialIsPublic, container,
+                        onCreated = { myRooms.refresh(); publicRooms.refresh() },
+                        onOutcomeUnknown = { myRooms.refresh() },
+                    ),
+                )
+                CreateRoomScreen(viewModel = vm)
             }
 
             composable(Routes.JOIN_ROOM) {
-                JoinRoomScreen()
+                val myRooms = LocalMyRooms.current
+                val publicRooms = LocalPublicRooms.current
+                val vm: RoomJoinViewModel = viewModel(
+                    factory = RoomJoinViewModel.Factory(
+                        LocalAppContainer.current,
+                        onChanged = { myRooms.refresh(); publicRooms.refresh() },
+                        onOutcomeUnknown = { myRooms.refresh() },
+                    ),
+                )
+                JoinRoomScreen(vm)
             }
 
             // 방 ID를 전달받아 해당 방 화면으로 이동
@@ -112,7 +140,27 @@ fun DQNavGraph() {
                     backStackEntry.arguments
                 ).getLong("roomId")
 
-                RoomScreen(roomId = roomId)
+                val vm: RoomDetailViewModel = viewModel(
+                    key = "room-$roomId",
+                    factory = RoomDetailViewModel.Factory(roomId, LocalAppContainer.current),
+                )
+                val myRooms = LocalMyRooms.current
+                val publicRooms = LocalPublicRooms.current
+                val manage: RoomManageViewModel = viewModel(
+                    key = "room-manage-$roomId",
+                    factory = RoomManageViewModel.Factory(
+                        roomId, LocalAppContainer.current,
+                        onListsChanged = { myRooms.refresh(); publicRooms.refresh() },
+                    ),
+                )
+                RoomScreen(roomId = roomId, viewModel = vm, manage = manage)
+            }
+
+            composable(
+                route = Routes.MOCK_ROOM,
+                arguments = listOf(navArgument("roomId") { type = NavType.LongType })
+            ) { backStackEntry ->
+                MockRoomScreen(roomId = requireNotNull(backStackEntry.arguments).getLong("roomId"))
             }
 
             composable(Routes.STORY) {
@@ -182,7 +230,7 @@ fun DQNavGraph() {
         }
         if (route != null && route !in SERVER_BACKED_ROUTES) {
             Txt(
-                "샘플 데이터 · 서버 미연동", size = 10.5f, weight = Medium, color = DQColors.White,
+                if (route == Routes.HOME_PUBLIC || route == Routes.HOME || route == Routes.ROOM) "일부 샘플 데이터 포함" else "샘플 데이터 · 서버 미연동", size = 10.5f, weight = Medium, color = DQColors.White,
                 modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 2.dp)
                     .background(DQColors.Ink.copy(alpha = 0.6f), RoundedCornerShape(10.dp))
                     .padding(horizontal = 8.dp, vertical = 2.dp),

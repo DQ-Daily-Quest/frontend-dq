@@ -35,7 +35,7 @@ private val GROUPS = listOf(
     "A · 기존 화면 (01–08)" to listOf(
         Triple("01", "홈 · 우리만 (마을 지도)", Routes.HOME),
         Triple("02", "홈 · 공개 (다른 마을 구경)", Routes.HOME_PUBLIC),
-        Triple("03", "방 내부 (우리들의 아지트)", Routes.room(1L)),
+        Triple("03", "방 내부 (우리들의 아지트)", Routes.mockRoom(1L)),
         Triple("04", "챌린지 스토리 뷰어", Routes.STORY),
         Triple("05", "미션 인증하기", Routes.MISSION_VERIFY),
         Triple("06", "인증 확인 (팀원 투표)", Routes.VERIFY_CHECK),

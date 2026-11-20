@@ -22,11 +22,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -37,7 +34,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.dailyquest.app.R
 import com.dailyquest.app.data.model.Room
-import com.dailyquest.app.data.mock.MockRoomData
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.testTag
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.dailyquest.app.ui.room.LocalMyRooms
+import com.dailyquest.app.ui.room.mapExtraAvatarCount
 import com.dailyquest.app.navigation.LocalNav
 import com.dailyquest.app.navigation.Routes
 import com.dailyquest.app.ui.components.Bold
@@ -115,13 +120,14 @@ private val MAP_ROOM_SLOTS = listOf(
     )
 )
 
-// Mock 데이터를 마을 지도 UI 데이터로 변환
+// 서버 방 목록을 마을 지도 UI 데이터로 변환
 private fun createMapRooms(rooms: List<Room>): List<MapRoom> {
     return rooms.zip(MAP_ROOM_SLOTS).map { (room, slot) ->
         MapRoom(
             room = room,
             story = slot.story,
-            avatars = if (MockRoomData.isCreatedRoom(room.roomId)) listOf(R.drawable.img_avatar_boy) else slot.avatars,
+            // 멤버 상세는 STEP 3-4 전이므로 임시 캐릭터만 쓴다. 스토리 이미지가 이미 캐릭터 1명이므로 추가분은 멤버 수-1까지만 그린다.
+            avatars = slot.avatars.take(mapExtraAvatarCount(room.memberCount, slot.avatars.size)),
             pin = slot.pin,
             label = slot.label
         )
@@ -156,17 +162,15 @@ private val FRIEND_MISSIONS = listOf(
 fun HomeScreen() {
     val nav = LocalNav.current
 
-    // 현재 사용자가 참여한 방 목록
-    val rooms = MockRoomData.myRooms
-    var page by rememberSaveable { mutableIntStateOf(0) }
-    val pageCount = maxOf(1, (rooms.size + MAP_ROOM_SLOTS.size - 1) / MAP_ROOM_SLOTS.size)
-    val focusedRoomId = MockRoomData.focusedRoomId
-    LaunchedEffect(focusedRoomId, rooms.size) {
-        val index = rooms.indexOfFirst { it.roomId == focusedRoomId }
-        page = if (index >= 0) index / MAP_ROOM_SLOTS.size else page.coerceIn(0, pageCount - 1)
-    }
-    val currentPage = page.coerceIn(0, pageCount - 1)
-    val mapRooms = createMapRooms(rooms.drop(currentPage * MAP_ROOM_SLOTS.size).take(MAP_ROOM_SLOTS.size))
+    val vm = LocalMyRooms.current
+    val ui by vm.ui.collectAsStateWithLifecycle()
+    val rooms = ui.rooms
+    val currentPage = ui.currentPage
+    val pageCount = ui.pageCount
+    val mapRooms = createMapRooms(ui.pageRooms)
+
+    // 방 상세·생성·참여는 서버 연동 전이므로 안내만 표시한다. 서버 roomId를 Mock 화면으로 넘기지 않는다.
+    var notice by remember { mutableStateOf<String?>(null) }
 
     DqScreen(statusBarPadding = false) {
         BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -240,15 +244,28 @@ fun HomeScreen() {
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Btn("‹ 이전", Modifier.width(78.dp).height(34.dp), style = BtnStyle.Outline, size = 12f) {
-                                if (currentPage > 0) page = currentPage - 1
+                                vm.prevPage()
                             }
-                            Txt("${currentPage + 1} / $pageCount 페이지 · ${rooms.size}개 방", size = 12f, weight = Medium)
+                            Txt("${currentPage + 1} / $pageCount 페이지 · ${rooms.size}개 방", size = 12f, weight = Medium,
+                                modifier = Modifier.testTag("myRoomsPageInfo"))
                             Btn("다음 ›", Modifier.width(78.dp).height(34.dp), style = BtnStyle.Outline, size = 12f) {
-                                if (currentPage < pageCount - 1) page = currentPage + 1
+                                vm.nextPage()
                             }
                         }
-                        if (rooms.isEmpty()) {
-                            Txt("첫 번째 방을 만들거나 초대코드로 참여해 보세요.", size = 12f,
+                        when {
+                            ui.initialLoading -> Txt("참여한 방을 불러오는 중이에요.", size = 12f,
+                                modifier = Modifier.padding(bottom = 12.dp))
+                            ui.error != null -> Row(
+                                Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Txt(ui.error ?: "", size = 12f, color = DQColors.Orange, modifier = Modifier.weight(1f))
+                                Btn("다시 시도", Modifier.width(88.dp).height(34.dp), style = BtnStyle.Outline, size = 12f) {
+                                    if (ui.loaded) vm.refresh() else vm.retry()
+                                }
+                            }
+                            ui.isEmpty -> Txt("첫 번째 방을 만들거나 초대코드로 참여해 보세요.", size = 12f,
                                 modifier = Modifier.padding(bottom = 12.dp))
                         }
                         // 방 만들기 및 초대코드 참여 버튼
@@ -433,6 +450,15 @@ fun HomeScreen() {
                 TabBar(Tab.Home)
             }
         }
+    }
+
+    notice?.let { msg ->
+        AlertDialog(
+            onDismissRequest = { notice = null },
+            text = { Text(msg) },
+            confirmButton = { TextButton(onClick = { notice = null }) { Text("확인") } },
+            containerColor = DQColors.White
+        )
     }
 }
 

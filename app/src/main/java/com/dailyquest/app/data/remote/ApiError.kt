@@ -19,6 +19,18 @@ object ApiErrorCode {
     const val DUPLICATE_EMAIL = "DUPLICATE_EMAIL"
     const val DUPLICATE_NICKNAME = "DUPLICATE_NICKNAME"
     const val INVALID_OAUTH_TOKEN = "INVALID_OAUTH_TOKEN"
+    const val FORBIDDEN = "FORBIDDEN"
+    const val ROOM_NOT_FOUND = "ROOM_NOT_FOUND"
+    const val ROOM_NOT_PUBLIC = "ROOM_NOT_PUBLIC"
+    const val ROOM_NOT_PRIVATE = "ROOM_NOT_PRIVATE"
+    const val ALREADY_JOINED = "ALREADY_JOINED"
+    const val ROOM_FULL = "ROOM_FULL"
+    const val INVALID_INVITE_CODE = "INVALID_INVITE_CODE"
+    const val OWNER_CANNOT_LEAVE = "OWNER_CANNOT_LEAVE"
+    const val MAX_MEMBERS_BELOW_CURRENT = "MAX_MEMBERS_BELOW_CURRENT"
+    const val NOT_A_MEMBER = "NOT_A_MEMBER"
+    const val CANNOT_KICK_SELF = "CANNOT_KICK_SELF"
+    const val ALREADY_OWNER = "ALREADY_OWNER"
 }
 
 sealed class ApiException(message: String?, cause: Throwable? = null) : Exception(message, cause) {

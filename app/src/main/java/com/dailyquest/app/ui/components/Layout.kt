@@ -35,7 +35,7 @@ import androidx.compose.ui.unit.dp
 import com.dailyquest.app.R
 import com.dailyquest.app.navigation.LocalNav
 import com.dailyquest.app.navigation.Routes
-import com.dailyquest.app.navigation.backOrCatalog
+import com.dailyquest.app.navigation.backOrHome
 import com.dailyquest.app.navigation.switchTo
 import com.dailyquest.app.ui.theme.DQColors
 
@@ -81,7 +81,7 @@ fun NavHeader(
             Modifier
                 .offset(14.dp, 12.dp)
                 .clip(CircleShape)
-                .clickable(role = Role.Button) { onBack?.invoke() ?: nav.backOrCatalog() },
+                .clickable(role = Role.Button) { onBack?.invoke() ?: nav.backOrHome() },
         )
         Txt(
             title, size = 17f, weight = Bold, align = TextAlign.Center, maxLines = 1,

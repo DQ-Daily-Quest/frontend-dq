@@ -3,8 +3,8 @@ package com.dailyquest.app.data.auth
 import com.dailyquest.app.data.auth.social.SocialAuthClient
 import com.dailyquest.app.data.auth.social.SocialProvider
 import com.dailyquest.app.data.customization.CustomizationData
-import com.dailyquest.app.data.mock.MockRoomData
 import com.dailyquest.app.data.remote.DqApi
+import com.dailyquest.app.data.room.RoomRepository
 import com.dailyquest.app.data.remote.NetworkModule
 import com.dailyquest.app.navigation.Routes
 
@@ -19,10 +19,11 @@ class AppContainer(
     val tokens = SessionTokens(tokenStore)
     val session = SessionManager(
         tokens,
-        cleaners = listOf({ MockRoomData.reset() }, { CustomizationData.reset() }),
+        cleaners = listOf({ CustomizationData.reset() }),
     )
     val api: DqApi = (apiFactory ?: { t, onExpired -> NetworkModule.createApi(t, onExpired) })(tokens) {
         session.expire(LogoutReason.EXPIRED)
     }
     val authRepository = AuthRepository(api, tokens, session, socialClients)
+    val roomRepository = RoomRepository(api)
 }
