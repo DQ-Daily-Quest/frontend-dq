@@ -73,7 +73,11 @@ interface DqApi {
     @GET("rooms/{roomId}/members")
     suspend fun listRoomMembers(@Path("roomId") roomId: Long): List<RoomMemberDto>
 
-    /** 성공 201. */
+    /**
+     * 성공 201. 서버에 멱등성 키가 없어 연결 실패 시 OkHttp가 자동 재전송하면 방이 중복 생성될 수 있으므로 재시도를 끈다.
+     * (401 TOKEN_EXPIRED는 인증 필터가 컨트롤러 이전에 거절하므로 갱신 후 재전송해도 중복 생성되지 않는다.)
+     */
+    @Headers("X-DQ-No-Retry: true")
     @POST("rooms")
     suspend fun createRoom(@Body body: CreateRoomRequest): CreateRoomResponse
 
