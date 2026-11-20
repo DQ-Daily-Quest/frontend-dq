@@ -2,58 +2,119 @@ package com.dailyquest.app
 
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import com.dailyquest.app.data.customization.*
-import org.junit.Assert.*
+import androidx.test.espresso.Espresso
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.ExternalResource
+import org.junit.rules.RuleChain
+import java.io.IOException
 
+/** FakeApi 기반 STEP 7 상점·인벤토리·코인 내역 흐름. 실제 서버에는 어떤 구매 요청도 보내지 않는다. */
 class ShopFlowTest {
-    @get:Rule val compose = createAndroidComposeRule<MainActivity>()
-    private fun click(text: String) = compose.onNode(hasText(text) and hasClickAction()).performScrollTo().performClick()
-    @Test fun purchasePreviewSaveCancelAndSharedBalance() {
-        click("쇼핑 (아바타 · 우리 집)")
-        click("민트 상의")
-        click("장착 저장")
-        compose.onNodeWithText("보유하지 않은 아이템은 저장할 수 없습니다.").assertExists()
-        click("120 코인으로 구매하기")
-        compose.onNodeWithText("200").assertExists()
-        compose.runOnIdle {
-            assertTrue("top_premium" in CustomizationData.store.state.owned)
-            assertEquals("top_default", CustomizationData.store.state.equipped[AvatarSlot.TOP])
+    private val compose = createAndroidComposeRule<MainActivity>()
+    @get:Rule val rules: RuleChain = RuleChain.outerRule(object : ExternalResource() {
+        override fun before() {
+            TestRoomCalls.reset()
+            TestShopCalls.seedDefaults(); TestShopCalls.coins = 320
         }
-        click("취소")
+    }).around(compose)
+
+    @After fun resetFakeServer() { TestRoomCalls.reset() }
+
+    private fun waitTag(tag: String) = compose.waitUntil(5_000) { compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() }
+    private fun waitText(text: String) = compose.waitUntil(5_000) { compose.onAllNodesWithText(text, substring = true).fetchSemanticsNodes().isNotEmpty() }
+    private fun openShop() {
+        compose.onNode(hasText("쇼핑 (아바타 · 우리 집)") and hasClickAction()).performScrollTo().performClick()
+        waitTag("shopGrid")
+    }
+    private fun openItem(id: Long) { compose.onNodeWithTag("shopItem_$id").performClick(); waitTag("shopDetail") }
+    private fun state(id: Long) = compose.onNodeWithTag("shopItemState_$id", useUnmergedTree = true)
+
+    @Test fun catalogShowsServerItemsWithOwnedStateAndNoSampleBanner() {
+        openShop()
+        compose.onNodeWithText("민트 상의").assertExists()
+        state(1).assertTextEquals("기본 제공")
+        state(2).assertTextEquals("120 코인")
+        // 서버 연동 화면이라 샘플 안내가 없고 가구는 종류 탭으로만 보인다.
+        compose.onNodeWithText("샘플 데이터", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("나무 책상").assertDoesNotExist()
+        compose.onNodeWithTag("shopType_FURNITURE").performClick()
+        waitText("나무 책상")
+        compose.onNodeWithText("민트 상의").assertDoesNotExist()
+        compose.onNodeWithTag("shopType_AVATAR").performClick()
+        compose.onNodeWithTag("shopCategory_TOP").performClick()
+        waitText("민트 상의")
+        compose.onNodeWithText("비싼 모자").assertDoesNotExist()
+    }
+
+    @Test fun purchaseUsesServerBalanceAndUpdatesCatalogAndInventory() {
+        openShop()
+        compose.onNodeWithTag("shopCoin").assertTextContains("320", substring = true)
+        openItem(2)
+        compose.onNodeWithTag("shopBuy").performClick()
+        compose.onNodeWithText("보유 코인 320 → 구매 후 200", substring = true).assertExists()
+        compose.onNodeWithTag("shopConfirm").performClick()
+        compose.waitUntil(5_000) { TestShopCalls.purchaseCalls.size == 1 }
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("shopCoin").fetchSemanticsNodes().isNotEmpty() && runCatching { state(2).assertTextEquals("보유 중") }.isSuccess }
+        compose.onNodeWithText("200", substring = true).assertExists()
+        assertEquals(200, TestShopCalls.coins)
+        // 실제 구매는 Mock 커스터마이징 저장소의 코인·소유권을 바꾸지 않는다.
         compose.runOnIdle {
-            assertEquals(200, CustomizationData.store.state.coins)
-            assertTrue("top_premium" in CustomizationData.store.state.owned)
+            assertEquals(320, com.dailyquest.app.data.customization.CustomizationData.store.state.coins)
+            assertTrue("top_premium" !in com.dailyquest.app.data.customization.CustomizationData.store.state.owned)
         }
-        click("민트 상의")
-        click("장착 미리보기")
-        compose.onNodeWithText("미리보기에 적용했습니다. 장착 저장을 눌러 확정해 주세요.").assertExists()
-        compose.onNodeWithText("저장된 장착: 기본 상의").assertExists()
-        click("장착 저장")
-        compose.onNodeWithText("장착이 완료되었습니다.").assertExists()
-        compose.runOnIdle { assertEquals("top_premium", CustomizationData.store.state.equipped[AvatarSlot.TOP]) }
-        click("기본 상의")
-        click("취소")
-        compose.onNodeWithText("상의: 민트 상의").assertExists()
-        compose.onNodeWithText("마지막으로 저장한 장착 상태로 복원했습니다. 구매 내역과 코인은 유지됩니다.").assertExists()
-        compose.runOnIdle { assertEquals("top_premium", CustomizationData.store.state.equipped[AvatarSlot.TOP]) }
-        click("남 전용 상의")
-        click("240 코인으로 구매하기")
-        compose.onNodeWithText("코인이 부족합니다.").assertExists()
-        compose.onNodeWithText("홈").performClick()
-        // 홈의 코인은 서버 잔액만 보여 주므로 Mock 쇼핑의 잔액이 새어 나오면 안 된다.
-        compose.onNodeWithText("200").assertDoesNotExist()
-        compose.onNodeWithText("쇼핑").performClick()
-        compose.onNodeWithText("200").assertExists()
-        compose.onNodeWithText("상의: 민트 상의").assertExists()
-        compose.onNodeWithText("저장된 장착: 민트 상의").assertExists()
-        compose.runOnIdle {
-            assertEquals("top_premium", CustomizationData.store.state.equipped[AvatarSlot.TOP])
-            assertEquals(200, CustomizationData.store.state.coins)
-        }
-        click("보유 아이템")
-        compose.onNode(hasText("민트 상의") and hasClickAction()).assertExists()
-        compose.onNode(hasText("남 전용 상의") and hasClickAction()).assertDoesNotExist()
+        compose.onNodeWithText("닫기").performClick()
+        compose.onNodeWithTag("shopTabOwned").performClick()
+        waitTag("inventoryGrid")
+        compose.onNodeWithText("민트 상의").assertExists()
+    }
+
+    @Test fun insufficientCoinsDisablesPurchaseWithoutRequest() {
+        openShop()
+        openItem(3)
+        compose.onNodeWithTag("shopBuy").assertIsNotEnabled()
+        compose.onNodeWithText("코인이 부족해요.", substring = true).assertExists()
+        assertTrue(TestShopCalls.purchaseCalls.isEmpty())
+    }
+
+    @Test fun lostPurchaseResponseIsVerifiedAndNeverRetried() {
+        TestShopCalls.purchaseFailure = IOException("lost"); TestShopCalls.applyBeforeFailure = true
+        openShop()
+        openItem(2)
+        compose.onNodeWithTag("shopBuy").performClick()
+        compose.onNodeWithTag("shopConfirm").performClick()
+        compose.waitUntil(5_000) { runCatching { state(2).assertTextEquals("보유 중") }.isSuccess }
+        assertEquals(listOf(2L), TestShopCalls.purchaseCalls)
+        assertEquals(200, TestShopCalls.coins)
+    }
+
+    @Test fun coinHistoryOpensFromShopAndBackReturnsToShop() {
+        TestShopCalls.txs.add(com.dailyquest.app.data.remote.dto.CoinTransactionDto(1, 50, 320, "MISSION_REWARD", 5, "2025-04-17T01:02:03Z"))
+        openShop()
+        compose.onNodeWithTag("shopCoin").performClick()
+        waitTag("coinTx_1")
+        compose.onNodeWithText("미션 보상").assertExists()
+        compose.onNodeWithText("+50").assertExists()
+        compose.onNodeWithText("샘플 데이터", substring = true).assertDoesNotExist()
+        Espresso.pressBack()
+        waitTag("shopGrid")
+        Espresso.pressBack()
+        // 일반 사용자 뒤로가기는 개발용 Catalog가 아니라 홈 계열로 간다.
+        compose.waitForIdle()
+        compose.onNodeWithTag("shopGrid").assertDoesNotExist()
+    }
+
+    @Test fun listFailureShowsRetryAndRecovers() {
+        openShop()
+        TestShopCalls.listFailure = IOException("down")
+        compose.onNodeWithTag("shopType_FURNITURE").performClick()
+        waitTag("shopError")
+        TestShopCalls.listFailure = null
+        compose.onNodeWithText("다시 시도").performClick()
+        waitTag("shopGrid")
+        compose.onNodeWithText("나무 책상").assertExists()
     }
 }
