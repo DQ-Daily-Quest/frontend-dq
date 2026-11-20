@@ -53,7 +53,7 @@ fun DQNavGraph() {
             is SessionState.Unauthenticated ->
                 if (route !in PUBLIC_ROUTES || route == Routes.SPLASH) nav.navigate(Routes.LOGIN) { popUpTo(0) { inclusive = true } }
             is SessionState.Authenticated ->
-                if (route == Routes.SPLASH || route == Routes.LOGIN) nav.navigate(auth.startAfterAuth) { popUpTo(0) { inclusive = true } }
+                if (route == Routes.SPLASH || route == Routes.LOGIN) nav.navigate(auth.consumePostLoginRoute()) { popUpTo(0) { inclusive = true } }
             else -> if (route !in PUBLIC_ROUTES) nav.navigate(Routes.SPLASH) { popUpTo(0) { inclusive = true } }
         }
     }

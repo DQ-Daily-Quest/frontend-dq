@@ -23,9 +23,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.draw.alpha
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.dailyquest.app.data.auth.social.SocialProvider
 import com.dailyquest.app.ui.auth.LocalAuth
 import com.dailyquest.app.ui.auth.SignupOutcome
 import com.dailyquest.app.data.auth.AuthValidator
@@ -69,6 +71,7 @@ import com.dailyquest.app.ui.theme.DQColors
 fun LoginScreen() {
     val nav = LocalNav.current
     val auth = LocalAuth.current
+    val activity = androidx.compose.ui.platform.LocalContext.current
     val ui by auth.ui.collectAsStateWithLifecycle()
     var email by remember { mutableStateOf("") }
     var pw by remember { mutableStateOf("") }
@@ -127,9 +130,12 @@ fun LoginScreen() {
                     Box(Modifier.weight(1f).height(1.dp).background(DQColors.Soft))
                 }
                 Column(Modifier.padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    SocialButton("카카오로 시작하기", R.drawable.ic_brand_kakao, Color(0xFFFEE500))
-                    SocialButton("Google로 시작하기", R.drawable.ic_brand_google, Color.White, border = true)
-                    SocialButton("Apple로 시작하기", R.drawable.ic_brand_apple, Color(0xFF111111), text = Color.White)
+                    SocialButton("카카오로 시작하기", R.drawable.ic_brand_kakao, Color(0xFFFEE500), enabled = !ui.loading) {
+                        auth.socialLogin(SocialProvider.KAKAO, activity)
+                    }
+                    SocialButton("Google로 시작하기", R.drawable.ic_brand_google, Color.White, border = true, enabled = !ui.loading) {
+                        auth.socialLogin(SocialProvider.GOOGLE, activity)
+                    }
                 }
             }
         }
@@ -147,11 +153,12 @@ private fun FormMessage(error: String?, notice: String?) {
 }
 
 @Composable
-private fun SocialButton(label: String, @DrawableRes icon: Int, bg: Color, text: Color = DQColors.Ink, border: Boolean = false) {
+private fun SocialButton(label: String, @DrawableRes icon: Int, bg: Color, text: Color = DQColors.Ink, border: Boolean = false, enabled: Boolean = true, onClick: () -> Unit) {
     val shape = RoundedCornerShape(14.dp)
     Box(
         Modifier.fillMaxWidth().height(50.dp).clip(shape).background(bg)
-            .then(if (border) Modifier.border(1.dp, DQColors.Line, shape) else Modifier).clickable { },
+            .then(if (border) Modifier.border(1.dp, DQColors.Line, shape) else Modifier)
+            .alpha(if (enabled) 1f else 0.5f).clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         DqIcon(icon, 20.dp, Modifier.align(Alignment.CenterStart).padding(start = 18.dp).size(20.dp))
