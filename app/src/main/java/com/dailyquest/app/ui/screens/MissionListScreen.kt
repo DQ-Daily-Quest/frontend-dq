@@ -32,6 +32,7 @@ import com.dailyquest.app.ui.components.Chip
 import com.dailyquest.app.ui.components.BtnStyle
 import com.dailyquest.app.ui.components.DqScreen
 import com.dailyquest.app.ui.components.NavHeader
+import com.dailyquest.app.ui.components.SessionCoinPill
 import com.dailyquest.app.ui.components.Tab
 import com.dailyquest.app.ui.components.TabBar
 import com.dailyquest.app.ui.components.Txt
@@ -55,7 +56,7 @@ fun MissionListScreen() {
 
     DqScreen {
         Column(Modifier.fillMaxSize().testTag("missionList")) {
-            NavHeader("미션", divider = true)
+            NavHeader("미션", divider = true, right = { SessionCoinPill("missionCoin") })
             if (ui.loaded && ui.groups.isNotEmpty()) LazyRow(
                 Modifier.fillMaxWidth().testTag("missionFilters"),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 10.dp),
