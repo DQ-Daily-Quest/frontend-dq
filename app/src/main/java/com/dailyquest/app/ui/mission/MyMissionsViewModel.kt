@@ -13,6 +13,9 @@ import com.dailyquest.app.data.mission.MissionState
 import com.dailyquest.app.data.mission.RoomMissions
 import com.dailyquest.app.data.remote.ApiResult
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -59,6 +62,8 @@ data class MyMissionsUiState(
 class MyMissionsViewModel(
     private val repo: MissionRepository,
     session: StateFlow<SessionState>,
+    /** 인증 제출·승인 등으로 서버 상태가 바뀌면 값이 바뀐다. 바뀔 때마다 목록을 다시 조회한다(첫 값은 무시). */
+    refreshSignal: Flow<Int> = emptyFlow(),
 ) : ViewModel() {
 
     private val _ui = MutableStateFlow(MyMissionsUiState())
@@ -68,6 +73,7 @@ class MyMissionsViewModel(
     private var generation = 0
 
     init {
+        viewModelScope.launch { refreshSignal.drop(1).collect { if (_ui.value.userId != null) refresh() } }
         viewModelScope.launch {
             session
                 .filter { it is SessionState.Authenticated || it is SessionState.Unauthenticated }
@@ -116,7 +122,7 @@ class MyMissionsViewModel(
     class Factory(private val container: AppContainer) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T =
-            MyMissionsViewModel(container.missionRepository, container.session.state) as T
+            MyMissionsViewModel(container.missionRepository, container.session.state, container.proofSync.version) as T
     }
 }
 

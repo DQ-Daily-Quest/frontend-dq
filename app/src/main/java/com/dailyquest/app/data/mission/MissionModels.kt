@@ -28,6 +28,7 @@ data class Mission(
     val dueAtRaw: String,
     val myProofStatus: String?,
     val proofCount: Long,
+    val myProofId: Long? = null,
 ) {
     fun isExpired(nowMs: Long): Boolean = dueAtMs != null && dueAtMs <= nowMs
 
@@ -92,6 +93,7 @@ fun MissionDto.toMission(roomId: Long, roomName: String? = null) = Mission(
     dueAtRaw = dueAt,
     myProofStatus = myProof?.status,
     proofCount = proofCount,
+    myProofId = myProof?.proofId,
 )
 
 /** 상세 응답에는 방 정보가 없으므로 호출자가 아는 roomId(없으면 0)를 넣는다. */
