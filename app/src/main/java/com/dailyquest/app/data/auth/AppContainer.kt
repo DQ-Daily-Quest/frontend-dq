@@ -3,6 +3,8 @@ package com.dailyquest.app.data.auth
 import com.dailyquest.app.data.auth.social.SocialAuthClient
 import com.dailyquest.app.data.auth.social.SocialProvider
 import com.dailyquest.app.data.customization.CustomizationData
+import com.dailyquest.app.data.shop.InventoryRepository
+import com.dailyquest.app.data.shop.ShopRepository
 import com.dailyquest.app.data.remote.DqApi
 import com.dailyquest.app.data.mission.MissionRepository
 import com.dailyquest.app.data.proof.ProofRepository
@@ -36,6 +38,8 @@ class AppContainer(
     val missionRepository = MissionRepository(api)
     val proofRepository = ProofRepository(api)
     val uploadRepository = UploadRepository(api)
+    val shopRepository = ShopRepository(api)
+    val inventoryRepository = InventoryRepository(api)
 
     /** 화면 수명과 무관하게 이어져야 하는 갱신(코인 잔액 등)을 위한 앱 범위. */
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
