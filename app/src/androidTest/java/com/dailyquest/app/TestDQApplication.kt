@@ -69,7 +69,7 @@ class TestDQApplication : DQApplication() {
         override suspend fun refresh(body: RefreshRequest): TokenResponse = error("not used")
         override suspend fun logout() = Unit
         private fun meResponse() = UserMeResponse(
-            userId = 1, email = "ui-test@example.com", nickname = TestProfileCalls.nickname, coins = TestShopCalls.coins,
+            userId = 1, email = "ui-test@example.com", nickname = TestProfileCalls.nickname, hasPassword = TestProfileCalls.hasPassword, coins = TestShopCalls.coins,
             streak = com.dailyquest.app.data.remote.dto.StreakDto(current = 3, longest = 8),
             stats = com.dailyquest.app.data.remote.dto.UserStatsDto(roomCount = 2, completedMissionCount = 11),
             createdAt = "2025-03-04T01:02:03Z",
@@ -352,6 +352,7 @@ class TestDQApplication : DQApplication() {
 object TestProfileCalls {
     const val TAKEN = "사용중닉"
     @Volatile var nickname = "uitest"
+    @Volatile var hasPassword: Boolean? = true
     val updates: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
     val passwordCalls: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
     val withdrawCalls: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
@@ -359,7 +360,7 @@ object TestProfileCalls {
     @Volatile var withdrawFailure: Throwable? = null
 
     fun reset() {
-        nickname = "uitest"; updates.clear(); passwordCalls.clear(); withdrawCalls.clear()
+        nickname = "uitest"; hasPassword = true; updates.clear(); passwordCalls.clear(); withdrawCalls.clear()
         passwordFailure = null; withdrawFailure = null
     }
 }

@@ -120,6 +120,38 @@ class ProfileRepositoryTest {
         assertEquals("""{}""", server.takeRequest().body.readUtf8())
     }
 
+    @Test fun withdrawOmitsPasswordForSocialOnlyAccountEvenIfGiven() = runBlocking {
+        session.markAuthenticated(profile().copy(hasPassword = false))
+        server.enqueue(MockResponse().setResponseCode(204))
+        repo.withdraw("leftover")
+        assertEquals("""{}""", server.takeRequest().body.readUtf8())
+    }
+
+    @Test fun withdrawSendsPasswordWhenHasPasswordTrue() = runBlocking {
+        session.markAuthenticated(profile().copy(hasPassword = true))
+        server.enqueue(MockResponse().setResponseCode(204))
+        repo.withdraw("pw123456")
+        assertEquals("""{"password":"pw123456"}""", server.takeRequest().body.readUtf8())
+    }
+
+    @Test fun hasPasswordIsParsedAndKeptAfterNicknameUpdate() = runBlocking {
+        server.enqueue(json(meBody.replace("\"nickname\"", "\"hasPassword\":false,\"nickname\"")))
+        repo.updateNickname("새닉")
+        assertEquals(false, (session.state.value as SessionState.Authenticated).profile.hasPassword)
+    }
+
+    @Test fun missingHasPasswordStaysUnknown() = runBlocking {
+        server.enqueue(json(meBody))
+        repo.updateNickname("새닉")
+        assertNull((session.state.value as SessionState.Authenticated).profile.hasPassword)
+    }
+
+    @Test fun accountSwitchDoesNotKeepPreviousHasPassword() {
+        session.markAuthenticated(profile(1).copy(hasPassword = false))
+        session.markAuthenticated(profile(2))
+        assertNull(session.currentHasPassword())
+    }
+
     @Test fun withdrawOwnerBlockedKeepsSession() = runBlocking {
         server.enqueue(err(409, "OWNER_MUST_TRANSFER"))
         val r = repo.withdraw("pw123456") as AccountResult.Failed

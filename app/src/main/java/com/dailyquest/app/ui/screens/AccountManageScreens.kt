@@ -86,11 +86,12 @@ fun PasswordChangeScreen() {
     val vm: PasswordChangeViewModel = viewModel(factory = PasswordChangeViewModel.Factory(LocalAppContainer.current))
     val ui by vm.ui.collectAsStateWithLifecycle()
     var show by remember { mutableStateOf(false) }
+    val hasPassword = (LocalAppContainer.current.session.state.collectAsStateWithLifecycle().value as? com.dailyquest.app.data.auth.SessionState.Authenticated)?.profile?.hasPassword
     DqScreen {
         Column(Modifier.fillMaxSize().imePadding().testTag("passwordScreen")) {
             NavHeader("비밀번호 변경", divider = true)
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp)) {
-                if (ui.unsupported) {
+                if (ui.unsupported || hasPassword == false) {
                     Txt(
                         "소셜 로그인으로 가입한 계정은 비밀번호를 변경할 수 없어요.",
                         size = 14f, color = DQColors.Muted, modifier = Modifier.padding(top = 8.dp).testTag("passwordUnsupported"),
@@ -124,6 +125,7 @@ fun WithdrawScreen() {
     val nav = LocalNav.current
     val vm: WithdrawViewModel = viewModel(factory = WithdrawViewModel.Factory(LocalAppContainer.current))
     val ui by vm.ui.collectAsStateWithLifecycle()
+    val hasPassword = (LocalAppContainer.current.session.state.collectAsStateWithLifecycle().value as? com.dailyquest.app.data.auth.SessionState.Authenticated)?.profile?.hasPassword
     DqScreen {
         Column(Modifier.fillMaxSize().imePadding().testTag("withdrawScreen")) {
             NavHeader("회원 탈퇴", divider = true)
@@ -137,8 +139,10 @@ fun WithdrawScreen() {
                         "• 방장인 방이 있으면 먼저 방장을 위임해야 해요.",
                     size = 13.5f, color = DQColors.Muted, lineHeight = 1.5f, modifier = Modifier.padding(top = 12.dp),
                 )
-                Label("비밀번호 확인")
-                DqTextField(ui.password, vm::onPassword, "이메일 가입 계정은 비밀번호를 입력해 주세요", modifier = Modifier.testTag("withdrawPasswordInput"), radius = 16.dp, secure = true, keyboardType = KeyboardType.Password, shadow = true)
+                if (hasPassword != false) {
+                    Label("비밀번호 확인")
+                    DqTextField(ui.password, vm::onPassword, "이메일 가입 계정은 비밀번호를 입력해 주세요", modifier = Modifier.testTag("withdrawPasswordInput"), radius = 16.dp, secure = true, keyboardType = KeyboardType.Password, shadow = true)
+                }
                 Row(Modifier.padding(top = 12.dp).clickable { vm.onAgreed(!ui.agreed) }, verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(ui.agreed, { vm.onAgreed(it) }, modifier = Modifier.testTag("withdrawAgree"), colors = CheckboxDefaults.colors(checkedColor = DQColors.Primary))
                     Txt("위 내용을 확인했고 탈퇴에 동의해요", size = 13f)

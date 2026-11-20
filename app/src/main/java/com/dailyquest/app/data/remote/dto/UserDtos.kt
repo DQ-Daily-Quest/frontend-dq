@@ -31,6 +31,8 @@ data class UserMeResponse(
     val streak: StreakDto = StreakDto(),
     val stats: UserStatsDto = UserStatsDto(),
     val createdAt: String? = null,
+    /** 비밀번호가 설정된 계정인지. 소셜 전용 계정은 false, 응답에 없으면 null(알 수 없음). */
+    val hasPassword: Boolean? = null,
 )
 
 /** PATCH /users/me. 닉네임만 보낸다(avatar 슬롯은 STEP 9에서 다루며, 보내지 않으면 서버가 그대로 둔다). */

@@ -46,8 +46,8 @@ The following features are implemented and connected to the real backend API.
 **Profile and account management**
 - Profile page with streak and mission statistics
 - Nickname editing
-- Password change
-- Account withdrawal with confirmation safeguards
+- Password change (menu hidden for social-only accounts, based on the server `hasPassword` flag)
+- Account withdrawal with confirmation safeguards (password omitted for social-only accounts)
 
 ## 3. Screenshots
 
