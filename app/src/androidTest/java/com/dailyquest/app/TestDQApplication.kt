@@ -4,7 +4,14 @@ import com.dailyquest.app.data.auth.AppContainer
 import com.dailyquest.app.data.auth.InMemoryTokenStore
 import com.dailyquest.app.data.auth.TokenPair
 import com.dailyquest.app.data.remote.DqApi
+import com.dailyquest.app.data.remote.dto.CreateMissionRequest
 import com.dailyquest.app.data.remote.dto.CreateRoomRequest
+import com.dailyquest.app.data.remote.dto.MissionDetailDto
+import com.dailyquest.app.data.remote.dto.MissionDto
+import com.dailyquest.app.data.remote.dto.MissionRewardDto
+import com.dailyquest.app.data.remote.dto.MissionRoomBriefDto
+import com.dailyquest.app.data.remote.dto.MyProofDto
+import com.dailyquest.app.data.remote.dto.MyRoomMissionsDto
 import com.dailyquest.app.data.remote.dto.CreateRoomResponse
 import com.dailyquest.app.data.remote.dto.InviteCodeDto
 import com.dailyquest.app.data.remote.dto.JoinByCodeRequest
@@ -140,6 +147,57 @@ class TestDQApplication : DQApplication() {
             )
             return CreateRoomResponse(roomId = id, name = body.name.trim(), isPublic = body.isPublic, inviteCode = code, ownerId = 1)
         }
+        // ---- 미션: 서버 응답을 흉내 낸다. 실제 서버에는 어떤 요청도 가지 않는다. ----
+        private fun missionDto(id: Long, type: String, content: String, creator: RoomOwnerDto? = null, assignee: RoomOwnerDto? = null,
+                               due: String = "2099-01-01T00:00:00Z", proof: MyProofDto? = null) = MissionDto(
+            missionId = id, type = type, content = content, reward = MissionRewardDto("COIN", if (type == "APP") 50 else 100, 0),
+            createdBy = creator, assignee = assignee, date = if (type == "APP") "2025-04-17" else null, dueAt = due, myProof = proof,
+            createdAt = "2025-04-17T00:00:00Z",
+        )
+        private val friend = RoomOwnerDto(userId = 7, nickname = "서버방장")
+        private fun missionsOf(roomId: Long): List<MissionDto> {
+            val base = when (roomId) {
+                9101L -> listOf(
+                    missionDto(8001, "APP", "서버 앱 미션 9101"),
+                    missionDto(8002, "MEMBER", "서버 친구 미션", creator = friend, assignee = RoomOwnerDto(1, "uitest")),
+                )
+                9102L -> listOf(missionDto(8003, "APP", "서버 앱 미션 9102", proof = MyProofDto(1, "PENDING")))
+                else -> emptyList()
+            }
+            return base + TestMissionCalls.created.filter { it.first == roomId }.map { it.second }
+        }
+        private fun isMyRoom(roomId: Long) = roomId in 9101L..9105L && roomId !in TestRoomCalls.gone && roomId !in TestRoomCalls.left
+        override suspend fun listMyMissions(): List<MyRoomMissionsDto> {
+            TestMissionCalls.mineCalls++
+            TestMissionCalls.listFailure?.let { throw it }
+            if (TestMissionCalls.noRooms) return emptyList()
+            if (!TestMissionCalls.seeded) return (9101L..9105L).filter { isMyRoom(it) }.map { MyRoomMissionsDto(MissionRoomBriefDto(it, "서버 내 방 ${it - 9100}"), emptyList()) }
+            return (9101L..9105L).filter { isMyRoom(it) }.map {
+                MyRoomMissionsDto(MissionRoomBriefDto(it, "서버 내 방 ${it - 9100}"), missionsOf(it))
+            }
+        }
+        override suspend fun listRoomMissions(roomId: Long, status: String?, type: String?, page: Int, size: Int): PageDto<MissionDto> {
+            TestMissionCalls.roomCalls.add(roomId to status)
+            TestMissionCalls.listFailure?.let { throw it }
+            if (!isMyRoom(roomId)) throw http(403, "FORBIDDEN")
+            if (!TestMissionCalls.seeded) return PageDto(content = emptyList(), page = 0, size = size, totalElements = 0, totalPages = 1)
+            val items = if (status == "EXPIRED") listOf(missionDto(8100 + roomId % 100, "MEMBER", "지난 미션 $roomId", creator = friend, due = "2020-01-01T00:00:00Z"))
+            else missionsOf(roomId)
+            return PageDto(content = items, page = 0, size = size, totalElements = items.size.toLong(), totalPages = 1)
+        }
+        override suspend fun getMission(missionId: Long): MissionDetailDto {
+            val m = (9101L..9105L).flatMap { missionsOf(it) }.firstOrNull { it.missionId == missionId } ?: throw http(404, "MISSION_NOT_FOUND")
+            return MissionDetailDto(m.missionId, m.type, m.content, m.reward, m.createdBy, m.assignee, m.date, m.dueAt, m.myProof, m.proofCount, m.createdAt)
+        }
+        override suspend fun createMission(roomId: Long, body: CreateMissionRequest): MissionDto {
+            TestMissionCalls.createRequests.add(roomId to body)
+            TestMissionCalls.createFailure?.let { throw it }
+            val assignee = body.assigneeUserId?.let { RoomOwnerDto(it, if (it == 8L) "서버멤버" else "서버방장") }
+            val dto = missionDto(8500L + TestMissionCalls.created.size, "MEMBER", body.content, creator = RoomOwnerDto(1, "uitest"), assignee = assignee)
+                .copy(reward = MissionRewardDto("COIN", body.rewardCoins, 0))
+            TestMissionCalls.created.add(roomId to dto)
+            return dto
+        }
         override suspend fun joinPublicRoom(roomId: Long): RoomDetailDto {
             TestRoomCalls.calls.add("join:$roomId")
             TestRoomCalls.mutationFailure?.let { throw it }
@@ -206,6 +264,23 @@ class TestDQApplication : DQApplication() {
     }
 }
 
+/** 미션 FakeApi 상태. 테스트 후 reset()으로 비운다. */
+object TestMissionCalls {
+    val created: MutableList<Pair<Long, MissionDto>> = java.util.Collections.synchronizedList(mutableListOf())
+    val createRequests: MutableList<Pair<Long, CreateMissionRequest>> = java.util.Collections.synchronizedList(mutableListOf())
+    val roomCalls: MutableList<Pair<Long, String?>> = java.util.Collections.synchronizedList(mutableListOf())
+    @Volatile var mineCalls = 0
+    @Volatile var noRooms = false
+    /** false(기본)면 서버 미션이 없는 상태로 응답해 기존 방 테스트의 화면 구성을 바꾸지 않는다. */
+    @Volatile var seeded = false
+    @Volatile var createFailure: Throwable? = null
+    @Volatile var listFailure: Throwable? = null
+    fun reset() {
+        created.clear(); createRequests.clear(); roomCalls.clear(); mineCalls = 0
+        noRooms = false; seeded = false; createFailure = null; listFailure = null
+    }
+}
+
 /** FakeApi가 받은 멤버 목록 요청. 비멤버 방에 멤버 API를 호출하지 않는지 검증하는 데 쓴다. */
 class TestCreatedRoom(
     val roomId: Long, val name: String, val description: String?, val isPublic: Boolean, val maxMembers: Int, val inviteCode: String?,
@@ -221,6 +296,7 @@ object TestRoomCalls {
         calls.clear(); joined.clear(); left.clear(); gone.clear(); kicked.clear(); transferred.clear()
         renamed.clear(); describedAs.clear(); maxOverride.clear(); publicOverride.clear(); inviteOverride.clear()
         mutationFailure = null; lastUpdate = null
+        TestMissionCalls.reset()
     }
     /** 방 참여·관리 FakeApi 상태. 서버 응답을 흉내 내는 상태이며 테스트 후 reset()으로 비운다. */
     val calls: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())

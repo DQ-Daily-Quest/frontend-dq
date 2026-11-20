@@ -16,6 +16,7 @@ class NavigationBackTest {
     @After fun resetFakeServer() { TestRoomCalls.reset() }
 
     private fun waitText(text: String) = compose.waitUntil(5_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }
+    private fun waitTag(tag: String) = compose.waitUntil(5_000) { compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() }
     private fun isRole(role: Role) = SemanticsMatcher.expectValue(SemanticsProperties.Role, role)
     private fun tab(label: String) = compose.onNode(hasText(label) and isRole(Role.Tab))
 
@@ -34,7 +35,7 @@ class NavigationBackTest {
     fun missionTabSystemBackReturnsToHome() {
         openHome()
         tab("미션").performClick()
-        waitText("미션 인증하기")
+        waitTag("missionList")
         Espresso.pressBack()
         assertOnHome()
     }
@@ -43,7 +44,7 @@ class NavigationBackTest {
     fun missionTabScreenBackButtonReturnsToHome() {
         openHome()
         tab("미션").performClick()
-        waitText("미션 인증하기")
+        waitTag("missionList")
         compose.onAllNodes(isRole(Role.Button) and hasClickAction())[0].performClick()
         assertOnHome()
     }
