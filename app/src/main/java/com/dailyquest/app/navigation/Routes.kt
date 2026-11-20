@@ -60,6 +60,7 @@ object Routes {
 
     fun sendRoomMission(roomId: Long): String = "room/$roomId/send-mission"
     const val SHOP = "shop"
+    const val COIN_HISTORY = "coin_history"
 
     // 로그인 및 회원가입
     const val LOGIN = "login"
