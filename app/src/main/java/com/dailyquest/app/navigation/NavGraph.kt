@@ -25,7 +25,10 @@ import com.dailyquest.app.ui.components.Txt
 import com.dailyquest.app.ui.theme.DQColors
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
+import com.dailyquest.app.ui.room.CreateRoomViewModel
 import com.dailyquest.app.ui.room.LocalAppContainer
+import com.dailyquest.app.ui.room.LocalMyRooms
+import com.dailyquest.app.ui.room.LocalPublicRooms
 import com.dailyquest.app.ui.room.RoomDetailViewModel
 import androidx.navigation.navArgument
 import androidx.navigation.compose.NavHost
@@ -94,7 +97,28 @@ fun DQNavGraph() {
                     defaultValue = false
                 })
             ) { backStackEntry ->
-                CreateRoomScreen(initialIsPublic = backStackEntry.arguments?.getBoolean("isPublic") ?: false)
+                val initialIsPublic = backStackEntry.arguments?.getBoolean("isPublic") ?: false
+                val myRooms = LocalMyRooms.current
+                val publicRooms = LocalPublicRooms.current
+                val container = LocalAppContainer.current
+                val vm: CreateRoomViewModel = viewModel(
+                    factory = CreateRoomViewModel.Factory(
+                        initialIsPublic, container,
+                        onCreated = { myRooms.refresh(); publicRooms.refresh() },
+                        onOutcomeUnknown = { myRooms.refresh() },
+                    ),
+                )
+                CreateRoomScreen(viewModel = vm)
+            }
+
+            composable(
+                route = Routes.MOCK_CREATE_ROOM_ROUTE,
+                arguments = listOf(navArgument("isPublic") {
+                    type = NavType.BoolType
+                    defaultValue = false
+                })
+            ) { backStackEntry ->
+                MockCreateRoomScreen(initialIsPublic = backStackEntry.arguments?.getBoolean("isPublic") ?: false)
             }
 
             composable(Routes.JOIN_ROOM) {

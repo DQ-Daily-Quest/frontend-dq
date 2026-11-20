@@ -121,7 +121,6 @@ fun HomePublicScreen() {
     }
 
     val publicRooms = createPublicRooms(ui.rooms)
-    var createNotice by remember { mutableStateOf(false) }
 
     DqScreen(statusBarPadding = false) {
 
@@ -221,8 +220,7 @@ fun HomePublicScreen() {
                             }
                         }
                         Btn("+ 방 만들기", Modifier.height(34.dp).width(104.dp), size = 12f) {
-                            if (RoomEntryGate.mockRoomActionsEnabled) nav.navigate(Routes.createRoom(isPublic = true))
-                            else createNotice = true
+                            nav.navigate(if (RoomEntryGate.mockRoomActionsEnabled) Routes.mockCreateRoom(isPublic = true) else Routes.createRoom(isPublic = true))
                         }
                     }
 
@@ -405,15 +403,6 @@ fun HomePublicScreen() {
     }
 
     // 공개방 상세 미리보기
-    if (createNotice) {
-        AlertDialog(
-            onDismissRequest = { createNotice = false },
-            text = { Text("방 만들기는 아직 서버와 연결되지 않았어요. 곧 사용할 수 있어요.") },
-            confirmButton = { TextButton(onClick = { createNotice = false }) { Text("확인") } },
-            containerColor = DQColors.White
-        )
-    }
-
     selectedRoom?.let { room ->
         RoomPreviewDialog(room, onDismiss = { selectedRoom = null })
     }

@@ -281,8 +281,7 @@ fun HomeScreen() {
                                 Modifier.weight(1f).height(44.dp),
                                 size = 14f
                             ) {
-                                if (RoomEntryGate.mockRoomActionsEnabled) nav.navigate(Routes.createRoom(isPublic = false))
-                                else notice = "방 만들기는 아직 서버와 연결되지 않았어요. 곧 사용할 수 있어요."
+                                nav.navigate(if (RoomEntryGate.mockRoomActionsEnabled) Routes.mockCreateRoom(isPublic = false) else Routes.createRoom(isPublic = false))
                             }
 
                             Btn(
