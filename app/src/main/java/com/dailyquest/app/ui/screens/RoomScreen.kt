@@ -21,6 +21,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -51,18 +52,32 @@ import com.dailyquest.app.ui.components.Txt
 import com.dailyquest.app.ui.room.ROLE_OWNER
 import com.dailyquest.app.ui.room.RoomDetailFailure
 import com.dailyquest.app.ui.room.RoomDetailViewModel
+import com.dailyquest.app.ui.room.RoomManageEvent
+import com.dailyquest.app.ui.room.RoomManageViewModel
 import com.dailyquest.app.ui.theme.DQColors
 
 private val TABS = listOf("피드", "미션", "랭킹")
 
 /** 03 · 방 내부 — 서버의 방 상세·멤버 데이터만 사용한다. Mock 방은 [MockRoomScreen]에서만 열린다. */
 @Composable
-fun RoomScreen(roomId: Long, viewModel: RoomDetailViewModel) {
+fun RoomScreen(roomId: Long, viewModel: RoomDetailViewModel, manage: RoomManageViewModel) {
     val nav = LocalNav.current
     val ui by viewModel.ui.collectAsStateWithLifecycle()
     var tab by remember(roomId) { mutableStateOf("피드") }
     var notice by remember(roomId) { mutableStateOf<String?>(null) }
+    val manageUi by manage.ui.collectAsStateWithLifecycle()
     val detail = ui.detail
+
+    // 관리 요청 결과는 한 번만 처리한다. 나가기·삭제는 홈으로, 그 외는 서버에서 상세·멤버를 다시 조회한다.
+    LaunchedEffect(manageUi.event) {
+        val event = manageUi.event ?: return@LaunchedEffect
+        manage.consumeEvent()
+        when (event) {
+            is RoomManageEvent.Gone ->
+                nav.navigate(Routes.HOME) { popUpTo(Routes.HOME) { inclusive = false } }
+            else -> viewModel.refresh()
+        }
+    }
 
     if (detail == null) {
         DqScreen {
@@ -143,6 +158,8 @@ fun RoomScreen(roomId: Long, viewModel: RoomDetailViewModel) {
                         modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp).testTag("roomInviteCode"),
                     )
                 }
+
+                RoomManageSection(ui, manage)
 
                 // 멤버 영역: 멤버 전용 API이므로 비멤버에게는 호출하지도 표시하지도 않는다.
                 Column(Modifier.testTag("roomMembers")) {

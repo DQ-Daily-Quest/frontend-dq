@@ -42,7 +42,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.testTag
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dailyquest.app.ui.room.LocalMyRooms
-import com.dailyquest.app.ui.room.RoomEntryGate
 import com.dailyquest.app.ui.room.mapExtraAvatarCount
 import com.dailyquest.app.navigation.LocalNav
 import com.dailyquest.app.navigation.Routes
@@ -281,7 +280,7 @@ fun HomeScreen() {
                                 Modifier.weight(1f).height(44.dp),
                                 size = 14f
                             ) {
-                                nav.navigate(if (RoomEntryGate.mockRoomActionsEnabled) Routes.mockCreateRoom(isPublic = false) else Routes.createRoom(isPublic = false))
+                                nav.navigate(Routes.createRoom(isPublic = false))
                             }
 
                             Btn(
@@ -290,8 +289,7 @@ fun HomeScreen() {
                                 style = BtnStyle.Outline,
                                 size = 14f
                             ) {
-                                if (RoomEntryGate.mockRoomActionsEnabled) nav.navigate(Routes.JOIN_ROOM)
-                                else notice = "초대코드 참여는 아직 서버와 연결되지 않았어요. 곧 사용할 수 있어요."
+                                nav.navigate(Routes.JOIN_ROOM)
                             }
                         }
                         SheetHead {

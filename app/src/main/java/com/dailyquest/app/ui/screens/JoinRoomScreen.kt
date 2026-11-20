@@ -1,54 +1,53 @@
 package com.dailyquest.app.ui.screens
 
-import android.widget.Toast
-
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
-import com.dailyquest.app.data.mock.MockRoomData
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dailyquest.app.navigation.*
 import com.dailyquest.app.ui.components.*
+import com.dailyquest.app.ui.room.JOIN_UNKNOWN_MESSAGE
+import com.dailyquest.app.ui.room.RoomJoinViewModel
 import com.dailyquest.app.ui.theme.DQColors
 
+/** 초대코드 참여 — 서버(POST /rooms/join)로 참여한다. */
 @Composable
-fun JoinRoomScreen() {
+fun JoinRoomScreen(viewModel: RoomJoinViewModel) {
     val nav = LocalNav.current
-    val context = LocalContext.current
-    var code by rememberSaveable { mutableStateOf("") }
-    var error by rememberSaveable { mutableStateOf<String?>(null) }
-    var submitted by remember { mutableStateOf(false) }
+    val ui by viewModel.ui.collectAsStateWithLifecycle()
+
+    // 성공 이벤트는 한 번만 처리하고 참여 화면은 back stack에서 제거한다.
+    LaunchedEffect(ui.joinedRoomId) {
+        val roomId = ui.joinedRoomId ?: return@LaunchedEffect
+        viewModel.consumeJoined()
+        nav.navigate(Routes.room(roomId)) {
+            popUpTo(Routes.JOIN_ROOM) { inclusive = true }
+            launchSingleTop = true
+        }
+    }
+
     DqScreen {
-        Column {
+        Column(Modifier.testTag("realJoinRoom")) {
             NavHeader("초대코드 참여")
             FormBody {
                 FieldLabel("초대코드", first = true)
-                DqTextField(code, { code = it; error = null }, "초대받은 코드를 입력해 주세요", maxLength = 30)
-                InfoNote("코드를 확인한 뒤 해당 방에 참여해요. 이미 참여한 방은 바로 입장해요.")
-                error?.let { Txt(it, color = DQColors.Orange, modifier = Modifier.padding(top = 16.dp)) }
+                DqTextField(ui.code, viewModel::onCodeChange, "초대받은 코드를 입력해 주세요", maxLength = 30)
+                InfoNote("코드를 확인한 뒤 해당 방에 참여해요. 이미 참여한 방은 우리만 탭에서 확인할 수 있어요.")
+                (ui.codeError ?: ui.error)?.let { Txt(it, color = DQColors.Orange, modifier = Modifier.padding(top = 16.dp)) }
+                if (ui.outcomeUnknown) {
+                    Txt(JOIN_UNKNOWN_MESSAGE, size = 12.5f, color = DQColors.Orange,
+                        modifier = Modifier.padding(top = 16.dp).testTag("joinOutcomeUnknown"))
+                }
             }
         }
         BottomCta {
-            Btn("참여하기", Modifier.fillMaxWidth().height(50.dp)) {
-                if (!submitted) {
-                    if (code.isBlank()) error = "초대코드를 입력해 주세요."
-                    else when (val result = MockRoomData.joinByInviteCode(code)) {
-                        is MockRoomData.JoinResult.Failure -> error = result.message
-                        is MockRoomData.JoinResult.Success -> {
-                            submitted = true
-                            if (result.alreadyJoined) {
-                                Toast.makeText(context, "이미 참여 중인 방입니다.", Toast.LENGTH_SHORT).show()
-                            }
-                            nav.navigate(Routes.mockRoom(result.room.roomId)) {
-                                popUpTo(Routes.JOIN_ROOM) { inclusive = true }
-                                launchSingleTop = true
-                            }
-                        }
-                    }
-                }
-            }
+            Btn(
+                if (ui.submitting) "참여 중…" else "참여하기",
+                Modifier.fillMaxWidth().height(50.dp),
+                enabled = !ui.submitting,
+            ) { viewModel.joinByCode() }
         }
     }
 }

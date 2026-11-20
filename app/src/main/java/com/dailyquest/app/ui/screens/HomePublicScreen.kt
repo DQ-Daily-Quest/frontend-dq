@@ -46,10 +46,12 @@ import com.dailyquest.app.data.model.Room
 import com.dailyquest.app.data.room.RoomSort
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.dailyquest.app.ui.room.JOIN_UNKNOWN_MESSAGE
 import com.dailyquest.app.ui.room.LocalAppContainer
+import com.dailyquest.app.ui.room.LocalMyRooms
 import com.dailyquest.app.ui.room.LocalPublicRooms
 import com.dailyquest.app.ui.room.RoomDetailViewModel
-import com.dailyquest.app.ui.room.RoomEntryGate
+import com.dailyquest.app.ui.room.RoomJoinViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dailyquest.app.navigation.LocalNav
 import com.dailyquest.app.navigation.Routes
@@ -220,7 +222,7 @@ fun HomePublicScreen() {
                             }
                         }
                         Btn("+ 방 만들기", Modifier.height(34.dp).width(104.dp), size = 12f) {
-                            nav.navigate(if (RoomEntryGate.mockRoomActionsEnabled) Routes.mockCreateRoom(isPublic = true) else Routes.createRoom(isPublic = true))
+                            nav.navigate(Routes.createRoom(isPublic = true))
                         }
                     }
 
@@ -419,6 +421,23 @@ private fun RoomPreviewDialog(room: Room, onDismiss: () -> Unit) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { if (ui.detail != null) vm.refresh() }
     val detail = ui.detail
+    val myRooms = LocalMyRooms.current
+    val publicRooms = LocalPublicRooms.current
+    val join: RoomJoinViewModel = viewModel(
+        key = "join-${room.roomId}",
+        factory = RoomJoinViewModel.Factory(
+            LocalAppContainer.current,
+            onChanged = { myRooms.refresh(); publicRooms.refresh() },
+            onOutcomeUnknown = { myRooms.refresh() },
+        ),
+    )
+    val joinUi by join.ui.collectAsStateWithLifecycle()
+    LaunchedEffect(joinUi.joinedRoomId) {
+        val id = joinUi.joinedRoomId ?: return@LaunchedEffect
+        join.consumeJoined()
+        onDismiss()
+        nav.navigate(Routes.room(id)) { launchSingleTop = true }
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(detail?.name ?: room.name) },
@@ -434,9 +453,10 @@ private fun RoomPreviewDialog(room: Room, onDismiss: () -> Unit) {
                 when {
                     ui.error != null -> Text(ui.error.orEmpty(), color = DQColors.Orange)
                     detail == null -> Text("방 정보를 불러오는 중이에요…", color = DQColors.Muted)
-                    ui.isMember -> Unit
-                    else -> Text("방 참여는 아직 서버와 연결되지 않았어요. 곧 사용할 수 있어요.", color = DQColors.Muted)
+                    else -> Unit
                 }
+                joinUi.error?.let { Text(it, color = DQColors.Orange) }
+                if (joinUi.outcomeUnknown) Text(JOIN_UNKNOWN_MESSAGE, color = DQColors.Orange)
             }
         },
         confirmButton = {
@@ -445,7 +465,9 @@ private fun RoomPreviewDialog(room: Room, onDismiss: () -> Unit) {
             } else if (ui.isMember) {
                 TextButton(onClick = { onDismiss(); nav.navigate(Routes.room(room.roomId)) }) { Text("입장하기") }
             } else {
-                TextButton(enabled = false, onClick = {}) { Text("참여하기") }
+                TextButton(enabled = !joinUi.submitting, onClick = { join.joinPublic(room.roomId) }) {
+                    Text(if (joinUi.submitting) "참여 중…" else "참여하기")
+                }
             }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("닫기") } },

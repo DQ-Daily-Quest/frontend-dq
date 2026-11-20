@@ -28,6 +28,8 @@ import androidx.navigation.NavType
 import com.dailyquest.app.ui.room.CreateRoomViewModel
 import com.dailyquest.app.ui.room.LocalAppContainer
 import com.dailyquest.app.ui.room.LocalMyRooms
+import com.dailyquest.app.ui.room.RoomJoinViewModel
+import com.dailyquest.app.ui.room.RoomManageViewModel
 import com.dailyquest.app.ui.room.LocalPublicRooms
 import com.dailyquest.app.ui.room.RoomDetailViewModel
 import androidx.navigation.navArgument
@@ -122,7 +124,16 @@ fun DQNavGraph() {
             }
 
             composable(Routes.JOIN_ROOM) {
-                JoinRoomScreen()
+                val myRooms = LocalMyRooms.current
+                val publicRooms = LocalPublicRooms.current
+                val vm: RoomJoinViewModel = viewModel(
+                    factory = RoomJoinViewModel.Factory(
+                        LocalAppContainer.current,
+                        onChanged = { myRooms.refresh(); publicRooms.refresh() },
+                        onOutcomeUnknown = { myRooms.refresh() },
+                    ),
+                )
+                JoinRoomScreen(vm)
             }
 
             // 방 ID를 전달받아 해당 방 화면으로 이동
@@ -143,7 +154,16 @@ fun DQNavGraph() {
                     key = "room-$roomId",
                     factory = RoomDetailViewModel.Factory(roomId, LocalAppContainer.current),
                 )
-                RoomScreen(roomId = roomId, viewModel = vm)
+                val myRooms = LocalMyRooms.current
+                val publicRooms = LocalPublicRooms.current
+                val manage: RoomManageViewModel = viewModel(
+                    key = "room-manage-$roomId",
+                    factory = RoomManageViewModel.Factory(
+                        roomId, LocalAppContainer.current,
+                        onListsChanged = { myRooms.refresh(); publicRooms.refresh() },
+                    ),
+                )
+                RoomScreen(roomId = roomId, viewModel = vm, manage = manage)
             }
 
             composable(
