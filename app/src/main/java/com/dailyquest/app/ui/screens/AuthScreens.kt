@@ -23,6 +23,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.draw.alpha
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.dailyquest.app.data.auth.social.SocialProvider
+import com.dailyquest.app.ui.auth.LocalAuth
+import com.dailyquest.app.ui.auth.SignupOutcome
+import com.dailyquest.app.data.auth.AuthValidator
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -62,6 +70,9 @@ import com.dailyquest.app.ui.theme.DQColors
 @Composable
 fun LoginScreen() {
     val nav = LocalNav.current
+    val auth = LocalAuth.current
+    val activity = androidx.compose.ui.platform.LocalContext.current
+    val ui by auth.ui.collectAsStateWithLifecycle()
     var email by remember { mutableStateOf("") }
     var pw by remember { mutableStateOf("") }
     var showPw by remember { mutableStateOf(false) }
@@ -92,14 +103,18 @@ fun LoginScreen() {
 
             Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp)) {
                 Txt("이메일", size = 13f, weight = Bold, modifier = Modifier.padding(start = 4.dp, bottom = 6.dp))
-                DqTextField(email, { email = it }, "example@email.com", radius = 16.dp, keyboardType = KeyboardType.Email, leading = R.drawable.ic_mail, shadow = true)
+                DqTextField(email, { email = it.trim() }, "example@email.com", radius = 16.dp, keyboardType = KeyboardType.Email, leading = R.drawable.ic_mail, shadow = true)
                 Txt("비밀번호", size = 13f, weight = Bold, modifier = Modifier.padding(start = 4.dp, top = 6.dp, bottom = 6.dp))
                 DqTextField(
                     pw, { pw = it }, "비밀번호 입력", radius = 16.dp, secure = !showPw, keyboardType = KeyboardType.Password,
                     leading = R.drawable.ic_lock_gray, shadow = true,
                     trailing = { DqIcon(R.drawable.ic_eye, 20.dp, Modifier.clip(CircleShape).clickable { showPw = !showPw }) },
                 )
-                Btn("로그인", Modifier.padding(top = 18.dp).fillMaxWidth().height(54.dp), size = 16f) { nav.navigate(Routes.HOME) }
+                FormMessage(ui.error, ui.notice)
+                Btn(
+                    if (ui.loading) "로그인 중…" else "로그인",
+                    Modifier.padding(top = 18.dp).fillMaxWidth().height(54.dp), size = 16f, enabled = !ui.loading,
+                ) { auth.login(email, pw) }
 
                 Row(Modifier.fillMaxWidth().padding(top = 14.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.width(110.dp).clickable { }, contentAlignment = Alignment.Center) { Txt("비밀번호 찾기", size = 13f, color = DQColors.Muted) }
@@ -115,21 +130,35 @@ fun LoginScreen() {
                     Box(Modifier.weight(1f).height(1.dp).background(DQColors.Soft))
                 }
                 Column(Modifier.padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    SocialButton("카카오로 시작하기", R.drawable.ic_brand_kakao, Color(0xFFFEE500))
-                    SocialButton("Google로 시작하기", R.drawable.ic_brand_google, Color.White, border = true)
-                    SocialButton("Apple로 시작하기", R.drawable.ic_brand_apple, Color(0xFF111111), text = Color.White)
+                    SocialButton("카카오로 시작하기", R.drawable.ic_brand_kakao, Color(0xFFFEE500), enabled = !ui.loading) {
+                        auth.socialLogin(SocialProvider.KAKAO, activity)
+                    }
+                    SocialButton("Google로 시작하기", R.drawable.ic_brand_google, Color.White, border = true, enabled = !ui.loading) {
+                        auth.socialLogin(SocialProvider.GOOGLE, activity)
+                    }
                 }
             }
         }
     }
 }
 
+/** 서버 인증 오류/안내 문구 (오류는 주황, 안내는 초록) */
 @Composable
-private fun SocialButton(label: String, @DrawableRes icon: Int, bg: Color, text: Color = DQColors.Ink, border: Boolean = false) {
+private fun FormMessage(error: String?, notice: String?) {
+    val text = error ?: notice ?: return
+    Txt(
+        text, size = 12.5f, weight = Medium, color = if (error != null) DQColors.Orange else DQColors.Green,
+        modifier = Modifier.padding(start = 4.dp, top = 12.dp),
+    )
+}
+
+@Composable
+private fun SocialButton(label: String, @DrawableRes icon: Int, bg: Color, text: Color = DQColors.Ink, border: Boolean = false, enabled: Boolean = true, onClick: () -> Unit) {
     val shape = RoundedCornerShape(14.dp)
     Box(
         Modifier.fillMaxWidth().height(50.dp).clip(shape).background(bg)
-            .then(if (border) Modifier.border(1.dp, DQColors.Line, shape) else Modifier).clickable { },
+            .then(if (border) Modifier.border(1.dp, DQColors.Line, shape) else Modifier)
+            .alpha(if (enabled) 1f else 0.5f).clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         DqIcon(icon, 20.dp, Modifier.align(Alignment.CenterStart).padding(start = 18.dp).size(20.dp))
@@ -161,7 +190,9 @@ private val TERMS = listOf(
 @Composable
 fun SignupInfoScreen() {
     val nav = LocalNav.current
-    var email by remember { mutableStateOf("example@email.com") }
+    val auth = LocalAuth.current
+    val ui by auth.ui.collectAsStateWithLifecycle()
+    var email by remember { mutableStateOf("") }
     var pw by remember { mutableStateOf("") }
     var pw2 by remember { mutableStateOf("") }
     var nick by remember { mutableStateOf("") }
@@ -169,6 +200,19 @@ fun SignupInfoScreen() {
     var show2 by remember { mutableStateOf(false) }
     val agree = remember { mutableStateListOf(true, true, false) }
     val all = agree.all { it }
+    var localError by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(ui.signupOutcome) {
+        when (ui.signupOutcome) {
+            SignupOutcome.LOGGED_IN -> nav.navigate(Routes.SIGNUP_AVATAR)
+            SignupOutcome.NEEDS_LOGIN -> nav.navigate(Routes.LOGIN) { popUpTo(Routes.LOGIN) { inclusive = true } }
+            null -> return@LaunchedEffect
+        }
+        auth.consumeSignupOutcome()
+    }
+    DisposableEffect(Unit) {
+        onDispose { if (auth.ui.value.signupOutcome == null && auth.ui.value.notice == null) auth.clearMessages() }
+    }
 
     DqScreen {
         Column(Modifier.fillMaxSize()) {
@@ -177,20 +221,18 @@ fun SignupInfoScreen() {
                 SignupTitle("반가워요!\n기본 정보를 알려주세요")
 
                 Label("이메일", top = 16.dp)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    DqTextField(email, { email = it }, "", Modifier.weight(1f), radius = 16.dp, weight = FontWeight.Medium, focused = true, keyboardType = KeyboardType.Email, shadow = true)
-                    Btn("인증하기", Modifier.width(104.dp).height(50.dp), style = BtnStyle.Soft, size = 14f)
-                }
+                DqTextField(email, { email = it.trim() }, "example@email.com", radius = 16.dp, weight = FontWeight.Medium, keyboardType = KeyboardType.Email, shadow = true)
+                Hint("이메일 인증 없이 바로 가입할 수 있어요")
                 Label("비밀번호")
-                DqTextField(pw, { pw = it }, "영문, 숫자 포함 8자 이상", radius = 16.dp, secure = !show1, keyboardType = KeyboardType.Password, shadow = true,
+                DqTextField(pw, { pw = it }, "8~64자로 입력", radius = 16.dp, secure = !show1, keyboardType = KeyboardType.Password, shadow = true,
                     trailing = { DqIcon(R.drawable.ic_eye, 20.dp, Modifier.clip(CircleShape).clickable { show1 = !show1 }) })
-                Hint("영문 · 숫자 포함 8자 이상")
+                Hint("8~64자")
                 Label("비밀번호 확인", top = 6.dp)
                 DqTextField(pw2, { pw2 = it }, "비밀번호를 한 번 더 입력", radius = 16.dp, secure = !show2, keyboardType = KeyboardType.Password, shadow = true,
                     trailing = { DqIcon(R.drawable.ic_eye, 20.dp, Modifier.clip(CircleShape).clickable { show2 = !show2 }) })
                 Label("닉네임")
-                DqTextField(nick, { nick = it }, "친구들에게 보일 이름", radius = 16.dp, maxLength = 10, shadow = true)
-                Hint("2~10자 · 방 멤버들에게 표시돼요")
+                DqTextField(nick, { nick = it }, "친구들에게 보일 이름", radius = 16.dp, maxLength = 12, shadow = true)
+                Hint("2~12자 · 방 멤버들에게 표시돼요")
 
                 Column(Modifier.padding(top = 12.dp).fillMaxWidth().background(DQColors.Soft, RoundedCornerShape(16.dp)).padding(start = 14.dp, end = 14.dp, top = 14.dp, bottom = 6.dp)) {
                     Row(
@@ -215,10 +257,24 @@ fun SignupInfoScreen() {
                         }
                     }
                 }
+                FormMessage(localError ?: ui.error, null)
             }
         }
         BottomCta {
-            Btn("다음", Modifier.weight(1f).height(54.dp), size = 16f) { nav.navigate(Routes.SIGNUP_AVATAR) }
+            Btn(if (ui.loading) "가입 중…" else "다음", Modifier.weight(1f).height(54.dp), size = 16f, enabled = !ui.loading) {
+                localError = when {
+                    AuthValidator.email(email) != null -> AuthValidator.email(email)
+                    AuthValidator.password(pw) != null -> AuthValidator.password(pw)
+                    pw != pw2 -> "비밀번호가 서로 달라요."
+                    AuthValidator.nickname(nick) != null -> AuthValidator.nickname(nick)
+                    !(agree[0] && agree[1]) -> "필수 약관에 동의해 주세요."
+                    else -> null
+                }
+                if (localError == null) {
+                    auth.clearMessages()
+                    auth.signup(email, pw, nick)
+                }
+            }
         }
     }
 }
@@ -240,6 +296,7 @@ private val SWATCHES = listOf(
 @Composable
 fun SignupAvatarScreen() {
     val nav = LocalNav.current
+    val auth = LocalAuth.current
     val sel = remember { mutableStateListOf(0, 0, 0) }
 
     DqScreen {
@@ -271,8 +328,14 @@ fun SignupAvatarScreen() {
                 .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Btn("Daily Quest 시작하기", Modifier.fillMaxWidth().height(54.dp), size = 16f) { nav.navigate(Routes.B1_HOME) }
-            Txt("나중에 꾸밀게요", size = 13f, color = DQColors.Muted, modifier = Modifier.padding(top = 14.dp).clickable { nav.navigate(Routes.B1_HOME) })
+            Txt("아바타 선택은 아직 서버에 저장되지 않아요 (기본 아바타로 시작해요)", size = 11.5f, color = DQColors.Muted, modifier = Modifier.padding(bottom = 10.dp))
+            Btn("Daily Quest 시작하기", Modifier.fillMaxWidth().height(54.dp), size = 16f) { startApp(nav, auth.startAfterAuth) }
+            Txt("나중에 꾸밀게요", size = 13f, color = DQColors.Muted, modifier = Modifier.padding(top = 14.dp).clickable { startApp(nav, auth.startAfterAuth) })
         }
     }
+}
+
+/** 가입 흐름을 모두 지우고 앱 첫 화면으로 진입한다(뒤로가기로 가입 화면에 돌아오지 않음). */
+private fun startApp(nav: androidx.navigation.NavHostController, route: String) {
+    nav.navigate(route) { popUpTo(0) { inclusive = true } }
 }

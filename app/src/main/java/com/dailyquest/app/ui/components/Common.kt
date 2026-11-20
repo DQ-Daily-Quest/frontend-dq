@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
@@ -131,6 +132,7 @@ fun Btn(
     style: BtnStyle = BtnStyle.Primary,
     size: Float = 15f,
     radius: Dp = 14.dp,
+    enabled: Boolean = true,
     onClick: () -> Unit = {},
 ) {
     val shape = RoundedCornerShape(radius)
@@ -143,9 +145,10 @@ fun Btn(
     Box(
         modifier = modifier
             .clip(shape)
+            .alpha(if (enabled) 1f else 0.5f)
             .background(bg)
             .then(if (style == BtnStyle.Outline) Modifier.border(1.5.dp, DQColors.PrimaryStrong, shape) else Modifier)
-            .clickable(role = Role.Button, onClick = onClick)
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
             .padding(horizontal = 8.dp),
         contentAlignment = Alignment.Center,
     ) {

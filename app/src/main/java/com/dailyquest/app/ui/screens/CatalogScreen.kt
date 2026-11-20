@@ -1,3 +1,4 @@
+
 package com.dailyquest.app.ui.screens
 
 import androidx.compose.foundation.background
@@ -34,7 +35,7 @@ private val GROUPS = listOf(
     "A · 기존 화면 (01–08)" to listOf(
         Triple("01", "홈 · 우리만 (마을 지도)", Routes.HOME),
         Triple("02", "홈 · 공개 (다른 마을 구경)", Routes.HOME_PUBLIC),
-        Triple("03", "방 내부 (우리들의 아지트)", Routes.ROOM),
+        Triple("03", "방 내부 (우리들의 아지트)", Routes.room(1L)),
         Triple("04", "챌린지 스토리 뷰어", Routes.STORY),
         Triple("05", "미션 인증하기", Routes.MISSION_VERIFY),
         Triple("06", "인증 확인 (팀원 투표)", Routes.VERIFY_CHECK),
@@ -64,27 +65,83 @@ private val GROUPS = listOf(
 @Composable
 fun CatalogScreen() {
     val nav = LocalNav.current
+
     DqScreen {
         Column(
-            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).navigationBarsPadding().padding(20.dp),
+            Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .navigationBarsPadding()
+                .padding(20.dp),
         ) {
-            Txt("Daily Quest · 작은 마을 테마", size = 24f, weight = Black)
-            Txt("개발용 화면 목록 · 19개", size = 13f, color = DQColors.Muted, modifier = Modifier.padding(top = 6.dp))
+            Txt(
+                "Daily Quest · 작은 마을 테마",
+                size = 24f,
+                weight = Black
+            )
+
+            Txt(
+                "개발용 화면 목록 · 19개",
+                size = 13f,
+                color = DQColors.Muted,
+                modifier = Modifier.padding(top = 6.dp)
+            )
+
             GROUPS.forEach { (title, items) ->
-                Txt(title, size = 14f, weight = Bold, color = Color(0xFF20563E), modifier = Modifier.padding(top = 24.dp, bottom = 10.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+
+                Txt(
+                    title,
+                    size = 14f,
+                    weight = Bold,
+                    color = Color(0xFF20563E),
+                    modifier = Modifier.padding(
+                        top = 24.dp,
+                        bottom = 10.dp
+                    )
+                )
+
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     items.forEach { (num, label, route) ->
+
                         val shape = RoundedCornerShape(14.dp)
+
                         Row(
-                            Modifier.fillMaxWidth().clip(shape).background(DQColors.White).border(1.dp, DQColors.Line, shape)
-                                .clickable { nav.navigate(route) }.padding(12.dp),
+                            Modifier
+                                .fillMaxWidth()
+                                .clip(shape)
+                                .background(DQColors.White)
+                                .border(1.dp, DQColors.Line, shape)
+                                .clickable {
+                                    nav.navigate(route)
+                                }
+                                .padding(12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
-                            Box(Modifier.size(28.dp).background(DQColors.Soft, RoundedCornerShape(8.dp)), contentAlignment = Alignment.Center) {
-                                Txt(num, size = 12f, weight = Bold, color = DQColors.PrimaryStrong)
+                            Box(
+                                Modifier
+                                    .size(28.dp)
+                                    .background(
+                                        DQColors.Soft,
+                                        RoundedCornerShape(8.dp)
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Txt(
+                                    num,
+                                    size = 12f,
+                                    weight = Bold,
+                                    color = DQColors.PrimaryStrong
+                                )
                             }
-                            Txt(label, size = 14f, weight = Medium)
+
+                            Txt(
+                                label,
+                                size = 14f,
+                                weight = Medium
+                            )
                         }
                     }
                 }

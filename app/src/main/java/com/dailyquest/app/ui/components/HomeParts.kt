@@ -68,7 +68,7 @@ fun HomeHeader(scope: Scope, variantB: Boolean = false) {
                         DqIcon(R.drawable.ic_bell, 54.dp, Modifier.offset((-8).dp, (-6).dp))
                     }
                 }
-                CoinPill()
+                CoinPill(amount = com.dailyquest.app.data.customization.CustomizationData.store.state.coins)
             }
         }
         if (!variantB) {

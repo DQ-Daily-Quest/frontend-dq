@@ -65,7 +65,7 @@ private val ITEMS = listOf(
 
 /** 08 · 쇼핑 (아바타 · 우리 집) */
 @Composable
-fun ShopScreen() = ShopContent(variantB = false)
+fun ShopScreen() = AvatarShopContent()
 
 /** 16 · B5 쇼핑 */
 @Composable
@@ -88,7 +88,7 @@ private fun ShopContent(variantB: Boolean) {
         Column(Modifier.fillMaxSize()) {
             Row(Modifier.fillMaxWidth().height(56.dp).padding(start = 20.dp, end = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Txt("꾸미기", size = 26f, weight = Black, modifier = Modifier.weight(1f))
-                CoinPill()
+                CoinPill(amount = com.dailyquest.app.data.customization.CustomizationData.store.state.coins)
             }
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
                 if (!variantB) {
