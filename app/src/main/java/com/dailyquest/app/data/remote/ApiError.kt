@@ -44,6 +44,9 @@ object ApiErrorCode {
     const val FILE_TOO_LARGE = "FILE_TOO_LARGE"
     const val FILE_EMPTY = "FILE_EMPTY"
     const val UNSUPPORTED_MEDIA_TYPE = "UNSUPPORTED_MEDIA_TYPE"
+    const val ITEM_NOT_FOUND = "ITEM_NOT_FOUND"
+    const val ITEM_ALREADY_OWNED = "ITEM_ALREADY_OWNED"
+    const val INSUFFICIENT_COINS = "INSUFFICIENT_COINS"
 }
 
 sealed class ApiException(message: String?, cause: Throwable? = null) : Exception(message, cause) {

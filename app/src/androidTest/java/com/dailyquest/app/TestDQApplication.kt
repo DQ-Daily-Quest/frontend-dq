@@ -5,6 +5,10 @@ import com.dailyquest.app.data.auth.InMemoryTokenStore
 import com.dailyquest.app.data.auth.TokenPair
 import com.dailyquest.app.data.remote.DqApi
 import com.dailyquest.app.data.remote.dto.ApprovalDto
+import com.dailyquest.app.data.remote.dto.CoinTransactionDto
+import com.dailyquest.app.data.remote.dto.ItemDto
+import com.dailyquest.app.data.remote.dto.MyItemDto
+import com.dailyquest.app.data.remote.dto.PurchaseDto
 import com.dailyquest.app.data.remote.dto.CreateMissionRequest
 import com.dailyquest.app.data.remote.dto.PendingMissionBriefDto
 import com.dailyquest.app.data.remote.dto.PendingProofDto
@@ -61,7 +65,7 @@ class TestDQApplication : DQApplication() {
         override suspend fun oauthLogin(provider: String, body: OAuthLoginRequest): TokenResponse = error("not used")
         override suspend fun refresh(body: RefreshRequest): TokenResponse = error("not used")
         override suspend fun logout() = Unit
-        override suspend fun me() = UserMeResponse(userId = 1, email = "ui-test@example.com", nickname = "uitest")
+        override suspend fun me() = UserMeResponse(userId = 1, email = "ui-test@example.com", nickname = "uitest", coins = TestShopCalls.coins)
 
         // 방 API는 아직 화면에서 사용하지 않는다(Mock UI 유지). 호출되면 테스트가 실패하도록 한다.
         override suspend fun listPublicRooms(keyword: String?, sort: String?, page: Int, size: Int): PageDto<RoomSummaryDto> = PageDto(
@@ -312,7 +316,79 @@ class TestDQApplication : DQApplication() {
             TestRoomCalls.transferred.add(roomId)
             return getRoom(roomId)
         }
+
+        override suspend fun listShopItems(type: String?, category: String?, page: Int, size: Int) = TestShopCalls.list(type, category, page, size)
+        override suspend fun getShopItem(itemId: Long) = TestShopCalls.item(itemId)
+        override suspend fun purchaseItem(itemId: Long) = TestShopCalls.purchase(itemId)
+        override suspend fun listMyItems(type: String?, category: String?) = TestShopCalls.mine(type, category)
+        override suspend fun listCoinTransactions(page: Int, size: Int) = TestShopCalls.transactions(page)
     }
+}
+
+/** 상점·인벤토리·코인 내역을 흉내 내는 가짜 서버. 서버처럼 소유·잔액·거래를 직접 갱신하며 테스트 후 reset()으로 비운다. */
+object TestShopCalls {
+    class Stock(val itemId: Long, val name: String, val type: String, val category: String, val price: Int, val imageUrl: String? = null, val isDefault: Boolean = false)
+
+    @Volatile var coins = 0
+    val stock: MutableList<Stock> = java.util.Collections.synchronizedList(mutableListOf())
+    val owned: MutableSet<Long> = java.util.Collections.synchronizedSet(linkedSetOf())
+    val txs: MutableList<CoinTransactionDto> = java.util.Collections.synchronizedList(mutableListOf())
+    val purchaseCalls: MutableList<Long> = java.util.Collections.synchronizedList(mutableListOf())
+    val listCalls: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
+    /** 구매 요청을 받으면 한 번 던질 예외. [applyBeforeFailure]가 true면 서버는 처리하고 응답만 잃은 상황이다. */
+    @Volatile var purchaseFailure: Throwable? = null
+    @Volatile var applyBeforeFailure = false
+    @Volatile var listFailure: Throwable? = null
+    @Volatile var purchaseDelayMs = 0L
+
+    fun reset() {
+        coins = 0; stock.clear(); owned.clear(); txs.clear(); purchaseCalls.clear(); listCalls.clear()
+        purchaseFailure = null; applyBeforeFailure = false; listFailure = null; purchaseDelayMs = 0
+    }
+
+    fun seedDefaults() {
+        stock += Stock(1, "기본 머리", "AVATAR", "HAIR", 0, null, true)
+        stock += Stock(2, "민트 상의", "AVATAR", "TOP", 120)
+        stock += Stock(3, "비싼 모자", "AVATAR", "HAT", 900)
+        stock += Stock(4, "나무 책상", "FURNITURE", "DESK", 80)
+        owned += 1
+    }
+
+    private fun dto(s: Stock) = ItemDto(s.itemId, s.name, s.type, s.category, s.price, s.imageUrl, null, s.isDefault, s.itemId in owned)
+
+    fun list(type: String?, category: String?, page: Int, size: Int): PageDto<ItemDto> {
+        listCalls.add("$type:$category:$page")
+        listFailure?.let { throw it }
+        val all = stock.filter { (type == null || it.type == type) && (category == null || it.category == category) }.sortedBy { it.price }.map(::dto)
+        return PageDto(all.drop(page * size).take(size), page, size, all.size.toLong(), if (all.isEmpty()) 0 else (all.size + size - 1) / size)
+    }
+
+    fun item(id: Long): ItemDto = dto(stock.firstOrNull { it.itemId == id } ?: throw http(404, "ITEM_NOT_FOUND"))
+
+    fun purchase(id: Long): PurchaseDto {
+        purchaseCalls.add(id)
+        if (purchaseDelayMs > 0) Thread.sleep(purchaseDelayMs)
+        val fail = purchaseFailure
+        if (fail != null && !applyBeforeFailure) { purchaseFailure = null; throw fail }
+        val s = stock.firstOrNull { it.itemId == id } ?: throw http(404, "ITEM_NOT_FOUND")
+        if (id in owned) throw http(409, "ITEM_ALREADY_OWNED")
+        if (coins < s.price) throw http(409, "INSUFFICIENT_COINS")
+        coins -= s.price
+        owned += id
+        txs.add(0, CoinTransactionDto(txs.size + 1L, -s.price, coins, "PURCHASE", id, "2025-04-17T00:00:00Z"))
+        if (fail != null) { purchaseFailure = null; throw fail }
+        return PurchaseDto(id, coins)
+    }
+
+    fun mine(type: String?, category: String?): List<MyItemDto> = stock
+        .filter { it.itemId in owned && (type == null || it.type == type) && (category == null || it.category == category) }
+        .map { MyItemDto(it.itemId, it.name, it.type, it.category, it.price, it.imageUrl, null, it.isDefault, true, "2025-04-17T00:00:00Z", if (it.isDefault) "DEFAULT" else "SHOP", false) }
+
+    fun transactions(page: Int): PageDto<CoinTransactionDto> = PageDto(if (page == 0) txs.toList() else emptyList(), page, 20, txs.size.toLong(), 1)
+
+    fun http(status: Int, code: String): HttpException = HttpException(
+        Response.error<Any>(status, """{"code":"$code","message":"x"}""".toResponseBody("application/json".toMediaType())),
+    )
 }
 
 /** 미션 FakeApi 상태. 테스트 후 reset()으로 비운다. */
@@ -372,7 +448,7 @@ object TestRoomCalls {
         calls.clear(); joined.clear(); left.clear(); gone.clear(); kicked.clear(); transferred.clear()
         renamed.clear(); describedAs.clear(); maxOverride.clear(); publicOverride.clear(); inviteOverride.clear()
         mutationFailure = null; lastUpdate = null
-        TestMissionCalls.reset(); TestProofCalls.reset()
+        TestMissionCalls.reset(); TestProofCalls.reset(); TestShopCalls.reset()
     }
     /** 방 참여·관리 FakeApi 상태. 서버 응답을 흉내 내는 상태이며 테스트 후 reset()으로 비운다. */
     val calls: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())

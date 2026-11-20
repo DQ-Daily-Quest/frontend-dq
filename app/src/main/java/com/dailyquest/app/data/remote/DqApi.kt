@@ -1,6 +1,10 @@
 package com.dailyquest.app.data.remote
 
+import com.dailyquest.app.data.remote.dto.CoinTransactionDto
 import com.dailyquest.app.data.remote.dto.CreateMissionRequest
+import com.dailyquest.app.data.remote.dto.ItemDto
+import com.dailyquest.app.data.remote.dto.MyItemDto
+import com.dailyquest.app.data.remote.dto.PurchaseDto
 import com.dailyquest.app.data.remote.dto.CreateRoomRequest
 import com.dailyquest.app.data.remote.dto.CreateRoomResponse
 import com.dailyquest.app.data.remote.dto.InviteCodeDto
@@ -189,4 +193,30 @@ interface DqApi {
     @Headers("X-DQ-No-Retry: true")
     @POST("proofs/{proofId}/reject")
     suspend fun rejectProof(@Path("proofId") proofId: Long): VoteDto
+
+    // ---- 상점·인벤토리·코인 내역 ----
+
+    /** type: AVATAR | FURNITURE, category: 서버 ItemCategory. 가격 오름차순이며 서버는 size를 1~100으로 보정한다. */
+    @GET("shop/items")
+    suspend fun listShopItems(
+        @Query("type") type: String? = null,
+        @Query("category") category: String? = null,
+        @Query("page") page: Int = 0,
+        @Query("size") size: Int = 20,
+    ): PageDto<ItemDto>
+
+    @GET("shop/items/{itemId}")
+    suspend fun getShopItem(@Path("itemId") itemId: Long): ItemDto
+
+    /** 코인 차감 + 소유권 지급이 한 번에 일어나는 상태 변경 요청이라 응답을 잃어도 자동 재전송하지 않는다. */
+    @Headers("X-DQ-No-Retry: true")
+    @POST("shop/items/{itemId}/purchase")
+    suspend fun purchaseItem(@Path("itemId") itemId: Long): PurchaseDto
+
+    /** 페이지네이션 없는 전체 배열(최근 획득순). */
+    @GET("users/me/items")
+    suspend fun listMyItems(@Query("type") type: String? = null, @Query("category") category: String? = null): List<MyItemDto>
+
+    @GET("users/me/coins/transactions")
+    suspend fun listCoinTransactions(@Query("page") page: Int = 0, @Query("size") size: Int = 20): PageDto<CoinTransactionDto>
 }
