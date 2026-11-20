@@ -41,4 +41,13 @@ class RoomValidationTest {
         assertNotNull(RoomValidation.maxMembersError("abc"))
         assertEquals(10, RoomValidation.DEFAULT_MAX_MEMBERS)
     }
+
+    @Test fun inviteCodeIsNormalizedAndValidated() {
+        assertEquals("ABC123", RoomValidation.normalizeInviteCode("  abc123 "))
+        assertNull(RoomValidation.inviteCodeError("ABC123"))
+        assertEquals("초대코드를 입력해 주세요.", RoomValidation.inviteCodeError("   "))
+        assertNotNull(RoomValidation.inviteCodeError("ABC12"))
+        assertNotNull(RoomValidation.inviteCodeError("ABC1234"))
+        assertNotNull(RoomValidation.inviteCodeError("ABC-12"))
+    }
 }

@@ -81,4 +81,26 @@ class CreateRoomRetryPolicyTest {
         val paths = (1..server.requestCount).map { server.takeRequest().path }
         assertEquals(2, paths.count { it!!.endsWith("/rooms") })
     }
+
+    @Test fun otherRoomMutationsAreNotResentAfterConnectionDrop() = runBlocking {
+        val calls = listOf<suspend () -> Unit>(
+            { api.joinPublicRoom(1) },
+            { api.joinRoomByCode(com.dailyquest.app.data.remote.dto.JoinByCodeRequest("ABC123")) },
+            { api.updateRoom(1, com.dailyquest.app.data.remote.dto.UpdateRoomRequest(name = "새 이름")) },
+            { api.deleteRoom(1) },
+            { api.leaveRoom(1) },
+            { api.regenerateInviteCode(1) },
+            { api.kickMember(1, 2) },
+            { api.transferOwner(1, com.dailyquest.app.data.remote.dto.TransferOwnerRequest(2)) },
+        )
+        for (call in calls) {
+            warmUp()
+            server.enqueue(MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AFTER_REQUEST))
+            val before = server.requestCount
+            val r = runCatching { call() }
+            assertTrue(r.exceptionOrNull() is java.io.IOException)
+            assertEquals(before + 1, server.requestCount)
+            assertNull(server.takeRequest().getHeader(NetworkModule.NO_RETRY_HEADER))
+        }
+    }
 }
