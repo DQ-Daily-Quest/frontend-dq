@@ -33,6 +33,7 @@ fun rememberNowMs(key: Any? = null): Long = remember(key) { System.currentTimeMi
 
 fun MissionState.label(): String = when (this) {
     MissionState.DOABLE -> "수행 가능"
+    MissionState.RESUBMIT_NEEDED -> "재인증 필요"
     MissionState.PENDING_REVIEW -> "인증 대기 중"
     MissionState.DONE -> "완료"
     MissionState.EXPIRED -> "마감"
