@@ -68,6 +68,16 @@ class Avatar3dTestScreenTest {
         }
     }
 
+    /** STEP 9-3: 한 벌(6~7개)을 동시에 받아 모두 모델로 만든다. 상태 줄에 "7개"처럼 파츠 수가 나와야 한다. */
+    @Test fun everyOutfitLoadsAllParts() {
+        waitLoaded("DQ_Boy_01_Body.glb")
+        TEST_OUTFITS.forEach { outfit ->
+            click(outfit.label)
+            waitLoaded(outfit.label)
+            compose.onNodeWithText("${outfit.label} · ${outfit.urls.size}개", substring = true).assertIsDisplayed()
+        }
+    }
+
     @Test fun reloadDownloadsAgain() {
         waitLoaded("DQ_Boy_01_Body.glb")
         click("다시 불러오기")
