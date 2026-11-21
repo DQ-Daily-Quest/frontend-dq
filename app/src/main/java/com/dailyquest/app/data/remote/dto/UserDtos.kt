@@ -33,11 +33,20 @@ data class UserMeResponse(
     val createdAt: String? = null,
     /** 비밀번호가 설정된 계정인지. 소셜 전용 계정은 false, 응답에 없으면 null(알 수 없음). */
     val hasPassword: Boolean? = null,
+    /** 아바타 체형 MALE | FEMALE (backend v0.4). null이면 아직 정하지 않은 계정이라 avatar 슬롯이 모두 비어 있다. */
+    val gender: String? = null,
 )
 
 /** PATCH /users/me. 닉네임만 보낸다(avatar 슬롯은 STEP 9에서 다루며, 보내지 않으면 서버가 그대로 둔다). */
 @Serializable
 data class UpdateMeRequest(val nickname: String)
+
+/**
+ * PATCH /users/me 착용 변경 (STEP 9). 바꿀 슬롯만 보낸다. 키는 소문자 슬롯 이름, 값은 보유 아이템 ID이고 null이면 해제.
+ * 앱 Json은 explicitNulls = true라서 null도 그대로 `"hat": null`로 나간다.
+ */
+@Serializable
+data class UpdateAvatarRequest(val avatar: Map<String, Long?>)
 
 /** PATCH /users/me/password (성공 204, 서버가 모든 Refresh Token을 폐기한다) */
 @Serializable

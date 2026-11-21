@@ -6,6 +6,7 @@ import com.dailyquest.app.data.auth.TokenPair
 import com.dailyquest.app.data.remote.DqApi
 import com.dailyquest.app.data.remote.dto.ApprovalDto
 import com.dailyquest.app.data.remote.dto.ChangePasswordRequest
+import com.dailyquest.app.data.remote.dto.UpdateAvatarRequest
 import com.dailyquest.app.data.remote.dto.UpdateMeRequest
 import com.dailyquest.app.data.remote.dto.WithdrawRequest
 import com.dailyquest.app.data.remote.dto.CoinTransactionDto
@@ -89,6 +90,9 @@ class TestDQApplication : DQApplication() {
             TestProfileCalls.withdrawFailure?.let { throw it }
         }
         override suspend fun me() = meResponse()
+
+        // STEP 9 아바타 착용 변경. 아직 화면에서 쓰지 않으므로 착용만 받아들이고 현재 내 정보를 돌려준다.
+        override suspend fun updateAvatar(body: UpdateAvatarRequest): UserMeResponse = meResponse()
 
         // 방 API는 아직 화면에서 사용하지 않는다(Mock UI 유지). 호출되면 테스트가 실패하도록 한다.
         override suspend fun listPublicRooms(keyword: String?, sort: String?, page: Int, size: Int): PageDto<RoomSummaryDto> = PageDto(

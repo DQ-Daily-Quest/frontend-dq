@@ -13,10 +13,15 @@
 | 3 | 파츠 7개 겹치기, 카메라·조명·회전 | 완료 |
 | 4 | `AvatarView` 컴포넌트로 분리 (슬롯별 교체, 로딩·실패 상태) | 완료 |
 | 5 | GLB 다운로드·캐시 저장소 | 완료 |
-| 6 | 2D `AvatarPreview`를 3D로 교체 | 예정 |
-| 7 | 성별 필드 반영, `BODY` → `SKIN` 정리, 아바타 API 연결 | 예정 |
-| 8 | 아바타 꾸미기 화면 (입어보기, 저장, 실패 시 롤백) | 예정 |
-| 9 | 성별 선택 화면 (`gender == null`일 때) | 예정 |
+| 6 | 내 아바타 데이터 연결 (서버 `gender`·착용 정보 → GLB 주소, 착용 변경 API) | 완료 |
+| 7 | 상점 미리보기를 3D로 + 아이템을 누르면 입어보기 | 예정 |
+| 8 | 착용 저장 (저장, 실패 시 되돌리기, 모자 외 해제 막기) | 예정 |
+| 9 | 성별 선택 화면 (`gender == null`일 때, 기존 "아바타 만들기" 화면 활용) | 예정 |
+
+> 6단계 시작 전(2026-11-22)에 계획을 바꿨다. 원래 6단계 대상인 2D `AvatarPreview`와 Mock `CustomizationStore`가 **어느 화면에서도 쓰이지 않는다**는 것을 확인했기 때문이다.
+> 실제로 내 아바타가 크게 보이는 곳은 상점 "아바타" 탭 미리보기와 회원가입 "아바타 만들기" 화면이고, 둘 다 2D 그림이 고정돼 있다.
+> 이 화면들에 진짜 내 아바타를 띄우려면 먼저 서버 데이터를 연결해야 해서 순서를 "데이터 → 상점 3D → 착용 저장 → 성별 선택"으로 바꿨다.
+> 방·홈의 작은 얼굴(32dp)은 2D로 둔다. `AvatarView`는 하나마다 3D 엔진을 만들어 한 화면에 여러 개 띄우기에는 무겁다.
 
 ## 공통 테스트 방법
 
@@ -422,3 +427,108 @@ AvatarView(
    5. 기기 인터넷을 끄고 앱을 다시 열어 "남 기본"을 누른다. 인터넷 없이도 캐릭터가 보인다.
 3. **UI 테스트 (에뮬레이터 켜고, 인터넷 필요):**
    `./gradlew connectedDebugAndroidTest "-Pandroid.testInstrumentationRunnerArguments.class=com.dailyquest.app.debug.Avatar3dTestScreenTest,com.dailyquest.app.ui.avatar.AvatarViewTest"`
+
+---
+
+## 6단계. 내 아바타 데이터 연결
+
+- 날짜: 2026-11-22
+- 커밋 메시지: `feat: load and equip my avatar from server`
+
+### 무엇을 만들었나
+
+서버에서 **내 체형과 입고 있는 옷**을 받아 `AvatarView`가 바로 쓸 수 있는 "슬롯 → GLB 주소"로 바꾸고, 착용을 바꾸는 저장소 `MyAvatarRepository`. 화면은 아직 바뀌지 않는다(7단계에서 상점에 붙인다).
+
+| 기능 | 서버 요청 | 내용 |
+| --- | --- | --- |
+| `load()` | `GET /users/me` + `GET /users/me/items?type=AVATAR` (동시에) | `/users/me`의 `avatar`에는 아이템 **ID만** 있다. 착용 아이템은 모두 보유 아이템이므로 보유 목록에서 GLB 주소를 찾는다 |
+| `equip(changes)` | `PATCH /users/me` `{"avatar":{"hat":50}}` | 바꿀 슬롯만 보낸다. `null`이면 해제(`{"avatar":{"hat":null}}`). 응답의 내 정보(코인 등)로 세션도 갱신 |
+| `MyAvatar` | — | `gender`(MALE/FEMALE/null), 슬롯별 착용 아이템, `modelParts`(→ `AvatarView`), `needsGender`(→ 9단계 성별 선택) |
+| `AvatarErrorMessages` | — | `ITEM_NOT_OWNED`, `ITEM_GENDER_MISMATCH`, `ITEM_NOT_FOUND`, `GENDER_ALREADY_SET`를 한국어 안내로 |
+
+**설계에서 신경 쓴 점**
+- 착용 저장(PATCH)은 성공했는데 그 뒤 보유 목록 조회만 실패하면, 실패로 돌려주지 않고 **마지막으로 받은 보유 목록**으로 대신한다. 실패로 알리면 화면이 이미 저장된 착용을 되돌려 버리기 때문이다. 기억한 목록은 같은 계정일 때만 쓴다.
+- 서버가 `gender`를 보내지 않거나(구버전) 모르는 값이면 "성별 없음"으로 본다.
+- 보유 목록에 없는 착용 ID(서버 데이터 불일치)는 그 슬롯만 건너뛴다.
+- GLB 주소는 기존 `ApiConfig.resolveFileUrl`로 정리한다(지금은 S3 전체 주소라 그대로, 예전 `/files/...` 상대 경로도 처리).
+
+### 바뀐 파일
+
+| 파일 | 변경 | 비고 |
+| --- | --- | --- |
+| `app/src/main/java/com/dailyquest/app/data/avatar/MyAvatarRepository.kt` | 새 파일 | |
+| `app/src/main/java/com/dailyquest/app/data/remote/dto/UserDtos.kt` | `UserMeResponse.gender` 필드, `UpdateAvatarRequest` 추가 | **팀원 파일, 추가만** |
+| `app/src/main/java/com/dailyquest/app/data/remote/DqApi.kt` | `updateAvatar` (PATCH /users/me) 추가 | **팀원 파일, 추가만** |
+| `app/src/main/java/com/dailyquest/app/data/remote/ApiError.kt` | 오류 코드 3개 추가 | **팀원 파일, 추가만** |
+| `app/src/main/java/com/dailyquest/app/data/auth/AppContainer.kt` | `myAvatarRepository` 한 줄 | **팀원 파일, 추가만** |
+| `app/src/androidTest/java/com/dailyquest/app/TestDQApplication.kt` | 가짜 API에 `updateAvatar` 추가 | **팀원 파일.** 안 넣으면 UI 테스트가 컴파일되지 않는다 |
+| `app/src/test/java/com/dailyquest/app/data/avatar/MyAvatarRepositoryTest.kt` | 새 파일. 단위 테스트 13개 | |
+| `app/src/main/java/com/dailyquest/app/ui/avatar/AvatarView.kt` | **앱 강제 종료 수정** (아래 "진행 중 만난 문제") | |
+| `app/src/debug/java/com/dailyquest/app/debug/Avatar3dTestActivity.kt` | 상태 줄 시간을 "표시까지"(받기 + 모델 생성 + 텍스처 준비)로 변경, 개수 세기를 여러 스레드에서 안전하게 | |
+
+- 기존 동작은 바뀌지 않는다. 기존 닉네임 변경(`updateMe`)과 사용자 정보 파싱은 그대로다.
+- **알아 둘 점:** `DqApi`에 함수를 추가하면 UI 테스트의 가짜 API(`TestDQApplication.FakeApi`)에도 같이 추가해야 한다. 이번에 빠뜨려서 UI 테스트 컴파일이 한 번 깨졌다(`compileDebugAndroidTestKotlin`으로 확인 후 수정).
+
+### 진행 중 만난 문제: 3D 엔진 강제 종료 (4단계부터 있던 버그)
+
+이번 단계 전체 UI 테스트에서 `Avatar3dTestScreenTest.everyPartAndOutfitLoads` 도중 앱이 강제 종료됐다. 4·5단계에서는 통과했던 테스트다.
+
+| 항목 | 내용 |
+| --- | --- |
+| 증상 | `PreconditionPanic in setImage:554 — Texture is not created yet. It may be in the process of asynchronous loading`. 메인 스레드, `ModelLoader.createModelInstance` → `ResourceLoader.asyncBeginLoad` |
+| 원인 | SceneView의 `createModelInstance()`는 모델을 만들자마자 **원본 데이터를 지운다**. 그런데 텍스처(옷 그림)는 그 뒤에도 백그라운드에서 만든다. Filament는 텍스처를 원본 데이터의 **메모리 주소**로 구분해 재사용하므로, 다음 모델의 원본 데이터가 방금 비워진 같은 주소에 들어오면 "아직 만드는 중인 텍스처"를 다시 쓰려다 앱이 꺼진다 |
+| 가끔만 나는 이유 | 메모리 주소가 우연히 겹칠 때만 난다. 그래서 4·5단계에서는 통과했다. 이번 단계와는 관계없이 4단계부터 숨어 있던 버그다 |
+| 해결 | `AvatarView`가 모델을 만들 때 원본 데이터를 **텍스처를 다 만들 때까지 들고 있다가** 지운다(`createModelSafely`: `createModel(releaseSourceData = false)` → 진행률 1.0까지 대기(최대 5초) → `releaseSourceData()`). 주소가 겹치지 않고, 모델도 하나씩 차례로 만들어진다 |
+| 확인 | 3D UI 테스트(10개)를 **3번 연속** 돌려 30개 모두 통과, 강제 종료 0건 |
+
+**대가: 화면에 다 뜨는 시간이 조금 늘었다** (캐시에서 꺼낼 때, 에뮬레이터)
+
+| | 남 기본 | 여 기본 |
+| --- | --- | --- |
+| 예전 방식 | 0.69초 | 0.50초 |
+| 고친 방식 | 1.41초 | 0.65초 |
+
+예전 방식의 "준비됨"은 텍스처가 아직 덜 입혀진 상태일 수 있었고, 고친 방식은 옷 그림까지 다 입혀진 뒤에 "준비됨"이 뜬다. 앱이 꺼지지 않는 것이 더 중요해서 고친 방식으로 정했다. 텍스처 용량을 줄이면(3D 담당 요청) 이 시간도 줄어든다.
+
+**테스트 화면 개수 세기 버그 (테스트 화면만 해당)**
+
+| 항목 | 내용 |
+| --- | --- |
+| 증상 | `reselectedOutfitComesFromCache`가 "캐시 6개"를 기다렸는데 "캐시 5개"로 실패 |
+| 원인 | 테스트 화면의 `CountingFetcher`가 파츠 6개를 **동시에(여러 스레드에서)** 셀 때 `count++`가 겹쳐 하나가 씹혔다. 캐시를 붙인 뒤 파일을 아주 빨리 꺼내게 되면서 드러났다 |
+| 해결 | 세는 부분을 `synchronized`로 한 번에 하나씩만 실행. 앱 본체 코드와는 관계없다 |
+
+**처음 받을 때(캐시 없음) 화면에 다 뜨기까지:** 남 기본 12.8초, 여 기본 8.2초, 모자 하나 바꾸기 2.7초 (에뮬레이터 네트워크 기준). 대부분 다운로드 시간이다.
+
+### 단위 테스트가 확인하는 것 (MockWebServer, backend v0.4 응답 형식)
+
+- 불러오면 슬롯별 ID를 GLB 주소로 바꾼다(남자 기본 6개, 모자 없음) / 보유 목록은 `type=AVATAR`로만 요청한다
+- 성별 없는 계정은 `needsGender`이고 착용이 비어 있다 / `gender`가 없는 구버전 응답도 성별 없음으로 본다
+- 두 요청 중 하나라도 실패하면 불러오기 실패
+- 모자를 쓰면 `{"avatar":{"hat":50}}`만 보낸다 / 벗으면 `{"avatar":{"hat":null}}`로 `null`이 실제로 나간다
+- 착용 저장 응답으로 세션의 코인이 갱신된다
+- 저장은 됐는데 보유 목록 조회만 실패하면 마지막 목록으로 대신해 성공을 돌려준다
+- `ITEM_GENDER_MISMATCH`(409), `ITEM_NOT_OWNED`(403) 안내 문구
+- 보유 목록에 없는 착용 ID는 건너뛰고, 상대 경로는 전체 주소로 바꾼다 / 모르는 성별 값은 null
+
+### 테스트 결과
+
+| 항목 | 결과 |
+| --- | --- |
+| `./gradlew assembleDebug assembleRelease testDebugUnitTest` | 성공. 단위 테스트 378개 전부 통과 (새 `MyAvatarRepositoryTest` 13개 포함) |
+| `./gradlew compileDebugAndroidTestKotlin` | 처음엔 실패(가짜 API에 새 함수 없음) → 추가 후 성공 |
+| 3D UI 테스트 3번 연속 (강제 종료 수정 후) | 30개 모두 통과, 강제 종료 0건 |
+| 전체 UI 테스트 `connectedDebugAndroidTest` (첫 실행) | 1개 실패 — 위 3D 엔진 강제 종료 |
+| 전체 UI 테스트 (강제 종료 수정 후) | 1개 실패 — 테스트 화면의 개수 세기 버그(아래) |
+| 3D UI 테스트 2번 연속 (개수 세기 수정 후) | 20개 모두 통과 |
+| 전체 UI 테스트 (최종) | **85개 전부 통과** (다른 팀원 화면 포함), 앱 강제 종료 0건 |
+| 실제 서버로 확인 | 하지 않음. 로그인 계정이 필요해서 서버 문서(api.md v0.4)와 백엔드 코드의 응답 형식으로 만든 가짜 서버로만 확인했다. 7단계에서 화면에 붙이면 실제 계정으로 확인한다 |
+
+### 직접 확인하는 방법
+
+이번 단계는 화면 변화가 없어서 테스트로 확인한다.
+
+1. `./gradlew testDebugUnitTest` → `BUILD SUCCESSFUL`
+2. 이 클래스만 보려면: `./gradlew testDebugUnitTest --tests "com.dailyquest.app.data.avatar.MyAvatarRepositoryTest"`
+3. 결과 보고서: `app/build/reports/tests/testDebugUnitTest/index.html` → `com.dailyquest.app.data.avatar` → `MyAvatarRepositoryTest` 13개 통과
+4. UI 테스트가 컴파일되는지: `./gradlew compileDebugAndroidTestKotlin`

@@ -31,6 +31,7 @@ import com.dailyquest.app.data.remote.dto.SignupRequest
 import com.dailyquest.app.data.remote.dto.SignupResponse
 import com.dailyquest.app.data.remote.dto.TokenResponse
 import com.dailyquest.app.data.remote.dto.ChangePasswordRequest
+import com.dailyquest.app.data.remote.dto.UpdateAvatarRequest
 import com.dailyquest.app.data.remote.dto.UpdateMeRequest
 import com.dailyquest.app.data.remote.dto.UserMeResponse
 import com.dailyquest.app.data.remote.dto.WithdrawRequest
@@ -77,6 +78,10 @@ interface DqApi {
     @Headers("X-DQ-No-Retry: true")
     @PATCH("users/me")
     suspend fun updateMe(@Body body: UpdateMeRequest): UserMeResponse
+
+    /** 아바타 착용 변경 (STEP 9). 응답은 GET /users/me와 같다. */
+    @PATCH("users/me")
+    suspend fun updateAvatar(@Body body: UpdateAvatarRequest): UserMeResponse
 
     /** 성공 204. 서버가 모든 기기의 Refresh Token을 폐기한다. */
     @Headers("X-DQ-No-Retry: true")
