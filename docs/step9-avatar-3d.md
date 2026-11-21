@@ -12,7 +12,7 @@
 | 2 | 테스트 화면에 S3 GLB 하나 띄우기 | 완료 |
 | 3 | 파츠 7개 겹치기, 카메라·조명·회전 | 완료 |
 | 4 | `AvatarView` 컴포넌트로 분리 (슬롯별 교체, 로딩·실패 상태) | 완료 |
-| 5 | GLB 다운로드·캐시 저장소 | 예정 |
+| 5 | GLB 다운로드·캐시 저장소 | 완료 |
 | 6 | 2D `AvatarPreview`를 3D로 교체 | 예정 |
 | 7 | 성별 필드 반영, `BODY` → `SKIN` 정리, 아바타 API 연결 | 예정 |
 | 8 | 아바타 꾸미기 화면 (입어보기, 저장, 실패 시 롤백) | 예정 |
@@ -344,5 +344,81 @@ AvatarView(
    4. "모자 벗기"를 누르면 **"파츠 6개 · 받은 파일 0개"**가 나온다.
    5. "고정 보기"를 켜고 드래그해 본다. 돌아가지 않으면 정상이다.
    6. 기기 인터넷을 끄고 다른 한 벌을 누르면 캐릭터 아래에 **"아바타를 불러오지 못했어요 / 다시 시도"**가 나온다. 인터넷을 켜고 "다시 시도"를 누르면 나머지가 채워진다.
+3. **UI 테스트 (에뮬레이터 켜고, 인터넷 필요):**
+   `./gradlew connectedDebugAndroidTest "-Pandroid.testInstrumentationRunnerArguments.class=com.dailyquest.app.debug.Avatar3dTestScreenTest,com.dailyquest.app.ui.avatar.AvatarViewTest"`
+
+---
+
+## 5단계. GLB 디스크 캐시
+
+- 날짜: 2026-11-22
+- 커밋 메시지: `feat: cache avatar GLB files on disk`
+
+### 무엇을 만들었나
+
+한 번 받은 GLB를 기기 캐시 폴더(`cache/avatar_models/`)에 저장하고, 같은 주소는 다시 받지 않는 `CachingAvatarModelFetcher`. `AvatarView`의 기본 다운로더를 이것으로 바꿨으므로 **화면 쪽 코드는 그대로** 캐시가 적용된다.
+
+| 규칙 | 내용 | 이유 |
+| --- | --- | --- |
+| 유효기간 없음 | 저장된 파일이 있으면 서버에 묻지 않고 바로 쓴다 | 백엔드 v0.4: 파일이 바뀌면 주소도 바뀐다(`Cache-Control: immutable`) |
+| 파일 이름 | 주소의 SHA-256 + `.glb` | 주소에 `?v=2` 같은 쿼리나 특수문자가 있어도 안전 |
+| 용량 상한 100MB | 넘으면 가장 오래 안 쓴 파일부터 지운다 | 남자 파츠 57개 전체가 약 44MB. 한 체형 전체가 들어간다 |
+| 동시 요청 합치기 | 같은 주소를 동시에 요청하면 한 번만 받는다 | 여러 화면이 같은 몸체를 그릴 때 |
+| 깨진 파일 | 저장된 파일이 GLB가 아니면 지우고 다시 받는다. 저장은 임시 파일 → 이름 바꾸기 | 저장 중 앱이 꺼져도 반쯤 쓴 파일이 남지 않는다 |
+| 저장 실패 | 저장 공간 부족 등으로 저장하지 못해도 받은 내용은 그대로 쓴다 | 캐시는 있으면 좋은 것이지 필수가 아니다 |
+| 받기 실패 | 아무것도 저장하지 않고 실패를 돌려준다. 다음에 다시 받으러 간다 | |
+| 로그아웃 | 지우지 않는다 | 공개 에셋이라 사용자와 관계없다 |
+| 폴더 위치 | 앱 `cacheDir` | 시스템이 저장 공간이 부족할 때 지울 수 있다. 지워지면 다시 받으면 된다 |
+
+### 바뀐 파일
+
+| 파일 | 변경 |
+| --- | --- |
+| `app/src/main/java/com/dailyquest/app/data/avatar/CachingAvatarModelFetcher.kt` | 새 파일. 캐시 다운로더 + 앱 공용 인스턴스(`AvatarModels`) |
+| `app/src/main/java/com/dailyquest/app/ui/avatar/AvatarView.kt` | 기본 다운로더를 `AvatarModels.fetcher(context)`로 변경 |
+| `app/src/test/java/com/dailyquest/app/data/avatar/CachingAvatarModelFetcherTest.kt` | 새 파일. 단위 테스트 10개 |
+| `app/src/debug/java/com/dailyquest/app/debug/Avatar3dTestActivity.kt` | 앱과 같은 캐시 폴더 사용, 상태 줄에 "받은 파일 / 캐시" 구분, 왼쪽 위 캐시 크기 표시, "캐시 비우기" 버튼 |
+| `app/src/androidTest/java/com/dailyquest/app/debug/Avatar3dTestScreenTest.kt` | 테스트마다 화면이 뜨기 전에 캐시를 비우는 규칙, 캐시 UI 테스트 2개 추가 |
+
+### 캐시 단위 테스트가 확인하는 것
+
+- 처음에는 받고 두 번째부터는 저장된 파일을 쓴다 / **새 인스턴스(앱 재시작)에서도** 저장된 파일을 쓴다
+- 주소가 다르면(파일을 고쳐 주소가 바뀐 경우, 쿼리가 붙은 경우) 따로 받는다
+- 저장된 파일이 깨졌으면 지우고 다시 받는다 / 받지 못하면 저장하지 않고, 다음에 다시 받는다
+- 같은 주소 동시 요청 5개 → 네트워크 1번
+- 용량을 넘으면 가장 오래 안 쓴 파일부터 지운다(최근에 쓴 파일은 남는다)
+- 임시 파일이 남지 않는다 / 저장 폴더를 만들 수 없어도 받은 내용은 돌려준다 / 비우면 다시 받는다
+
+### 테스트 결과
+
+| 항목 | 결과 |
+| --- | --- |
+| `./gradlew assembleDebug assembleRelease testDebugUnitTest` | 성공. 단위 테스트 365개 전부 통과 (새 캐시 테스트 10개 포함) |
+| 3D UI 테스트 (`Avatar3dTestScreenTest` 8개 + `AvatarViewTest` 2개) | 10개 모두 통과 (새 `reselectedOutfitComesFromCache`, `clearingCacheDownloadsAgain` 포함) |
+| 전체 UI 테스트 `connectedDebugAndroidTest` | **85개 전부 통과** (다른 팀원 화면 포함), 앱 강제 종료 0건 |
+
+**에뮬레이터에서 직접 확인** (캐시를 비우고 시작)
+
+| 순서 | 상태 줄 | 의미 |
+| --- | --- | --- |
+| 1. 첫 실행, 남 몸체 | 받은 파일 1개 1.38MB · 캐시 0개 | 처음이라 받음 |
+| 2. 남 기본 | 받은 파일 5개 6.90MB · 캐시 0개 · **7,364ms** | 몸체는 이미 보이므로 나머지 5개만 받음 |
+| 3. 앱 강제 종료 후 다시 실행, 남 몸체 | 받은 파일 0개 · 캐시 1개 | **앱을 다시 켜도 캐시가 남아 있다** |
+| 4. 남 기본 | 받은 파일 0개 · 캐시 5개 · **177ms** | 7.4초 → 0.2초 |
+| 5. 인터넷 끄고 앱 재시작, 남 기본 | 받은 파일 0개 · 캐시 5개 · 223ms, 캐릭터 정상 표시 | **인터넷 없이도 받아 둔 옷은 보인다** |
+| 6. 인터넷 끈 채 여 기본(받은 적 없음) | 실패: skin, eyes, hair, top, bottom, shoes | 받은 적 없는 파일은 당연히 실패, 앱은 꺼지지 않음 |
+
+- 저장 폴더에는 SHA-256 이름의 `.glb` 6개(8.3MB)만 있었고 임시 파일은 없었다.
+- 3번의 시간(3.4초)은 앱 시작부터 잰 값이라 3D 엔진 준비 시간이 포함된다. 캐시에서 읽는 시간은 4·5번(0.2초)이 실제에 가깝다.
+
+### 직접 확인하는 방법
+
+1. **빌드·단위 테스트:** `./gradlew assembleDebug testDebugUnitTest` → `BUILD SUCCESSFUL`
+2. **화면 확인** — "DQ 3D 테스트"를 연다.
+   1. "캐시 비우기"를 누른다. 왼쪽 위가 "캐시 0개"가 된다.
+   2. "한 벌 → 남 기본"을 누른다. 상태 줄 둘째 줄에 **"받은 파일 5개 · 캐시 0개"**처럼 받은 파일이 나온다.
+   3. "파츠 → 남 모자"를 누른 뒤 다시 "남 기본"을 누른다. **"받은 파일 0개 · 캐시 6개"**가 나오고 거의 바로 뜬다.
+   4. 앱을 완전히 종료(최근 앱 화면에서 밀어서 닫기)하고 다시 열어 "남 기본"을 누른다. 여전히 **"받은 파일 0개"**다.
+   5. 기기 인터넷을 끄고 앱을 다시 열어 "남 기본"을 누른다. 인터넷 없이도 캐릭터가 보인다.
 3. **UI 테스트 (에뮬레이터 켜고, 인터넷 필요):**
    `./gradlew connectedDebugAndroidTest "-Pandroid.testInstrumentationRunnerArguments.class=com.dailyquest.app.debug.Avatar3dTestScreenTest,com.dailyquest.app.ui.avatar.AvatarViewTest"`

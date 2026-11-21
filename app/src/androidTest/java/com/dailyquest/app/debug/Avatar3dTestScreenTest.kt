@@ -13,6 +13,10 @@ import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TestRule
+import org.junit.runners.model.Statement
+import androidx.test.platform.app.InstrumentationRegistry
+import com.dailyquest.app.data.avatar.AvatarModels
 
 /**
  * STEP 9 디버그 3D 테스트 화면 스모크 테스트. 화면은 앱 본체의 AvatarView로 그린다(9-4).
@@ -23,7 +27,21 @@ import org.junit.Test
  * (ComposeNotIdleException). 그래서 프레임 시계를 자동으로 돌리지 않고, 기다리는 동안 테스트가 직접 넘긴다.
  */
 class Avatar3dTestScreenTest {
-    @get:Rule val compose = createAndroidComposeRule<Avatar3dTestActivity>()
+    /**
+     * 화면이 뜨기 전에 GLB 캐시를 비운다(9-5). 이전 테스트나 수동 확인에서 받은 파일이 남아 있으면 "받은 파일 N개"가 달라진다.
+     * 화면을 띄우는 compose 규칙보다 먼저 실행되도록 order를 준다.
+     */
+    @get:Rule(order = 0) val clearCache = TestRule { base, _ ->
+        object : Statement() {
+            override fun evaluate() {
+                val context = InstrumentationRegistry.getInstrumentation().targetContext
+                AvatarModels.cacheDirectory(context).deleteRecursively()
+                base.evaluate()
+            }
+        }
+    }
+
+    @get:Rule(order = 1) val compose = createAndroidComposeRule<Avatar3dTestActivity>()
 
     @Before fun pauseFrameClock() {
         compose.mainClock.autoAdvance = false
@@ -106,6 +124,33 @@ class Avatar3dTestScreenTest {
         click("고정 보기")
         repeat(10) { compose.mainClock.advanceTimeBy(FRAME_STEP_MS) }
         waitStatus("여 기본 · 준비됨 · 파츠 6개")
+    }
+
+    /** 9-5: 한 번 받은 한 벌은 다시 고르면 네트워크로 받지 않고 캐시에서 꺼낸다. */
+    @Test fun reselectedOutfitComesFromCache() {
+        waitStatus("남 몸체 · 준비됨")
+        select("남 기본", 6)
+        select("남 모자", 1)
+        // 모자만 있던 상태에서 다시 한 벌로: 6개 모두 캐시에서 꺼낸다
+        click("남 기본")
+        waitStatus("남 기본 · 준비됨 · 파츠 6개", "받은 파일 0개", "캐시 6개")
+    }
+
+    /** 9-5: 캐시를 비우면 다시 받는다. */
+    @Test fun clearingCacheDownloadsAgain() {
+        waitStatus("남 몸체 · 준비됨")
+        select("남 기본", 6)
+        select("남 모자", 1)
+        click("캐시 비우기")
+        val cleared = hasTestTag("avatar3dCache") and hasText("캐시 0개", substring = true)
+        val deadline = SystemClock.uptimeMillis() + 5_000
+        while (compose.onAllNodes(cleared).fetchSemanticsNodes().isEmpty()) {
+            if (SystemClock.uptimeMillis() > deadline) fail("캐시가 비워지지 않았습니다")
+            compose.mainClock.advanceTimeBy(FRAME_STEP_MS)
+            Thread.sleep(FRAME_STEP_MS)
+        }
+        click("남 기본")
+        waitStatus("남 기본 · 준비됨 · 파츠 6개", "받은 파일 6개", "캐시 0개")
     }
 
     private companion object {

@@ -20,11 +20,12 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.dailyquest.app.data.avatar.AvatarModelFetcher
 import com.dailyquest.app.data.avatar.AvatarPart
-import com.dailyquest.app.data.avatar.HttpAvatarModelFetcher
+import com.dailyquest.app.data.avatar.AvatarModels
 import io.github.sceneview.SceneView
 import io.github.sceneview.SurfaceType
 import io.github.sceneview.math.Position
@@ -56,7 +57,7 @@ private val AVATAR_CAMERA_TARGET = Position(0f, 0.7f, 0f)
  *
  * @param parts 슬롯 → GLB 주소(`modelUrl`). 없는 슬롯은 그리지 않는다(예: 모자를 안 쓴 경우).
  * @param interactive true면 드래그로 돌리고 두 손가락으로 확대·축소할 수 있다. false면 고정된 정면 모습.
- * @param fetcher GLB 내용을 가져오는 방법. 기본은 캐시 없는 HTTP (STEP 9-5에서 캐시 구현으로 바꾼다).
+ * @param fetcher GLB 내용을 가져오는 방법. 기본은 앱 공용 디스크 캐시([AvatarModels.fetcher]) — 한 번 받은 파일은 다시 받지 않는다.
  * @param onStatusChange 불러오기 상태가 바뀔 때마다 호출된다.
  * @param onFrame 3D 화면이 한 프레임 그릴 때마다 호출된다 (FPS 측정 등).
  */
@@ -65,7 +66,7 @@ fun AvatarView(
     parts: Map<AvatarPart, String>,
     modifier: Modifier = Modifier,
     interactive: Boolean = true,
-    fetcher: AvatarModelFetcher = HttpAvatarModelFetcher.shared,
+    fetcher: AvatarModelFetcher = AvatarModels.fetcher(LocalContext.current),
     onStatusChange: (AvatarLoadStatus) -> Unit = {},
     onFrame: ((frameTimeNanos: Long) -> Unit)? = null,
 ) {
