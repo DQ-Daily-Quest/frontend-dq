@@ -11,7 +11,7 @@
 | 1 | SceneView 의존성 추가 | 완료 |
 | 2 | 테스트 화면에 S3 GLB 하나 띄우기 | 완료 |
 | 3 | 파츠 7개 겹치기, 카메라·조명·회전 | 완료 |
-| 4 | `AvatarView` 컴포넌트로 분리 (슬롯별 교체, 로딩·실패 상태) | 예정 |
+| 4 | `AvatarView` 컴포넌트로 분리 (슬롯별 교체, 로딩·실패 상태) | 완료 |
 | 5 | GLB 다운로드·캐시 저장소 | 예정 |
 | 6 | 2D `AvatarPreview`를 3D로 교체 | 예정 |
 | 7 | 성별 필드 반영, `BODY` → `SKIN` 정리, 아바타 API 연결 | 예정 |
@@ -242,3 +242,107 @@
    4. 오른쪽 위 **FPS** 숫자를 본다. **실제 휴대폰에서** 돌리는 동안 30 이상이면 무난하고, 그보다 낮으면 파일 용량(폴리곤)을 줄여야 한다.
 3. **UI 테스트 (에뮬레이터 켜고, 인터넷 필요):**
    `./gradlew connectedDebugAndroidTest "-Pandroid.testInstrumentationRunnerArguments.class=com.dailyquest.app.debug.Avatar3dTestScreenTest"`
+
+---
+
+## 4단계. `AvatarView` 컴포넌트
+
+- 날짜: 2026-11-22
+- 커밋 메시지: `feat: add reusable AvatarView with per-slot model swapping`
+
+### 무엇을 만들었나
+
+실제 화면(꾸미기, 상점 입어보기, 방 멤버 등)에서 쓸 **앱 본체(`main`) 컴포넌트**. 2·3단계 테스트 화면에서 얻은 설정과 교훈을 그대로 담았다.
+
+```kotlin
+AvatarView(
+    parts = mapOf(AvatarPart.SKIN to skinUrl, AvatarPart.TOP to topUrl, /* ... */),  // 슬롯 → modelUrl
+    modifier = Modifier.size(240.dp),
+    interactive = true,            // false면 회전 없는 정면 고정
+    onStatusChange = { status -> /* Loading / Ready / Failed */ },
+)
+```
+
+| 동작 | 내용 |
+| --- | --- |
+| 바뀐 슬롯만 받기 | `parts`가 바뀌면 주소가 달라진 슬롯만 받는다. 같은 주소는 다시 받지 않는다 |
+| 깜빡임 없이 교체 | 새 모델이 준비될 때까지 이전 모습을 그대로 보여주고, 다 받은 뒤 한꺼번에 바꾼다 |
+| 메모리 정리 | 빠진 슬롯·교체된 슬롯의 이전 모델은 화면에서 뺀 뒤 2프레임 기다렸다가 메인 스레드에서 지운다 |
+| 실패 처리 | 받지 못한 슬롯은 이전 모델을 유지하고 "아바타를 불러오지 못했어요 / 다시 시도"를 보여준다. 다시 시도하면 실패한 슬롯만 다시 받는다 |
+| 로딩 표시 | 처음에는 가운데 큰 진행 표시, 옷을 바꾸는 중에는 왼쪽 위 작은 표시 |
+| 3D 설정 | TextureView, 투명 배경, 원점 그대로 겹치기, 카메라 `(0, 0.75, 2.6)` → `(0, 0.7, 0)` (2·3단계 결과) |
+
+### 구조
+
+| 파일 | 역할 |
+| --- | --- |
+| `data/avatar/AvatarPart.kt` | 슬롯 7개(`SKIN`~`HAT`). 서버 `avatar` 키(소문자)와 상점 `category`(대문자) 모두 변환 |
+| `data/avatar/AvatarModelFetcher.kt` | GLB 가져오기 인터페이스 + 캐시 없는 HTTP 구현(`HttpAvatarModelFetcher`) + GLB 헤더 검사. 2단계 디버그용 `GlbDownloader`를 본체로 옮겼다 |
+| `ui/avatar/AvatarPartsLoader.kt` | 어떤 슬롯을 받고 어떤 모델을 지울지 정하는 핵심 로직. **3D 엔진 없이 단위 테스트**할 수 있게 모델 타입을 일반화(`<T>`) |
+| `ui/avatar/AvatarView.kt` | 위 로직 + SceneView. Filament 모델 생성·삭제를 메인 스레드로 고정 |
+
+- 다운로드 방식은 `AvatarModelFetcher` 인터페이스 뒤에 숨겼다. 5단계에서 캐시 구현을 만들어 기본값만 바꾸면 된다.
+- 테스트 화면(`Avatar3dTestActivity`)도 이제 `AvatarView`로 그린다. 새 **"바꾸기"** 줄(모자 바꾸기·상의 바꾸기·모자 벗기·고정 보기)과, 실제로 받은 파일 수를 세는 상태 줄로 위 동작을 눈으로 확인할 수 있다. 2단계의 "다시 불러오기" 버튼은 없앴다(실패 시 `AvatarView`의 "다시 시도"가 대신한다).
+- `AvatarPart`는 기존 Mock(`CustomizationStore`의 `AvatarSlot`, `BODY` 포함)과 별개다. 7단계에서 Mock을 서버 기준으로 정리할 때 하나로 합친다.
+
+### 바뀐 파일
+
+| 파일 | 변경 |
+| --- | --- |
+| `app/src/main/java/com/dailyquest/app/data/avatar/AvatarPart.kt` | 새 파일 |
+| `app/src/main/java/com/dailyquest/app/data/avatar/AvatarModelFetcher.kt` | 새 파일 |
+| `app/src/main/java/com/dailyquest/app/ui/avatar/AvatarPartsLoader.kt` | 새 파일 |
+| `app/src/main/java/com/dailyquest/app/ui/avatar/AvatarView.kt` | 새 파일 |
+| `app/src/debug/java/com/dailyquest/app/debug/Avatar3dTestActivity.kt` | `AvatarView` 사용, "바꾸기" 줄, 받은 파일 수 표시 |
+| `app/src/debug/java/com/dailyquest/app/debug/TestOutfits.kt` | `AvatarPart` 사용, 파츠 하나도 같은 형식으로, 모자·상의 교체 후보 |
+| `app/src/debug/java/com/dailyquest/app/debug/GlbDownloader.kt` | **삭제** (본체 `HttpAvatarModelFetcher`로 이동) |
+| `app/src/testDebug/java/com/dailyquest/app/debug/GlbDownloaderTest.kt` | **삭제** (본체 테스트로 이동) |
+| `app/src/test/java/com/dailyquest/app/ui/avatar/AvatarPartsLoaderTest.kt` | 새 파일. 단위 테스트 12개 |
+| `app/src/test/java/com/dailyquest/app/data/avatar/HttpAvatarModelFetcherTest.kt` | 새 파일. 단위 테스트 7개 (옮긴 5개 + 인증 헤더 안 보냄 + 슬롯 키 변환) |
+| `app/src/testDebug/java/com/dailyquest/app/debug/TestOutfitsTest.kt` | 새 목록에 맞게 수정 (4개) |
+| `app/src/androidTest/java/com/dailyquest/app/ui/avatar/AvatarViewTest.kt` | 새 파일. 인터넷 없이 도는 실패·다시 시도 UI 테스트 2개 |
+| `app/src/androidTest/java/com/dailyquest/app/debug/Avatar3dTestScreenTest.kt` | 교체 동작 UI 테스트로 재작성 (6개) |
+
+### `AvatarPartsLoader` 단위 테스트가 확인하는 것
+
+- 처음에는 모든 슬롯을 받는다 / 슬롯 하나를 바꾸면 그 파일만 받고 이전 모델을 지운다
+- 모자를 쓰면 모자만 받는다 / 모자를 벗으면 아무것도 받지 않고 모자 모델만 지운다
+- 같은 구성이면 아무것도 받거나 지우지 않는다
+- 받지 못한 슬롯은 이전 모델을 유지하고 실패로 알린다 / 처음부터 일부 실패하면 나머지는 보인다
+- 다시 시도하면 실패한 슬롯만 받는다 / 모델 생성이 실패해도 실패로 알린다
+- 여러 슬롯을 바꿀 때 모두 받은 뒤 한꺼번에 바꾼다(중간에 일부만 바뀐 모습이 보이지 않는다)
+
+### 진행 중 만난 문제와 해결
+
+| 문제 | 원인 | 해결 |
+| --- | --- | --- |
+| SceneView의 `ModelNode`가 화면에서 빠져도 모델 메모리가 남음 | 소스 확인 결과 노드만 지우고 모델(asset)은 지우지 않는다 | `AvatarView`가 교체·제거된 모델을 직접 `destroyModel` |
+| 같은 결과 상태가 연달아 오면 `onStatusChange`가 불리지 않아 테스트 화면이 "불러오는 중"에 멈출 수 있음 | Compose `snapshotFlow`는 값이 같으면 알리지 않는다 | `AvatarPartsLoader.completedSyncs`를 두어 불러오기가 끝날 때마다 반드시 알림 |
+| UI 테스트가 10분 넘게 멈춤 | 화면 밖에 걸친 칩을 `performScrollTo()`로 누르려 했는데, 스크롤 애니메이션이 프레임 시계를 기다리고 테스트는 시계를 멈춰 둬서 서로 기다림 | 클릭 동작을 직접 실행(`performSemanticsAction(OnClick)`) |
+| 위 테스트가 멈춘 동안 화면에 모델이 안 보임 | 버그가 아니었다. 테스트가 시계를 멈춰 화면이 갱신되지 않았을 뿐. 직접 같은 순서로 눌러 정상 표시를 확인 | — |
+
+### 테스트 결과
+
+| 항목 | 결과 |
+| --- | --- |
+| `./gradlew assembleDebug assembleRelease testDebugUnitTest` | 성공. 단위 테스트 355개 전부 통과 (새 `AvatarPartsLoaderTest` 12개, `HttpAvatarModelFetcherTest` 7개 포함) |
+| 새 UI 테스트 (`Avatar3dTestScreenTest` 6개 + `AvatarViewTest` 2개) | 8개 모두 통과 |
+| 전체 UI 테스트 `connectedDebugAndroidTest` | **83개 전부 통과** (다른 팀원 화면 포함), 앱 강제 종료 0건 |
+| 에뮬레이터에서 눈으로 확인 | 모자 바꾸기 → 모자 파일 1개(0.52MB)만 받음. 고정 보기에서 드래그해도 돌아가지 않음. 남 모자 → 여 몸체 전환 정상 |
+| 인터넷 끊고 한 벌 바꾸기 → 다시 켜고 "다시 시도" | 끊겼을 때 "아바타를 불러오지 못했어요 / 다시 시도"와 실패 슬롯 6개 표시, 앱은 꺼지지 않음. 다시 시도하자 6개를 모두 받아 정상 표시 |
+| 메모리 (모자 바꾸기 반복) | 기준 229.3MB → 16번 더 바꿈 227.2MB → 32번 더 바꿈 227.5MB (TOTAL PSS). **늘지 않음 = 교체된 모델이 지워진다** |
+
+- **알아 둘 동작:** 받지 못한 슬롯은 이전 모델이 남는다(설계대로). 테스트 화면에서 남자 몸체를 띄운 채 인터넷을 끊고 "여 기본"을 누르면 남자 몸체가 그대로 보인다. 실제 앱에서는 성별이 바뀌지 않으므로 같은 체형 안에서 이전 옷이 남는 정도다.
+
+### 직접 확인하는 방법
+
+1. **빌드·단위 테스트:** `./gradlew assembleDebug testDebugUnitTest` → `BUILD SUCCESSFUL`
+2. **화면 확인 (인터넷 필요)** — "DQ 3D 테스트"를 연다.
+   1. "한 벌 → 남 기본"을 누르고 준비될 때까지 기다린다.
+   2. "바꾸기 → 모자 바꾸기"를 누른다. 상태 줄이 **"파츠 7개 · 받은 파일 1개"**면 모자만 받은 것이다. 여러 번 누르면 모자가 차례로 바뀐다.
+   3. "상의 바꾸기"를 누르면 상의만 바뀌고 **"받은 파일 1개"**가 나온다.
+   4. "모자 벗기"를 누르면 **"파츠 6개 · 받은 파일 0개"**가 나온다.
+   5. "고정 보기"를 켜고 드래그해 본다. 돌아가지 않으면 정상이다.
+   6. 기기 인터넷을 끄고 다른 한 벌을 누르면 캐릭터 아래에 **"아바타를 불러오지 못했어요 / 다시 시도"**가 나온다. 인터넷을 켜고 "다시 시도"를 누르면 나머지가 채워진다.
+3. **UI 테스트 (에뮬레이터 켜고, 인터넷 필요):**
+   `./gradlew connectedDebugAndroidTest "-Pandroid.testInstrumentationRunnerArguments.class=com.dailyquest.app.debug.Avatar3dTestScreenTest,com.dailyquest.app.ui.avatar.AvatarViewTest"`

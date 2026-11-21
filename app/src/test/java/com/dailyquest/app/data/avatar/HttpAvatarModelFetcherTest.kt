@@ -1,4 +1,4 @@
-package com.dailyquest.app.debug
+package com.dailyquest.app.data.avatar
 
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
@@ -10,14 +10,18 @@ import org.junit.After
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
-/** STEP 9-2 테스트 화면의 GLB 다운로드: 성공, HTTP 오류, GLB가 아닌 응답, 연결 끊김을 MockWebServer로 검증한다. */
-class GlbDownloaderTest {
+/**
+ * GLB 다운로드: 성공, HTTP 오류, GLB가 아닌 응답, 연결 끊김을 MockWebServer로 검증한다.
+ * (STEP 9-2에서 디버그 전용 GlbDownloaderTest로 만들었고, 9-4에서 앱 본체로 옮겼다.)
+ */
+class HttpAvatarModelFetcherTest {
     private lateinit var server: MockWebServer
-    private val downloader = GlbDownloader(OkHttpClient())
+    private val fetcher = HttpAvatarModelFetcher(OkHttpClient())
 
     @Before fun setUp() { server = MockWebServer().also { it.start() } }
     @After fun tearDown() { server.shutdown() }
@@ -33,17 +37,25 @@ class GlbDownloaderTest {
         val body = glbBytes()
         server.enqueue(MockResponse().setBody(Buffer().write(body)))
 
-        val result = downloader.download(url("/items/avatar/boy/DQ_Boy_01_Body.glb"))
+        val result = fetcher.fetch(url("/items/avatar/boy/DQ_Boy_01_Body.glb"))
 
         assertTrue(result.isSuccess)
         assertArrayEquals(body, result.getOrThrow())
         assertEquals("/items/avatar/boy/DQ_Boy_01_Body.glb", server.takeRequest().path)
     }
 
+    @Test fun `S3 주소에는 앱 인증 헤더를 보내지 않는다`() = runBlocking {
+        server.enqueue(MockResponse().setBody(Buffer().write(glbBytes())))
+
+        fetcher.fetch(url())
+
+        assertNull(server.takeRequest().getHeader("Authorization"))
+    }
+
     @Test fun `404면 실패하고 상태 코드를 알려준다`() = runBlocking {
         server.enqueue(MockResponse().setResponseCode(404))
 
-        val result = downloader.download(url())
+        val result = fetcher.fetch(url())
 
         assertTrue(result.isFailure)
         assertEquals("HTTP 404", result.exceptionOrNull()?.message)
@@ -52,7 +64,7 @@ class GlbDownloaderTest {
     @Test fun `GLB가 아닌 응답이면 실패한다`() = runBlocking {
         server.enqueue(MockResponse().setBody("<Error>AccessDenied</Error>"))
 
-        val result = downloader.download(url())
+        val result = fetcher.fetch(url())
 
         assertTrue(result.isFailure)
         assertTrue(result.exceptionOrNull()?.message.orEmpty().startsWith("GLB 파일이 아닙니다"))
@@ -61,18 +73,27 @@ class GlbDownloaderTest {
     @Test fun `연결이 끊기면 예외를 던지지 않고 실패로 돌려준다`() = runBlocking {
         server.enqueue(MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AT_START))
 
-        val result = downloader.download(url())
+        val result = fetcher.fetch(url())
 
         assertTrue(result.isFailure)
     }
 
     @Test fun `GLB 헤더 판별`() {
-        assertTrue(GlbDownloader.isGlb(glbBytes(0)))
-        assertFalse(GlbDownloader.isGlb(ByteArray(0)))
-        assertFalse(GlbDownloader.isGlb("glTF".toByteArray()))
+        assertTrue(GlbFormat.isGlb(glbBytes(0)))
+        assertFalse(GlbFormat.isGlb(ByteArray(0)))
+        assertFalse(GlbFormat.isGlb("glTF".toByteArray()))
         // 버전 1 GLB는 지원하지 않는다
-        assertFalse(GlbDownloader.isGlb(glbBytes(0).also { it[4] = 1 }))
+        assertFalse(GlbFormat.isGlb(glbBytes(0).also { it[4] = 1 }))
         // JSON glTF(.gltf)는 GLB가 아니다
-        assertFalse(GlbDownloader.isGlb("{\"asset\":{\"version\":\"2.0\"}}".toByteArray()))
+        assertFalse(GlbFormat.isGlb("{\"asset\":{\"version\":\"2.0\"}}".toByteArray()))
+    }
+
+    @Test fun `서버 슬롯 키와 상점 카테고리 모두 슬롯으로 바꿀 수 있다`() {
+        assertEquals(AvatarPart.HAT, AvatarPart.fromKey("hat"))
+        assertEquals(AvatarPart.HAT, AvatarPart.fromKey("HAT"))
+        assertEquals(AvatarPart.SKIN, AvatarPart.fromKey("skin"))
+        assertNull(AvatarPart.fromKey("BODY"))
+        assertNull(AvatarPart.fromKey("DESK"))
+        assertEquals(7, AvatarPart.entries.size)
     }
 }
