@@ -35,7 +35,10 @@ import io.github.sceneview.rememberCameraManipulator
 import io.github.sceneview.rememberCameraNode
 import io.github.sceneview.rememberEngine
 import io.github.sceneview.rememberModelLoader
+import android.os.SystemClock
+import io.github.sceneview.loaders.ModelLoader
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.nio.ByteBuffer
 
@@ -80,7 +83,7 @@ fun AvatarView(
         AvatarPartsLoader<ModelInstance>(
             fetcher = fetcher,
             // Filament 모델 생성·삭제는 반드시 메인 스레드에서 한다. 다른 스레드면 네이티브 코드가 앱을 강제 종료한다(STEP 9-2).
-            createModel = { bytes -> withContext(Dispatchers.Main) { modelLoader.createModelInstance(ByteBuffer.wrap(bytes)) } },
+            createModel = { bytes -> withContext(Dispatchers.Main) { createModelSafely(modelLoader, bytes) } },
             releaseModel = { instance ->
                 withContext(Dispatchers.Main) {
                     // 화면에서 노드가 빠진 다음 프레임 이후에 지운다. 그리는 중인 모델을 지우면 안 된다.
@@ -131,6 +134,30 @@ fun AvatarView(
         AvatarStatusOverlay(loader.status, isEmpty = loader.shown.isEmpty(), onRetry = { retryCount++ })
     }
 }
+
+/**
+ * 모델을 만들고, 텍스처를 다 만든 뒤에 원본 데이터를 지운다.
+ *
+ * SceneView의 createModelInstance()는 모델을 만들자마자 원본 데이터를 지우는데, 텍스처는 그 뒤에도 백그라운드에서 만든다.
+ * Filament는 텍스처를 원본 데이터의 **메모리 주소**로 구분해 재사용하므로, 다음 모델의 원본 데이터가 방금 비워진 같은 주소에
+ * 들어오면 "아직 만드는 중인 텍스처"를 쓰려다 앱이 강제 종료된다
+ * (`PreconditionPanic in setImage: Texture is not created yet. It may be in the process of asynchronous loading`, STEP 9-6에서 발생).
+ * 원본 데이터를 텍스처가 끝날 때까지 들고 있으면 주소가 겹치지 않는다. 모델도 하나씩 차례로 만들게 된다.
+ */
+private suspend fun createModelSafely(modelLoader: ModelLoader, bytes: ByteArray): ModelInstance {
+    val model = modelLoader.createModel(ByteBuffer.wrap(bytes), releaseSourceData = false)
+    val deadline = SystemClock.uptimeMillis() + TEXTURE_LOAD_TIMEOUT_MS
+    // 진행률은 렌더 루프가 매 프레임 갱신하지만, 화면이 아직 안 그려지는 중일 수도 있어 직접도 갱신한다.
+    while (modelLoader.progress < 1f && SystemClock.uptimeMillis() < deadline) {
+        modelLoader.updateLoad()
+        delay(TEXTURE_POLL_MS)
+    }
+    model.releaseSourceData()
+    return model.instance
+}
+
+private const val TEXTURE_LOAD_TIMEOUT_MS = 5_000L
+private const val TEXTURE_POLL_MS = 16L
 
 private class ViewLifecycle {
     @Volatile var disposed = false

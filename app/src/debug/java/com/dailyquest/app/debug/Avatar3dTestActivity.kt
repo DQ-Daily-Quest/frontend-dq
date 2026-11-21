@@ -82,6 +82,8 @@ private fun Avatar3dTestScreen() {
     var codes by remember { mutableStateOf(selection.codes) }
     var status by remember { mutableStateOf<AvatarLoadStatus>(AvatarLoadStatus.Loading) }
     var interactive by remember { mutableStateOf(true) }
+    // 바꾼 순간부터 AvatarView가 "준비됨/실패"를 알릴 때까지(받기 + 모델 생성 + 텍스처 준비) 걸린 시간
+    var shownMs by remember { mutableLongStateOf(0L) }
 
     // 바꾸는 순간 상태를 "불러오는 중"으로 둔다. 이전 구성의 "준비됨"이 남아 있으면 UI 테스트가 너무 일찍 끝난다.
     // 구성이 그대로면 AvatarView가 아무 일도 하지 않아 상태 알림도 오지 않으므로 바꾸지 않는다.
@@ -123,14 +125,17 @@ private fun Avatar3dTestScreen() {
                 modifier = Modifier.fillMaxSize(),
                 interactive = interactive,
                 fetcher = requests,
-                onStatusChange = { status = it },
+                onStatusChange = {
+                    status = it
+                    if (it !is AvatarLoadStatus.Loading) shownMs = requests.sinceResetMs()
+                },
                 onFrame = { fps.onFrame(it) },
             )
             FpsLabel(fps, Modifier.align(Alignment.TopEnd))
             CornerLabel("캐시 ${cacheStats.fileCount}개 · %.1fMB".format(Locale.US, cacheStats.totalBytes / 1_048_576.0), "avatar3dCache", Modifier.align(Alignment.TopStart))
         }
         LaunchedEffect(status) { cacheStats = cache.stats() }
-        StatusText(selection.label, status, network, requests)
+        StatusText(selection.label, status, network, requests, shownMs)
     }
 }
 
@@ -156,7 +161,13 @@ private class CountingFetcher(private val inner: AvatarModelFetcher) : AvatarMod
         private set
     private var startedAt = SystemClock.elapsedRealtime()
 
-    fun reset() {
+    fun sinceResetMs(): Long = SystemClock.elapsedRealtime() - startedAt
+
+    // 파츠 여러 개를 동시에(여러 스레드에서) 가져오므로 세는 부분은 한 번에 하나씩만 실행한다.
+    // 그냥 count++를 하면 동시에 늘릴 때 하나가 씹힌다(6개를 가져왔는데 5개로 셈, STEP 9-6 UI 테스트에서 실제로 발생).
+    private val lock = Any()
+
+    fun reset() = synchronized(lock) {
         count = 0
         bytes = 0
         elapsedMs = 0
@@ -164,11 +175,13 @@ private class CountingFetcher(private val inner: AvatarModelFetcher) : AvatarMod
     }
 
     override suspend fun fetch(url: String): Result<ByteArray> = inner.fetch(url).also { result ->
-        result.onSuccess {
-            count++
-            bytes += it.size
+        synchronized(lock) {
+            result.onSuccess {
+                count++
+                bytes += it.size
+            }
+            elapsedMs = sinceResetMs()
         }
-        elapsedMs = SystemClock.elapsedRealtime() - startedAt
     }
 }
 
@@ -206,11 +219,11 @@ private fun CornerLabel(text: String, tag: String, modifier: Modifier) {
 }
 
 @Composable
-private fun StatusText(title: String, status: AvatarLoadStatus, network: CountingFetcher, requests: CountingFetcher) {
-    // 둘째 줄: 실제로 받은 파일 / 캐시에서 꺼낸 파일 / 바꾼 뒤 끝날 때까지 걸린 시간
+private fun StatusText(title: String, status: AvatarLoadStatus, network: CountingFetcher, requests: CountingFetcher, shownMs: Long) {
+    // 둘째 줄: 실제로 받은 파일 / 캐시에서 꺼낸 파일 / 바꾼 순간부터 화면에 다 뜰 때까지 걸린 시간
     val detail = String.format(
-        Locale.US, "받은 파일 %d개 %.2fMB · 캐시 %d개 · %dms",
-        network.count, network.bytes / 1_048_576.0, requests.count - network.count, requests.elapsedMs,
+        Locale.US, "받은 파일 %d개 %.2fMB · 캐시 %d개 · 표시까지 %dms",
+        network.count, network.bytes / 1_048_576.0, requests.count - network.count, shownMs,
     )
     val (text, color) = when (status) {
         AvatarLoadStatus.Loading -> "$title · 불러오는 중…" to Color.Unspecified
