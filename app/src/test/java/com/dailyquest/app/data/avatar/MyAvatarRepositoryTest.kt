@@ -211,6 +211,87 @@ class MyAvatarRepositoryTest {
         assertNull(AvatarGender.parse("OTHER"))
     }
 
+    // ── STEP 9-9 캐릭터 만들기 ─────────────────────────────────────────────────────────
+
+    /** 성별 확정 후 보유 목록: 피부 3종(코드 포함) + 기본 눈 */
+    private val boySkins = json(
+        """[
+        {"itemId":1,"name":"아이보리 피부","type":"AVATAR","category":"SKIN","price":0,"modelUrl":"$s3/DQ_Boy_01_Body.glb","isDefault":true,"code":"DQ_Boy_01_Body","gender":"MALE"},
+        {"itemId":2,"name":"피치 피부","type":"AVATAR","category":"SKIN","price":0,"modelUrl":"$s3/DQ_Boy_01_Body_GirlSkin.glb","isDefault":true,"code":"DQ_Boy_01_Body_GirlSkin","gender":"MALE"},
+        {"itemId":3,"name":"브라운 피부","type":"AVATAR","category":"SKIN","price":0,"modelUrl":"$s3/DQ_Boy_01_Body_DeepBrown.glb","isDefault":true,"code":"DQ_Boy_01_Body_DeepBrown","gender":"MALE"},
+        {"itemId":4,"name":"기본 눈","type":"AVATAR","category":"EYES","price":0,"modelUrl":"$s3/DQ_Boy_02_Eyes.glb","isDefault":true,"code":"DQ_Boy_02_Eyes","gender":"MALE"}
+        ]""",
+    )
+    private val afterGender = """{"skin":1,"eyes":4,"hair":null,"top":null,"bottom":null,"shoes":null,"hat":null}"""
+
+    @Test fun `캐릭터 만들기 - 성별을 확정하고 서버 기본 피부와 같으면 피부는 바꾸지 않는다`() = runBlocking {
+        responses["PUT /api/v1/users/me/gender"] = me("MALE", afterGender)
+        responses["GET /api/v1/users/me/items"] = boySkins
+
+        val avatar = (repo.createCharacter(AvatarGender.MALE, AvatarDefaults.SkinTone.IVORY) as ApiResult.Success).value
+
+        assertEquals("""{"gender":"MALE"}""", takeRequest("PUT").body.readUtf8())
+        assertEquals(AvatarGender.MALE, avatar.gender)
+        assertEquals(1L, avatar.itemId(AvatarPart.SKIN))
+        assertTrue(recordedMethods().none { it == "PATCH" })
+    }
+
+    @Test fun `캐릭터 만들기 - 다른 피부를 고르면 코드로 찾아 피부만 바꿔 입힌다`() = runBlocking {
+        responses["PUT /api/v1/users/me/gender"] = me("MALE", afterGender)
+        responses["GET /api/v1/users/me/items"] = boySkins
+        responses["PATCH /api/v1/users/me"] = me("MALE", afterGender.replace("\"skin\":1", "\"skin\":3"))
+
+        val avatar = (repo.createCharacter(AvatarGender.MALE, AvatarDefaults.SkinTone.BROWN) as ApiResult.Success).value
+
+        assertEquals("""{"avatar":{"skin":3}}""", takeRequest("PATCH").body.readUtf8())
+        assertEquals(3L, avatar.itemId(AvatarPart.SKIN))
+        assertEquals("$s3/DQ_Boy_01_Body_DeepBrown.glb", avatar.modelParts[AvatarPart.SKIN])
+    }
+
+    @Test fun `캐릭터 만들기 - 세션에 성별을 반영해 다시 캐릭터 만들기로 보내지 않는다`() = runBlocking {
+        responses["PUT /api/v1/users/me/gender"] = me("FEMALE", afterGender)
+        responses["GET /api/v1/users/me/items"] = json("[]")
+
+        repo.createCharacter(AvatarGender.FEMALE, AvatarDefaults.SkinTone.PEACH)
+
+        assertEquals("FEMALE", (session.state.value as SessionState.Authenticated).profile.gender)
+    }
+
+    @Test fun `캐릭터 만들기 - 이미 성별이 정해졌으면(GENDER_ALREADY_SET) 지금 상태로 진행한다`() = runBlocking {
+        responses["PUT /api/v1/users/me/gender"] = json(
+            """{"code":"GENDER_ALREADY_SET","message":"성별은 한 번 정하면 바꿀 수 없습니다.","timestamp":"2026-11-22T00:00:00Z"}""", 409,
+        )
+        responses["GET /api/v1/users/me"] = me("MALE", afterGender)
+        responses["GET /api/v1/users/me/items"] = boySkins
+
+        val result = repo.createCharacter(AvatarGender.FEMALE, AvatarDefaults.SkinTone.IVORY)
+
+        assertTrue(result is ApiResult.Success)
+        assertEquals(AvatarGender.MALE, (result as ApiResult.Success).value.gender)
+    }
+
+    @Test fun `캐릭터 만들기 - 성별 확정이 실패하면 실패를 돌려주고 세션은 그대로`() = runBlocking {
+        // PUT 응답 없음 → 500
+        val result = repo.createCharacter(AvatarGender.MALE, AvatarDefaults.SkinTone.IVORY)
+
+        assertTrue(result is ApiResult.Failure)
+        assertNull((session.state.value as SessionState.Authenticated).profile.gender)
+    }
+
+    @Test fun `캐릭터 만들기 - 피부 바꾸기만 실패하면 캐릭터는 만들어졌으므로 성공`() = runBlocking {
+        responses["PUT /api/v1/users/me/gender"] = me("MALE", afterGender)
+        responses["GET /api/v1/users/me/items"] = boySkins
+        // PATCH 응답 없음 → 500
+
+        val avatar = (repo.createCharacter(AvatarGender.MALE, AvatarDefaults.SkinTone.BROWN) as ApiResult.Success).value
+
+        assertEquals(1L, avatar.itemId(AvatarPart.SKIN))
+    }
+
+    private fun recordedMethods(): List<String> = buildList {
+        while (true) add(server.takeRequest(100, java.util.concurrent.TimeUnit.MILLISECONDS)?.method ?: break)
+    }
+
     private fun takeRequest(method: String): RecordedRequest {
         repeat(5) { server.takeRequest().let { if (it.method == method) return it } }
         error("$method 요청이 없습니다")

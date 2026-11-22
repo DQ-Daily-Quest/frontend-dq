@@ -65,7 +65,14 @@ class ShopTryOnTest {
     @Test fun avatarTabShowsMyAvatarPreview() {
         openShop()
         compose.onNodeWithTag("myAvatarPreview").assertExists()
-        // 테스트 계정은 서버 gender가 없어 "캐릭터를 먼저 만들어 주세요"가 보인다(성별 선택은 STEP 9-9).
+        // 테스트 앱은 3D를 끄므로 캐릭터가 있으면 빈 상자가 보인다.
+        waitTag("myAvatarPlaceholder")
+    }
+
+    /** 앱을 쓰는 중에 성별이 없어진 경우(정상 흐름에선 9-9 캐릭터 만들기로 막힌다)에도 미리보기가 안내를 보여 준다. */
+    @Test fun avatarTabShowsNeedsCharacterWhenGenderMissing() {
+        TestAvatarCalls.gender = null
+        openShop()
         waitTag("myAvatarNeedsGender")
     }
 
@@ -113,7 +120,9 @@ class ShopTryOnTest {
 
     /** 9-8: 성별을 정하지 않은 계정은 보유 아이템도 착용할 수 없다(캐릭터가 없다). */
     @Test fun ownedItemCannotBeEquippedBeforeCharacterExists() {
+        TestAvatarCalls.gender = null
         openShop()
+        waitTag("myAvatarNeedsGender")
         compose.onNodeWithTag("shopItem_1").performClick()   // 기본 머리(보유)
 
         compose.onNodeWithTag("shopTryOnAction").assertTextContains("착용하기").assertIsNotEnabled()

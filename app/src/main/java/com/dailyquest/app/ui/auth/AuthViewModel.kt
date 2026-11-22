@@ -41,9 +41,15 @@ class AuthViewModel(private val container: AppContainer) : ViewModel() {
     val session: StateFlow<SessionState> = container.session.state
     val startAfterAuth: String get() = container.startAfterAuth
 
-    /** 신규 소셜 가입자는 로그인 직후 아바타 선택 화면으로, 그 외에는 [startAfterAuth]로 보낸다. */
-    fun consumePostLoginRoute(): String =
-        if (container.session.consumeAvatarSetup()) com.dailyquest.app.navigation.Routes.SIGNUP_AVATAR else startAfterAuth
+    /**
+     * 로그인 직후 갈 화면. 캐릭터(성별)를 아직 만들지 않은 계정은 **항상** 캐릭터 만들기 화면으로 보낸다(STEP 9-9, 필수).
+     * 신규 소셜 가입자, gender 없이 가입한 계정, 이 기능 이전 계정이 모두 해당한다. 그 외에는 [startAfterAuth]로 보낸다.
+     */
+    fun consumePostLoginRoute(): String {
+        val newSocialUser = container.session.consumeAvatarSetup()
+        val noCharacter = (session.value as? SessionState.Authenticated)?.profile?.gender == null
+        return if (newSocialUser || noCharacter) com.dailyquest.app.navigation.Routes.SIGNUP_AVATAR else startAfterAuth
+    }
 
     private val _ui = MutableStateFlow(AuthUiState())
     val ui: StateFlow<AuthUiState> = _ui.asStateFlow()

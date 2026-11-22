@@ -51,11 +51,13 @@ class SocialLoginTest {
     private val testDispatcher = StandardTestDispatcher()
     private val seen = mutableListOf<String>()
 
-    private fun me(email: String?) = """{"userId":7,"email":${email?.let { "\"$it\"" }},"nickname":"n","coins":0,"avatar":{},"streak":{"current":0,"longest":0},"stats":{"roomCount":0,"completedMissionCount":0},"createdAt":"2025-01-01T00:00:00Z"}"""
+    private fun me(email: String?) = """{"userId":7,"email":${email?.let { "\"$it\"" }},"nickname":"n","coins":0,"gender":${meGender?.let { "\"$it\"" }},"avatar":{},"streak":{"current":0,"longest":0},"stats":{"roomCount":0,"completedMissionCount":0},"createdAt":"2025-01-01T00:00:00Z"}"""
     private fun tokenBody(isNew: Boolean) =
         """{"accessToken":"A","refreshToken":"R","expiresIn":1800,"user":{"userId":7,"nickname":"n","avatarUrl":null,"coins":0},"isNewUser":$isNew}"""
     private var oauthResponse: () -> MockResponse = { MockResponse().setBody(tokenBody(false)).setHeader("Content-Type", "application/json") }
     private var meEmail: String? = null
+    /** /users/me의 gender (STEP 9-9). 기본은 null(캐릭터 없음) */
+    private var meGender: String? = null
 
     @Before fun setUp() {
         Dispatchers.setMain(testDispatcher)
@@ -90,6 +92,7 @@ class SocialLoginTest {
 
     @Test fun socialLoginStoresServiceJwtOnlyAndAuthenticatesWithNullEmail() = runBlocking {
         meEmail = null
+        meGender = null
         val r = container.authRepository.socialLogin(SocialProvider.KAKAO, "kakao-id-token")
         assertTrue(r is ApiResult.Success)
         assertEquals("A", tokenStore.read()?.accessToken)
@@ -164,11 +167,31 @@ class SocialLoginTest {
         assertFalse(vm.ui.value.loading)
     }
 
-    @Test fun viewModelNewUserRoutesToAvatarThenHome() = runBlocking {
+    /** STEP 9-9: 캐릭터(성별)는 필수라서, 만들기 전까지는 로그인할 때마다 캐릭터 만들기 화면으로 간다. */
+    @Test fun viewModelNewUserWithoutCharacterAlwaysRoutesToAvatar() = runBlocking {
         val vm = AuthViewModel(container)
         oauthResponse = { MockResponse().setBody(tokenBody(true)).setHeader("Content-Type", "application/json") }
         container.authRepository.socialLogin(SocialProvider.GOOGLE, "t")
         assertEquals(Routes.SIGNUP_AVATAR, vm.consumePostLoginRoute())
+        assertEquals(Routes.SIGNUP_AVATAR, vm.consumePostLoginRoute())
+    }
+
+    /** 신규 가입 표시가 있으면 한 번은 캐릭터 화면으로, 캐릭터가 이미 있으면 그다음엔 홈으로 간다(기존 동작 유지). */
+    @Test fun viewModelNewUserRoutesToAvatarThenHome() = runBlocking {
+        meGender = "FEMALE"
+        val vm = AuthViewModel(container)
+        oauthResponse = { MockResponse().setBody(tokenBody(true)).setHeader("Content-Type", "application/json") }
+        container.authRepository.socialLogin(SocialProvider.GOOGLE, "t")
+        assertEquals(Routes.SIGNUP_AVATAR, vm.consumePostLoginRoute())
+        assertEquals(Routes.HOME, vm.consumePostLoginRoute())
+    }
+
+    /** STEP 9-9: 캐릭터가 있는 기존 계정은 바로 홈으로 간다. */
+    @Test fun viewModelExistingUserWithCharacterGoesHome() = runBlocking {
+        meGender = "MALE"
+        val vm = AuthViewModel(container)
+        oauthResponse = { MockResponse().setBody(tokenBody(false)).setHeader("Content-Type", "application/json") }
+        container.authRepository.socialLogin(SocialProvider.GOOGLE, "t")
         assertEquals(Routes.HOME, vm.consumePostLoginRoute())
     }
 

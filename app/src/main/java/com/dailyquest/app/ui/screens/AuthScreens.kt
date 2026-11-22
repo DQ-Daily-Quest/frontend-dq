@@ -45,10 +45,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.dailyquest.app.R
+import com.dailyquest.app.ui.room.LocalAppContainer
+import com.dailyquest.app.ui.avatar.CharacterCreateViewModel
+import com.dailyquest.app.ui.avatar.AvatarView
+import com.dailyquest.app.data.avatar.AvatarGender
+import com.dailyquest.app.data.avatar.AvatarDefaults
+import androidx.compose.ui.platform.testTag
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.dailyquest.app.navigation.LocalNav
 import com.dailyquest.app.navigation.Routes
 import com.dailyquest.app.ui.components.Black
 import com.dailyquest.app.ui.components.Bold
+import com.dailyquest.app.ui.components.Chip
 import com.dailyquest.app.ui.components.BottomCta
 import com.dailyquest.app.ui.components.Btn
 import com.dailyquest.app.ui.components.BtnStyle
@@ -293,41 +301,61 @@ private fun Label(text: String, top: androidx.compose.ui.unit.Dp = 12.dp) =
 @Composable
 private fun Hint(text: String) = Txt(text, size = 11.5f, color = DQColors.Muted, modifier = Modifier.padding(start = 4.dp, top = 6.dp))
 
-private val SWATCHES = listOf(
-    "피부" to listOf(R.drawable.sw_skin_0, R.drawable.sw_skin_1, R.drawable.sw_skin_2, R.drawable.sw_skin_3, R.drawable.sw_skin_4),
-    "헤어" to listOf(R.drawable.sw_hair_0, R.drawable.sw_hair_1, R.drawable.sw_hair_2, R.drawable.sw_hair_3, R.drawable.sw_hair_4),
-    "옷" to listOf(R.drawable.sw_cloth_0, R.drawable.sw_cloth_1, R.drawable.sw_cloth_2, R.drawable.sw_cloth_3, R.drawable.sw_cloth_2),
-)
-
-/** 11 · A3 회원가입 · 아바타 만들기 */
+/**
+ * 11 · A3 회원가입 · 캐릭터 만들기 (STEP 9-9)
+ *
+ * 남/여와 피부 3톤을 고르면 그 체형의 기본 한 벌을 3D로 미리 보여 주고, "Daily Quest 시작하기"로 서버에 확정한다
+ * (`PUT /users/me/gender` → 서버가 기본 한 벌 지급·착용, 고른 피부가 첫 톤이 아니면 피부만 바꿔 입힘).
+ * 캐릭터는 **필수**다. 성별이 없는 계정은 로그인할 때마다 이 화면으로 온다(AuthViewModel.consumePostLoginRoute).
+ * 성별은 한 번 정하면 바꿀 수 없으므로 화면에 안내한다. 헤어·옷은 기본으로 시작하고 상점에서 꾸민다.
+ */
 @Composable
 fun SignupAvatarScreen() {
     val nav = LocalNav.current
     val auth = LocalAuth.current
-    val sel = remember { mutableStateListOf(0, 0, 0) }
+    val vm: CharacterCreateViewModel = viewModel(factory = CharacterCreateViewModel.Factory(LocalAppContainer.current))
+    val ui by vm.ui.collectAsStateWithLifecycle()
+    val render3d = LocalAppContainer.current.avatar3dEnabled
+    LaunchedEffect(ui.done) { if (ui.done) startApp(nav, auth.startAfterAuth) }
 
     DqScreen {
         Column(Modifier.fillMaxSize()) {
-            SignupHeader(2)
+            Box(Modifier.fillMaxWidth().height(54.dp).padding(horizontal = 16.dp), contentAlignment = Alignment.CenterStart) {
+                Txt("캐릭터 만들기", size = 17f, weight = Bold)
+            }
             FormBody(top = 0.dp, bottomSpace = 140.dp) {
-                SignupTitle("나만의 아바타를\n만들어 볼까요?")
-                Box(Modifier.padding(top = 15.dp).clip(RoundedCornerShape(22.dp))) {
-                    Scaled(358f, 240f) {
-                        DqImage(R.drawable.img_room_interior, Modifier.size(358.dp, 240.dp))
-                        DqAvatar(R.drawable.img_avatar_boy, 140.dp, Modifier.at(109, 46))
+                SignupTitle("나만의 캐릭터를\n만들어 볼까요?")
+                Box(
+                    Modifier.padding(top = 15.dp).fillMaxWidth().height(260.dp).clip(RoundedCornerShape(22.dp))
+                        .background(DQColors.Soft).testTag("characterPreview"),
+                ) {
+                    if (render3d) AvatarView(parts = ui.previewParts, modifier = Modifier.fillMaxSize())
+                    else Txt("3D 미리보기 (테스트 환경)", size = 12f, color = DQColors.Muted, modifier = Modifier.align(Alignment.Center))
+                }
+                Txt("캐릭터", size = 14f, weight = Bold, modifier = Modifier.padding(start = 4.dp, top = 24.dp, bottom = 8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(AvatarGender.MALE to "남자아이", AvatarGender.FEMALE to "여자아이").forEach { (g, label) ->
+                        Chip(label, ui.gender == g, Modifier.testTag("characterGender_${g.name}")) { vm.selectGender(g) }
                     }
                 }
-                SWATCHES.forEachIndexed { g, (label, list) ->
-                    Txt(label, size = 14f, weight = Bold, modifier = Modifier.padding(start = 4.dp, top = if (g == 0) 24.dp else 4.dp, bottom = 4.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        list.forEachIndexed { i, res ->
-                            Box(Modifier.size(48.dp).clip(CircleShape).clickable { sel[g] = i }, contentAlignment = Alignment.Center) {
-                                DqIcon(res, 40.dp)
-                                if (sel[g] == i) DqIcon(R.drawable.ic_swatch_selected, 48.dp)
-                            }
+                Txt("피부", size = 14f, weight = Bold, modifier = Modifier.padding(start = 4.dp, top = 20.dp, bottom = 8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    AvatarDefaults.SkinTone.entries.forEach { tone ->
+                        val on = ui.skin == tone
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Box(
+                                Modifier.size(48.dp).clip(CircleShape).background(Color(tone.argb))
+                                    .border(if (on) 3.dp else 1.dp, if (on) DQColors.PrimaryStrong else DQColors.Line, CircleShape)
+                                    .clickable { vm.selectSkin(tone) }.testTag("characterSkin_${tone.name}"),
+                            )
+                            Txt(tone.label, size = 11f, color = if (on) DQColors.Ink else DQColors.Muted, modifier = Modifier.padding(top = 4.dp))
                         }
                     }
                 }
+                Txt(
+                    "캐릭터(남자아이·여자아이)는 한 번 정하면 바꿀 수 없어요. 머리와 옷은 상점에서 꾸밀 수 있어요.",
+                    size = 12f, color = DQColors.Muted, modifier = Modifier.padding(start = 4.dp, top = 20.dp),
+                )
             }
         }
         Column(
@@ -335,14 +363,15 @@ fun SignupAvatarScreen() {
                 .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Txt("아바타 선택은 아직 서버에 저장되지 않아요 (기본 아바타로 시작해요)", size = 11.5f, color = DQColors.Muted, modifier = Modifier.padding(bottom = 10.dp))
-            Btn("Daily Quest 시작하기", Modifier.fillMaxWidth().height(54.dp), size = 16f) { startApp(nav, auth.startAfterAuth) }
-            Txt("나중에 꾸밀게요", size = 13f, color = DQColors.Muted, modifier = Modifier.padding(top = 14.dp).clickable { startApp(nav, auth.startAfterAuth) })
+            ui.error?.let { Txt(it, size = 12.5f, color = DQColors.Orange, modifier = Modifier.padding(bottom = 10.dp).testTag("characterError")) }
+            Btn(
+                if (ui.saving) "캐릭터를 만드는 중…" else "Daily Quest 시작하기",
+                Modifier.fillMaxWidth().height(54.dp).testTag("characterStart"), size = 16f, enabled = !ui.saving,
+            ) { vm.submit() }
         }
     }
 }
 
-/** 가입 흐름을 모두 지우고 앱 첫 화면으로 진입한다(뒤로가기로 가입 화면에 돌아오지 않음). */
 private fun startApp(nav: androidx.navigation.NavHostController, route: String) {
     nav.navigate(route) { popUpTo(0) { inclusive = true } }
 }

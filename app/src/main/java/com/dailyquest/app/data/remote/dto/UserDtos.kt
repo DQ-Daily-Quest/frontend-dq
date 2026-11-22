@@ -48,6 +48,10 @@ data class UpdateMeRequest(val nickname: String)
 @Serializable
 data class UpdateAvatarRequest(val avatar: Map<String, Long?>)
 
+/** PUT /users/me/gender (STEP 9-9). MALE | FEMALE, 계정당 한 번. 응답은 GET /users/me와 같다(기본 한 벌이 지급·착용된 상태). */
+@Serializable
+data class SetGenderRequest(val gender: String)
+
 /** PATCH /users/me/password (성공 204, 서버가 모든 Refresh Token을 폐기한다) */
 @Serializable
 data class ChangePasswordRequest(val currentPassword: String, val newPassword: String)

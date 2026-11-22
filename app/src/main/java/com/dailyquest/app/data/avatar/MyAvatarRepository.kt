@@ -11,6 +11,7 @@ import com.dailyquest.app.data.remote.DqApi
 import com.dailyquest.app.data.remote.apiCall
 import com.dailyquest.app.data.remote.dto.AvatarDto
 import com.dailyquest.app.data.remote.dto.MyItemDto
+import com.dailyquest.app.data.remote.dto.SetGenderRequest
 import com.dailyquest.app.data.remote.dto.UpdateAvatarRequest
 import com.dailyquest.app.data.remote.dto.UserMeResponse
 import kotlinx.coroutines.async
@@ -80,6 +81,45 @@ class MyAvatarRepository(
         val owned = when (val items = apiCall { api.listMyItems(type = AVATAR_TYPE) }) {
             is ApiResult.Success -> items.value.also { lastOwned = me.userId to it }
             is ApiResult.Failure -> lastOwned.takeIf { it.first == me.userId }?.second.orEmpty()
+        }
+        return ApiResult.Success(resolveMyAvatar(me, owned))
+    }
+
+    /**
+     * 캐릭터 만들기 (STEP 9-9): 성별을 확정하고, 고른 피부를 입힌다.
+     *
+     * 1. `PUT /users/me/gender` — 서버가 그 체형의 기본 한 벌을 지급하고 피부 첫 톤·눈·머리·상의·하의·신발을 입힌다.
+     *    이미 성별이 정해진 계정(`GENDER_ALREADY_SET`, 두 번 누름·다른 기기)이면 지금 상태를 받아 그대로 진행한다.
+     * 2. 세션의 내 정보에 성별을 반영한다(로그인 후 다시 캐릭터 만들기로 보내지 않게).
+     * 3. 고른 피부가 서버가 입힌 것과 다르면 `PATCH /users/me {"avatar":{"skin":id}}`. 피부 아이템은 보유 목록에서 `code`로 찾는다.
+     *    이 단계만 실패하면 캐릭터는 이미 만들어졌으므로 실패로 돌려주지 않는다(피부는 상점에서 다시 바꿀 수 있다).
+     */
+    suspend fun createCharacter(gender: AvatarGender, skin: AvatarDefaults.SkinTone): ApiResult<MyAvatar> {
+        val userId = session.currentUserId()
+        var me = when (val created = apiCall { api.setGender(SetGenderRequest(gender.name)) }) {
+            is ApiResult.Success -> created.value
+            is ApiResult.Failure -> {
+                if (created.error.httpCode != ApiErrorCode.GENDER_ALREADY_SET) return created
+                when (val current = apiCall { api.me() }) {
+                    is ApiResult.Success -> current.value
+                    is ApiResult.Failure -> return current
+                }
+            }
+        }
+        if (userId != null) session.applyProfileIfCurrent(userId, me.toProfile())
+
+        val owned = when (val items = apiCall { api.listMyItems(type = AVATAR_TYPE) }) {
+            is ApiResult.Success -> items.value.also { lastOwned = me.userId to it }
+            is ApiResult.Failure -> return ApiResult.Success(resolveMyAvatar(me, lastOwned.takeIf { it.first == me.userId }?.second.orEmpty()))
+        }
+        val actualGender = AvatarGender.parse(me.gender) ?: gender
+        val skinItem = owned.firstOrNull { it.code == skin.code(actualGender) }
+        if (skinItem != null && me.avatar.skin != skinItem.itemId) {
+            val changed = apiCall { api.updateAvatar(UpdateAvatarRequest(mapOf(AvatarPart.SKIN.serverKey to skinItem.itemId))) }
+            if (changed is ApiResult.Success) {
+                me = changed.value
+                if (userId != null) session.applyProfileIfCurrent(userId, me.toProfile())
+            }
         }
         return ApiResult.Success(resolveMyAvatar(me, owned))
     }

@@ -16,7 +16,7 @@
 | 6 | 내 아바타 데이터 연결 (서버 `gender`·착용 정보 → GLB 주소, 착용 변경 API) | 완료 |
 | 7 | 상점 미리보기를 3D로 + 아이템을 누르면 입어보기 | 완료 |
 | 8 | 착용 저장 (저장, 실패 시 되돌리기, 모자 외 해제 막기) | 완료 |
-| 9 | 성별 선택 화면 (`gender == null`일 때, 기존 "아바타 만들기" 화면 활용) | 예정 |
+| 9 | 성별 선택 화면 (`gender == null`일 때, 기존 "아바타 만들기" 화면 활용) | 완료 |
 
 > 6단계 시작 전(2026-11-22)에 계획을 바꿨다. 원래 6단계 대상인 2D `AvatarPreview`와 Mock `CustomizationStore`가 **어느 화면에서도 쓰이지 않는다**는 것을 확인했기 때문이다.
 > 실제로 내 아바타가 크게 보이는 곳은 상점 "아바타" 탭 미리보기와 회원가입 "아바타 만들기" 화면이고, 둘 다 2D 그림이 고정돼 있다.
@@ -685,3 +685,96 @@ AvatarView(
    4. 입고 있는 머리·상의 등은 **"착용 중"**이고 누를 수 없다.
    5. 사지 않은 옷: 입어 보기 → "N 코인으로 구매" → 구매 → 같은 카드 버튼이 "착용하기"로 바뀐다.
 3. **UI 테스트:** `./gradlew connectedDebugAndroidTest "-Pandroid.testInstrumentationRunnerArguments.class=com.dailyquest.app.ShopTryOnTest"`
+
+---
+
+## 9단계. 캐릭터 만들기 (성별 선택)
+
+- 날짜: 2026-11-22
+- 커밋 메시지: `feat: require character creation with gender and skin choice`
+
+### 정한 것
+
+- **캐릭터는 필수다.** 성별이 없는 계정은 로그인할 때마다 캐릭터 만들기 화면으로 간다. 신규 이메일 가입, 신규 소셜 가입, `gender` 없이 가입한 계정, v0.4 이전 기존 계정이 모두 해당한다. "나중에 꾸밀게요"(건너뛰기)는 없앴다.
+- **성별은 로그인 뒤에 정한다**(백엔드 문서의 B안). 이메일·소셜 모두 같은 화면을 거친다. 회원가입 요청(`POST /auth/signup`)은 바꾸지 않았다.
+- 시작 전에 운영 서버(`/v3/api-docs`)에 `PUT /users/me/gender`와 `/shop/items/batch`가 **배포돼 있음을 확인**했다. 배포 전이었다면 모든 사용자가 이 화면에 갇혔을 것이다.
+
+### 무엇을 바꿨나
+
+기존 회원가입 "아바타 만들기" 화면(`SignupAvatarScreen`, 2D 남자아이 그림 + 저장되지 않는 색 동그라미)을 진짜 **캐릭터 만들기**로 바꿨다.
+
+| 항목 | 바뀌기 전 | 바뀐 뒤 |
+| --- | --- | --- |
+| 미리보기 | 2D 남자아이 그림 고정 | 고른 성별·피부의 **3D 기본 한 벌** |
+| 고르기 | 피부 5·헤어 5·옷 5 색 동그라미(저장 안 됨) | **남자아이/여자아이** + **피부 3톤(아이보리·피치·브라운)** |
+| "Daily Quest 시작하기" | 홈으로 이동만 | `PUT /users/me/gender` → 서버가 기본 한 벌 지급·착용 → 고른 피부가 서버 기본 톤과 다르면 피부만 바꿔 입힘 → 다음 화면 |
+| 건너뛰기 | "나중에 꾸밀게요" | 없음(필수) |
+| 안내 | "아직 서버에 저장되지 않아요" | "캐릭터는 한 번 정하면 바꿀 수 없어요. 머리와 옷은 상점에서 꾸밀 수 있어요." |
+| 머리 | "회원가입 2/2" + 뒤로 | "캐릭터 만들기"(기존 계정도 오므로) |
+
+- 헤어·옷은 기본 한 벌로 시작하고 상점(7·8단계)에서 꾸민다.
+- **미리보기용 GLB 주소는 앱에 둔다**(`AvatarDefaults`). 성별을 정하기 전에는 서버가 아바타 아이템을 보여 주지 않기 때문이다. backend V10 시드와 같은 코드이고, S3에 16개 모두 있는 것을 확인했다. 실제 지급은 서버가 한다.
+- 피부 톤은 체형마다 코드가 다르다(남 아이보리 = `DQ_Boy_01_Body`, 여 아이보리 = `DQ_Body_BoySkin` 등). 서버가 처음 입히는 피부는 체형별 첫 톤(남 아이보리, 여 피치)이다.
+
+**`createCharacter` 동작 (MyAvatarRepository)**
+1. `PUT /users/me/gender` — 이미 정해진 계정(`GENDER_ALREADY_SET`: 두 번 누름·다른 기기)이면 지금 상태(`GET /users/me`)로 그대로 진행한다.
+2. 세션의 내 정보에 성별 반영 → 다음 로그인부터 바로 홈으로 간다.
+3. 고른 피부가 입혀진 것과 다르면 보유 목록에서 `code`로 찾아 `PATCH {"avatar":{"skin":id}}`. **이 단계만 실패하면 캐릭터는 이미 만들어졌으므로 성공으로 본다**(피부는 상점에서 다시 바꿀 수 있다).
+
+### 바뀐 파일
+
+| 파일 | 변경 | 비고 |
+| --- | --- | --- |
+| `app/src/main/java/com/dailyquest/app/data/avatar/AvatarDefaults.kt` | 새 파일. 미리보기용 기본 한 벌, 피부 3톤 코드 | |
+| `app/src/main/java/com/dailyquest/app/data/avatar/MyAvatarRepository.kt` | `createCharacter()` | |
+| `app/src/main/java/com/dailyquest/app/ui/avatar/CharacterCreateViewModel.kt` | 새 파일 | |
+| `app/src/main/java/com/dailyquest/app/ui/screens/AuthScreens.kt` | `SignupAvatarScreen`을 캐릭터 만들기로 교체 | **팀원 파일.** 다른 회원가입·로그인 화면은 그대로 |
+| `app/src/main/java/com/dailyquest/app/ui/auth/AuthViewModel.kt` | `consumePostLoginRoute()`: 성별 없으면 항상 캐릭터 만들기 | **팀원 파일** |
+| `app/src/main/java/com/dailyquest/app/data/auth/SessionManager.kt` | `UserProfile.gender` | **팀원 파일, 추가만** |
+| `app/src/main/java/com/dailyquest/app/data/remote/DqApi.kt` | `setGender` (PUT /users/me/gender) | **팀원 파일, 추가만** |
+| `app/src/main/java/com/dailyquest/app/data/remote/dto/UserDtos.kt` | `SetGenderRequest` | **팀원 파일, 추가만** |
+| `app/src/main/java/com/dailyquest/app/data/remote/dto/InventoryDtos.kt` | `MyItemDto.code`, `gender` | **팀원 파일, 추가만** |
+| `app/src/test/java/com/dailyquest/app/data/auth/SocialLoginTest.kt` | 로그인 후 화면 테스트를 새 규칙에 맞게 1개 수정, 2개 추가 | **팀원 테스트.** "신규 가입자는 아바타 → 그다음 홈"이 "캐릭터가 없으면 계속 캐릭터 만들기"로 바뀌었다 |
+| `app/src/androidTest/java/com/dailyquest/app/TestDQApplication.kt` | 가짜 서버에 `setGender`, 기본 성별 MALE | **팀원 파일.** 기본 성별이 없으면 모든 UI 테스트가 캐릭터 만들기 화면에서 시작하게 되므로 MALE로 둔다 |
+| `app/src/androidTest/java/com/dailyquest/app/ShopTryOnTest.kt` | 기본 성별 MALE에 맞게 2개 수정, 1개 추가 | |
+| `app/src/test/java/com/dailyquest/app/data/avatar/MyAvatarRepositoryTest.kt` | 캐릭터 만들기 6개 추가 | |
+| `app/src/test/java/com/dailyquest/app/ui/avatar/CharacterCreateViewModelTest.kt` | 새 파일. 7개 | |
+| `app/src/androidTest/java/com/dailyquest/app/CharacterCreateTest.kt` | 새 파일. UI 4개 | |
+
+- `NavGraph.kt`, `Routes.kt`는 바꾸지 않았다. 캐릭터 만들기 경로(`SIGNUP_AVATAR`)와 "로그인 후 갈 화면" 연결이 이미 있었다.
+
+### 테스트가 확인하는 것
+
+**단위**
+- 로그인 후 화면: 캐릭터 없으면 계속 캐릭터 만들기 / 신규 가입 표시 + 캐릭터 있음 → 한 번 캐릭터 화면 후 홈 / 캐릭터 있는 기존 계정 → 홈
+- 캐릭터 만들기: `{"gender":"MALE"}` 전송, 서버 기본 피부와 같으면 피부 요청 없음 / 다른 피부면 `code`로 찾아 `{"avatar":{"skin":3}}` / 세션에 성별 반영 / `GENDER_ALREADY_SET`이면 현재 상태로 진행 / 성별 확정 실패면 실패 + 세션 그대로 / 피부만 실패하면 성공
+- 화면 상태: 처음엔 남자아이·아이보리, 미리보기 6개 / 여자아이·브라운이면 모두 `girl/` 주소, 모자 없음 / 시작하면 고른 값으로 만들고 끝 / 실패하면 안내 후 다시 시도 / 저장 중엔 다시 누르기·선택 변경 무시 / 만든 뒤 다시 보내지 않음 / 피부 코드가 서버 시드와 같음
+
+**UI (가짜 서버, `CharacterCreateTest`)**
+- 캐릭터 없는 계정은 앱을 켜면 캐릭터 만들기에서 시작하고, 건너뛰기가 없다
+- 여자아이·브라운 → 시작 → 다음 화면으로 넘어가고 서버에 `FEMALE` 한 번
+- 아무것도 안 고르고 시작하면 `MALE`
+- 저장 실패 → 안내가 보이고 화면에 남음 → 다시 누르면 성공해서 넘어감
+
+### 테스트 결과
+
+| 항목 | 결과 |
+| --- | --- |
+| `./gradlew assembleDebug assembleRelease testDebugUnitTest` | 성공. 단위 테스트 413개 전부 통과 (새 15개 포함) |
+| `CharacterCreateTest` 4개 + `ShopTryOnTest` 12개 | 16개 모두 통과 |
+| 전체 UI 테스트 `connectedDebugAndroidTest` | **101개 전부 통과** (다른 팀원 화면 포함), 앱 강제 종료 0건 |
+| 화면 배치 (테스트 환경 캡처, 여자아이·피치 선택) | 제목 → 미리보기 260dp → 캐릭터 칩 → 피부 동그라미 3개(선택 테두리) → 안내 → "Daily Quest 시작하기" |
+| 미리보기 GLB | 16개 모두 S3에 있음(200), 피부 코드가 서버 시드와 일치 |
+| 실제 서버로 캐릭터 만들기 | **하지 못함** (새 계정이 필요). 운영 서버에 API가 배포된 것은 확인 |
+
+### 직접 확인하는 방법
+
+1. **빌드·단위 테스트:** `./gradlew assembleDebug testDebugUnitTest` → `BUILD SUCCESSFUL`
+2. **실제 앱 — 새 계정으로**
+   1. 이메일로 회원가입하거나, 처음 쓰는 구글·카카오 계정으로 로그인한다.
+   2. **"캐릭터 만들기"** 화면이 뜬다. 남자아이/여자아이와 피부를 바꾸면 위 3D 캐릭터가 바로 바뀐다(처음 한 번은 받는 데 몇 초).
+   3. "Daily Quest 시작하기" → 홈으로 간다.
+   4. 상점 → 아바타 탭에 방금 고른 캐릭터가 보인다(성별·피부 그대로).
+   5. 로그아웃 후 다시 로그인하면 캐릭터 만들기 없이 바로 홈으로 간다.
+3. **이 기능 이전에 만든 계정:** 로그인하면 캐릭터 만들기가 한 번 뜬다(서버가 v0.4에서 기존 계정의 성별을 비웠다).
+4. **UI 테스트:** `./gradlew connectedDebugAndroidTest "-Pandroid.testInstrumentationRunnerArguments.class=com.dailyquest.app.CharacterCreateTest"`
