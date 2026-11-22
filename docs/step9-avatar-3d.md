@@ -14,7 +14,7 @@
 | 4 | `AvatarView` 컴포넌트로 분리 (슬롯별 교체, 로딩·실패 상태) | 완료 |
 | 5 | GLB 다운로드·캐시 저장소 | 완료 |
 | 6 | 내 아바타 데이터 연결 (서버 `gender`·착용 정보 → GLB 주소, 착용 변경 API) | 완료 |
-| 7 | 상점 미리보기를 3D로 + 아이템을 누르면 입어보기 | 예정 |
+| 7 | 상점 미리보기를 3D로 + 아이템을 누르면 입어보기 | 완료 |
 | 8 | 착용 저장 (저장, 실패 시 되돌리기, 모자 외 해제 막기) | 예정 |
 | 9 | 성별 선택 화면 (`gender == null`일 때, 기존 "아바타 만들기" 화면 활용) | 예정 |
 
@@ -532,3 +532,83 @@ AvatarView(
 2. 이 클래스만 보려면: `./gradlew testDebugUnitTest --tests "com.dailyquest.app.data.avatar.MyAvatarRepositoryTest"`
 3. 결과 보고서: `app/build/reports/tests/testDebugUnitTest/index.html` → `com.dailyquest.app.data.avatar` → `MyAvatarRepositoryTest` 13개 통과
 4. UI 테스트가 컴파일되는지: `./gradlew compileDebugAndroidTestKotlin`
+
+---
+
+## 7단계. 상점에 3D 미리보기 + 입어보기
+
+- 날짜: 2026-11-22
+- 커밋 메시지: `feat: add 3D avatar preview and try-on to shop`
+
+### 무엇을 바꿨나
+
+상점(`AvatarShopContent`, 하단 탭 "쇼핑")의 **아바타 탭**에 내 아바타 3D 미리보기를 넣고, 아이템을 누르면 바로 입어 보게 했다. (기존 상점에는 미리보기가 없었다. 2D 아바타 그림이 있던 화면은 쓰이지 않는 예전 디자인 `B5ShopScreen`이다.)
+
+| 동작 | 바뀌기 전 | 바뀐 뒤 (아바타 탭) |
+| --- | --- | --- |
+| 위쪽 | 탭·카테고리·필터만 | + 내 아바타 3D 미리보기(높이 200dp 고정) |
+| 아이템 누르기 | 바로 상세·구매 창 | **미리보기에 입혀 보기** + 카드 초록 테두리. 같은 아이템을 다시 누르면 벗기 |
+| 구매 | 상세 창의 구매 버튼 | 아래 **"N 코인으로 구매"** 버튼 → 기존 상세·구매 창(구매 확인·코인 부족 처리 그대로) |
+| 보유 중인 아이템 | 상세 창 | 아래 버튼이 "보유 중인 아이템이에요"(비활성). 착용은 8단계 |
+| 되돌리기 | — | 미리보기 아래 "입어보는 중: 이름 · **원래대로**" |
+| 여러 슬롯 | — | 상의와 모자처럼 다른 슬롯은 함께 입어 볼 수 있고, 같은 슬롯은 바꿔 입는다 |
+
+- **가구 탭은 그대로**다(미리보기 없음, 누르면 바로 상세 창).
+- 입어보기는 서버에 저장하지 않는다. 상점을 나가면 사라진다.
+- 미리보기 상태 안내: 불러오는 중(진행 표시) / 실패("다시 시도") / **성별을 정하지 않은 계정("캐릭터를 먼저 만들어 주세요", 9단계에서 성별 선택으로 연결)**.
+- 3D 모델 주소가 없는 아이템도 입어보기 표시·구매 버튼은 동작하고, 모습만 바뀌지 않는다.
+
+### UI 테스트에서 3D 끄기
+
+3D 화면은 매 프레임 계속 그려서, "화면이 멈출 때까지 기다리는" 기존 Compose UI 테스트(팀원 상점 테스트 등)가 시간 초과로 실패한다(2단계에서 겪은 문제). 그래서 `AppContainer`에 `avatar3dEnabled` 스위치를 두고 **UI 테스트 앱(`TestDQApplication`)에서만 끈다.** 꺼져 있으면 같은 자리에 빈 상자("3D 미리보기 (테스트 환경)")를 그린다. 실제 앱은 항상 켜져 있다.
+
+### 바뀐 파일
+
+| 파일 | 변경 | 비고 |
+| --- | --- | --- |
+| `app/src/main/java/com/dailyquest/app/ui/avatar/MyAvatarViewModel.kt` | 새 파일. 내 아바타 불러오기, 입어보기 상태, 계정 전환 처리 | |
+| `app/src/main/java/com/dailyquest/app/ui/avatar/MyAvatarPreview.kt` | 새 파일. 미리보기 상자(3D/빈 상자, 안내, "원래대로") | |
+| `app/src/main/java/com/dailyquest/app/ui/screens/AvatarShopContent.kt` | 미리보기, 카드 누르면 입어보기, 선택 테두리, 아래 구매 버튼 | **팀원 파일.** 가구 탭 흐름·구매 창·코인 처리는 그대로 |
+| `app/src/main/java/com/dailyquest/app/data/auth/AppContainer.kt` | `avatar3dEnabled` 옵션(기본 true) | **팀원 파일, 추가만** |
+| `app/src/androidTest/java/com/dailyquest/app/TestDQApplication.kt` | `avatar3dEnabled = false` | **팀원 파일, 2줄** |
+| `app/src/androidTest/java/com/dailyquest/app/ShopFlowTest.kt` | `openItem()`이 카드를 누른 뒤 아래 구매 버튼을 누르도록 | **팀원 테스트.** 흐름이 바뀐 만큼만 수정, 검사 내용은 그대로 |
+| `app/src/test/java/com/dailyquest/app/ui/avatar/MyAvatarViewModelTest.kt` | 새 파일. 단위 테스트 11개 | |
+| `app/src/androidTest/java/com/dailyquest/app/ShopTryOnTest.kt` | 새 파일. 입어보기 UI 테스트 7개 | |
+
+### 테스트가 확인하는 것
+
+**단위 (`MyAvatarViewModelTest` 11개)**
+- 로그인하면 불러오고, 로그인 전에는 불러오지 않는다 / 실패는 안내 문구, 다시 시도로 회복
+- 입어 보면 그 슬롯만 덮어쓴다 / 없던 모자 슬롯은 늘어난다 / 같은 아이템을 다시 누르면 벗는다 / 같은 슬롯 다른 아이템은 바꿔 입는다 / 원래대로
+- 3D 모델이 없는 아이템은 이름만 보이고 모습은 그대로
+- 다른 계정으로 바뀌면 이전 모습·입어보기를 지우고 다시 불러온다 / 불러오는 사이 계정이 바뀌면 이전 응답을 버린다
+
+**UI (`ShopTryOnTest` 7개, 가짜 서버)**
+- 아바타 탭에 미리보기가 있다(테스트 계정은 성별이 없어 "캐릭터를 먼저 만들어 주세요")
+- 카드를 누르면 "입어보는 중: 민트 상의"와 "120 코인으로 구매"가 나오고 상세 창은 뜨지 않는다
+- 구매 버튼을 누르면 기존 상세·구매 창이 뜬다(구매 요청은 보내지 않음)
+- 같은 카드를 다시 누르면 벗는다 / 상의+모자를 입어 본 뒤 "원래대로"
+- 보유 아이템은 "보유 중인 아이템이에요"(비활성)
+- 가구 탭은 미리보기가 없고 누르면 바로 상세 창
+
+### 테스트 결과
+
+| 항목 | 결과 |
+| --- | --- |
+| `./gradlew assembleDebug assembleRelease testDebugUnitTest` | 성공. 단위 테스트 389개 전부 통과 (새 `MyAvatarViewModelTest` 11개 포함) |
+| 상점 UI 테스트 (`ShopFlowTest` 6개 + `ShopTryOnTest` 7개) | 13개 모두 통과 (팀원 테스트는 `openItem()`만 고침) |
+| 전체 UI 테스트 `connectedDebugAndroidTest` | **92개 전부 통과** (다른 팀원 화면 포함), 앱 강제 종료 0건 |
+| 화면 배치 (테스트 환경 캡처) | 탭 → 카테고리 → 필터 → 미리보기 200dp("입어보는 중 · 원래대로") → 카드(고른 카드 초록 테두리) → "120 코인으로 구매" → 하단 탭바까지 한 화면에 들어감 |
+| 실제 서버·실제 3D로 상점 확인 | **하지 못함.** 로그인 계정이 필요하다. 3D 표시 자체는 같은 `AvatarView`를 쓰는 테스트 화면(2~6단계)에서 확인했다 |
+
+### 직접 확인하는 방법
+
+1. **빌드·단위 테스트:** `./gradlew assembleDebug testDebugUnitTest` → `BUILD SUCCESSFUL`
+2. **실제 앱 (로그인 필요, 성별이 정해진 계정)**
+   1. 하단 "쇼핑" → "아바타" 탭. 위에 내 캐릭터가 3D로 보이고 드래그로 돌아간다.
+   2. 사지 않은 옷을 누르면 미리보기 캐릭터가 그 옷을 입고, 아래에 "N 코인으로 구매"가 나온다.
+   3. 같은 옷을 다시 누르면 벗는다. 모자와 상의를 차례로 누르면 둘 다 입는다. "원래대로"로 돌아간다.
+   4. "N 코인으로 구매"를 누르면 기존 구매 창이 뜬다.
+   5. "우리 집" 탭은 예전처럼 누르면 바로 창이 뜬다.
+   - 성별을 정하지 않은 계정(소셜 가입 직후, 이 기능 이전 계정)은 "캐릭터를 먼저 만들어 주세요"가 보인다. 9단계에서 해결한다.
+3. **UI 테스트:** `./gradlew connectedDebugAndroidTest "-Pandroid.testInstrumentationRunnerArguments.class=com.dailyquest.app.ShopFlowTest,com.dailyquest.app.ShopTryOnTest"`

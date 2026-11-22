@@ -61,6 +61,8 @@ class TestDQApplication : DQApplication() {
         tokenStore = InMemoryTokenStore(TokenPair("test-access", "test-refresh")),
         apiFactory = { _, _ -> FakeApi },
         startAfterAuth = Routes.CATALOG,
+        // 3D 아바타는 매 프레임 그려서 기존 UI 테스트의 idle 대기가 끝나지 않는다. 테스트에서는 빈 상자로 대신한다(STEP 9-7).
+        avatar3dEnabled = false,
     )
 
     private object FakeApi : DqApi {
