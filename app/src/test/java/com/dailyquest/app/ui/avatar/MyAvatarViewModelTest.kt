@@ -181,4 +181,130 @@ class MyAvatarViewModelTest {
 
         assertEquals(girl, vm.ui.value.avatar)
     }
+
+    // ── STEP 9-8 착용 저장 ──────────────────────────────────────────────────────────────
+
+    private fun vmWithSave(save: suspend (Map<AvatarPart, Long?>) -> ApiResult<MyAvatar>) =
+        MyAvatarViewModel({ ApiResult.Success(boy) }, MutableStateFlow(SessionState.Authenticated(profile(1))), save)
+
+    @Test fun `착용하면 바꾼 슬롯만 저장하고 서버 응답으로 바꾸며 입어보기는 끝난다`() = runTest(dispatcher) {
+        val sent = mutableListOf<Map<AvatarPart, Long?>>()
+        val afterSave = avatarOf(AvatarPart.SKIN to "u/body", AvatarPart.TOP to "u/hoodie", AvatarPart.HAIR to "u/hair")
+        val vm = vmWithSave { sent += it; ApiResult.Success(afterSave) }
+        advanceUntilIdle()
+        vm.toggleTryOn(hoodie)
+
+        vm.equip(hoodie)
+        assertTrue(vm.ui.value.saving)
+        advanceUntilIdle()
+
+        assertEquals(listOf(mapOf(AvatarPart.TOP to 21L)), sent)
+        assertFalse(vm.ui.value.saving)
+        assertEquals(afterSave, vm.ui.value.avatar)
+        assertFalse(vm.ui.value.isTryingOn)
+        assertEquals("u/hoodie", vm.ui.value.previewParts[AvatarPart.TOP])
+        assertEquals("착용했어요", vm.ui.value.message)
+    }
+
+    @Test fun `착용 저장이 실패하면 입어보기를 벗겨 원래 모습으로 되돌리고 이유를 알린다`() = runTest(dispatcher) {
+        val vm = vmWithSave {
+            ApiResult.Failure(com.dailyquest.app.data.remote.ApiException.Http(409, "ITEM_GENDER_MISMATCH", null, ""))
+        }
+        advanceUntilIdle()
+        vm.toggleTryOn(hoodie)
+
+        vm.equip(hoodie)
+        advanceUntilIdle()
+
+        assertEquals(boy, vm.ui.value.avatar)
+        assertEquals(boy.modelParts, vm.ui.value.previewParts)
+        assertFalse(vm.ui.value.saving)
+        assertEquals("내 캐릭터가 입을 수 없는 아이템이에요.", vm.ui.value.message)
+    }
+
+    @Test fun `실패해도 다른 슬롯의 입어보기는 그대로다`() = runTest(dispatcher) {
+        val vm = vmWithSave { ApiResult.Failure(ApiException.Network(IOException("offline"))) }
+        advanceUntilIdle()
+        vm.toggleTryOn(hoodie)
+        vm.toggleTryOn(beret)
+
+        vm.equip(hoodie)
+        advanceUntilIdle()
+
+        assertFalse(vm.ui.value.isTryingOn(21))
+        assertTrue(vm.ui.value.isTryingOn(50))
+    }
+
+    @Test fun `모자는 null로 벗는다`() = runTest(dispatcher) {
+        val sent = mutableListOf<Map<AvatarPart, Long?>>()
+        val vm = vmWithSave { sent += it; ApiResult.Success(boy) }
+        advanceUntilIdle()
+
+        vm.takeOff(AvatarPart.HAT)
+        advanceUntilIdle()
+
+        assertEquals(listOf(mapOf<AvatarPart, Long?>(AvatarPart.HAT to null)), sent)
+        assertEquals("벗었어요", vm.ui.value.message)
+    }
+
+    @Test fun `모자 외 슬롯은 벗을 수 없고 서버에 요청하지 않는다`() = runTest(dispatcher) {
+        var calls = 0
+        val vm = vmWithSave { calls++; ApiResult.Success(boy) }
+        advanceUntilIdle()
+
+        AvatarPart.entries.filter { it != AvatarPart.HAT }.forEach { vm.takeOff(it) }
+        advanceUntilIdle()
+
+        assertEquals(0, calls)
+        assertEquals("모자만 벗을 수 있어요.", vm.ui.value.message)
+    }
+
+    @Test fun `저장 중에는 다른 저장을 받지 않는다`() = runTest(dispatcher) {
+        val gate = CompletableDeferred<ApiResult<MyAvatar>>()
+        var calls = 0
+        val vm = vmWithSave { calls++; gate.await() }
+        advanceUntilIdle()
+
+        vm.equip(hoodie)
+        vm.equip(beret)
+        advanceUntilIdle()
+        assertEquals(1, calls)
+
+        gate.complete(ApiResult.Success(boy))
+        advanceUntilIdle()
+        assertFalse(vm.ui.value.saving)
+    }
+
+    @Test fun `아바타를 불러오기 전에는 저장하지 않는다`() = runTest(dispatcher) {
+        var calls = 0
+        val vm = MyAvatarViewModel(
+            { ApiResult.Failure(ApiException.Network(IOException("offline"))) },
+            MutableStateFlow(SessionState.Authenticated(profile(1))),
+        ) { calls++; ApiResult.Success(boy) }
+        advanceUntilIdle()
+
+        vm.equip(hoodie)
+        advanceUntilIdle()
+
+        assertEquals(0, calls)
+    }
+
+    @Test fun `isEquipped는 서버에 저장된 착용과 비교한다`() = runTest(dispatcher) {
+        val vm = vmWithSave { ApiResult.Success(boy) }
+        advanceUntilIdle()
+
+        // boy의 TOP은 itemId 1 (avatarOf가 순서대로 0,1,2를 준다)
+        assertTrue(vm.ui.value.isEquipped(TryOnItem(1, "기본 상의", AvatarPart.TOP, "u/top")))
+        assertFalse(vm.ui.value.isEquipped(hoodie))
+    }
+
+    @Test fun `안내를 보여 준 뒤에는 지운다`() = runTest(dispatcher) {
+        val vm = vmWithSave { ApiResult.Success(boy) }
+        advanceUntilIdle()
+        vm.takeOff(AvatarPart.TOP)
+
+        vm.consumeMessage()
+
+        assertNull(vm.ui.value.message)
+    }
 }

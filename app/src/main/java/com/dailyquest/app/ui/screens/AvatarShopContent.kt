@@ -28,6 +28,7 @@ import com.dailyquest.app.data.avatar.AvatarPart
 import com.dailyquest.app.data.remote.ApiConfig
 import com.dailyquest.app.ui.avatar.MyAvatarPreview
 import com.dailyquest.app.ui.avatar.MyAvatarViewModel
+import com.dailyquest.app.ui.avatar.REMOVABLE_PARTS
 import com.dailyquest.app.ui.avatar.TryOnItem
 import com.dailyquest.app.ui.room.LocalAppContainer
 import com.dailyquest.app.data.shop.InventoryItem
@@ -69,6 +70,7 @@ private fun ShopCardData.toTryOn(): TryOnItem? =
  *
  * 아바타 탭(STEP 9-7): 위쪽에 내 아바타 3D 미리보기가 있고, 아이템을 누르면 바로 입어 본다(같은 아이템을 다시 누르면 벗는다).
  * 고른 아이템은 아래 버튼으로 구매한다(기존 상세·구매 창). 가구 탭은 지금처럼 누르면 바로 상세 창이 뜬다.
+ * 보유한 아이템은 아래 버튼으로 착용을 저장한다(STEP 9-8). 입고 있는 모자는 벗을 수 있고, 다른 슬롯은 벗을 수 없다.
  */
 @Composable
 fun AvatarShopContent(startOwned: Boolean = false) {
@@ -92,6 +94,9 @@ fun AvatarShopContent(startOwned: Boolean = false) {
     LaunchedEffect(purchaseVersion) { if (purchaseVersion > 0) invVm.refresh() }
     LaunchedEffect(shop.message) {
         shop.message?.let { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }
+    }
+    LaunchedEffect(avatar.message) {
+        avatar.message?.let { Toast.makeText(context, it, Toast.LENGTH_SHORT).show(); avatarVm.consumeMessage() }
     }
 
     val type = shop.type
@@ -160,7 +165,16 @@ fun AvatarShopContent(startOwned: Boolean = false) {
                     isSelected = tryingOn, onOpen = onCard,
                 )
             }
-            if (avatarTab && selectedCard != null) TryOnActionBar(selectedCard) { selectedCard.item?.let(shopVm::openDetail) }
+            val selectedTryOn = selectedCard?.toTryOn()
+            if (avatarTab && selectedCard != null && selectedTryOn != null) TryOnActionBar(
+                c = selectedCard,
+                equipped = avatar.isEquipped(selectedTryOn),
+                saving = avatar.saving,
+                canEquip = avatar.avatar?.needsGender == false,
+                onBuy = { selectedCard.item?.let(shopVm::openDetail) },
+                onEquip = { avatarVm.equip(selectedTryOn) },
+                onTakeOff = { avatarVm.takeOff(selectedTryOn.part) },
+            )
             TabBar(Tab.Shop)
         }
     }
@@ -174,14 +188,26 @@ fun AvatarShopContent(startOwned: Boolean = false) {
     }
 }
 
-/** 아바타 탭에서 고른 아이템의 구매 버튼. 보유 중이면 착용은 다음 단계(STEP 9-8)에서 제공한다. */
+/**
+ * 아바타 탭에서 고른 아이템의 버튼 (STEP 9-7, 9-8).
+ * - 보유하지 않음: "N 코인으로 구매" → 기존 상세·구매 창
+ * - 보유, 입고 있지 않음: "착용하기" → 서버에 저장
+ * - 입고 있는 모자: "모자 벗기" / 입고 있는 다른 슬롯: "착용 중"(비활성. 모자 외에는 벗을 수 없다)
+ */
 @Composable
-private fun TryOnActionBar(c: ShopCardData, onBuy: () -> Unit) {
+private fun TryOnActionBar(
+    c: ShopCardData, equipped: Boolean, saving: Boolean, canEquip: Boolean,
+    onBuy: () -> Unit, onEquip: () -> Unit, onTakeOff: () -> Unit,
+) {
+    val part = c.toTryOn()?.part
+    val modifier = Modifier.fillMaxWidth().height(48.dp).testTag("shopTryOnAction")
     Box(Modifier.fillMaxWidth().background(DQColors.White).padding(horizontal = 16.dp, vertical = 8.dp)) {
-        if (c.owned) {
-            Btn("보유 중인 아이템이에요", Modifier.fillMaxWidth().height(48.dp).testTag("shopTryOnAction"), style = BtnStyle.Soft, enabled = false)
-        } else {
-            Btn("${c.price} 코인으로 구매", Modifier.fillMaxWidth().height(48.dp).testTag("shopTryOnAction"), enabled = c.item != null, onClick = onBuy)
+        when {
+            !c.owned -> Btn("${c.price} 코인으로 구매", modifier, enabled = c.item != null, onClick = onBuy)
+            saving -> Btn("저장 중…", modifier, style = BtnStyle.Soft, enabled = false)
+            equipped && part in REMOVABLE_PARTS -> Btn("모자 벗기", modifier, style = BtnStyle.Outline, onClick = onTakeOff)
+            equipped -> Btn("착용 중", modifier, style = BtnStyle.Soft, enabled = false)
+            else -> Btn("착용하기", modifier, enabled = canEquip, onClick = onEquip)
         }
     }
 }

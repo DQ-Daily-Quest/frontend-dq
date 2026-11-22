@@ -76,6 +76,9 @@ class TestDQApplication : DQApplication() {
             streak = com.dailyquest.app.data.remote.dto.StreakDto(current = 3, longest = 8),
             stats = com.dailyquest.app.data.remote.dto.UserStatsDto(roomCount = 2, completedMissionCount = 11),
             createdAt = "2025-03-04T01:02:03Z",
+            // STEP 9: 기본은 성별 없음·착용 없음(기존과 같다). 아바타 테스트만 TestAvatarCalls로 바꾼다.
+            gender = TestAvatarCalls.gender,
+            avatar = TestAvatarCalls.avatarDto(),
         )
         override suspend fun updateMe(body: UpdateMeRequest): UserMeResponse {
             TestProfileCalls.updates += body.nickname
@@ -93,8 +96,14 @@ class TestDQApplication : DQApplication() {
         }
         override suspend fun me() = meResponse()
 
-        // STEP 9 아바타 착용 변경. 아직 화면에서 쓰지 않으므로 착용만 받아들이고 현재 내 정보를 돌려준다.
-        override suspend fun updateAvatar(body: UpdateAvatarRequest): UserMeResponse = meResponse()
+        // STEP 9 아바타 착용 변경: 보유하지 않은 아이템이면 ITEM_NOT_OWNED, 아니면 착용을 기억하고 내 정보를 돌려준다.
+        override suspend fun updateAvatar(body: UpdateAvatarRequest): UserMeResponse {
+            TestAvatarCalls.requests += body.avatar
+            TestAvatarCalls.failure?.let { TestAvatarCalls.failure = null; throw it }
+            body.avatar.values.filterNotNull().firstOrNull { it !in TestShopCalls.owned }?.let { throw http(403, "ITEM_NOT_OWNED") }
+            TestAvatarCalls.equipped.putAll(body.avatar)
+            return meResponse()
+        }
 
         // 방 API는 아직 화면에서 사용하지 않는다(Mock UI 유지). 호출되면 테스트가 실패하도록 한다.
         override suspend fun listPublicRooms(keyword: String?, sort: String?, page: Int, size: Int): PageDto<RoomSummaryDto> = PageDto(
@@ -355,6 +364,24 @@ class TestDQApplication : DQApplication() {
 }
 
 /** 프로필·계정 관리 FakeApi 상태. 실제 서버에는 어떤 변경 요청도 보내지 않는다. */
+/** STEP 9 아바타 테스트용 가짜 서버 상태. 기본값(성별 없음·착용 없음)은 기존 테스트와 같다. */
+object TestAvatarCalls {
+    @Volatile var gender: String? = null
+    /** 슬롯 이름(소문자) → 아이템 ID */
+    val equipped: MutableMap<String, Long?> = java.util.Collections.synchronizedMap(mutableMapOf())
+    val requests: MutableList<Map<String, Long?>> = java.util.Collections.synchronizedList(mutableListOf())
+    @Volatile var failure: Throwable? = null
+
+    fun avatarDto() = com.dailyquest.app.data.remote.dto.AvatarDto(
+        hair = equipped["hair"], eyes = equipped["eyes"], skin = equipped["skin"], top = equipped["top"],
+        bottom = equipped["bottom"], shoes = equipped["shoes"], hat = equipped["hat"],
+    )
+
+    fun reset() {
+        gender = null; equipped.clear(); requests.clear(); failure = null
+    }
+}
+
 object TestProfileCalls {
     const val TAKEN = "사용중닉"
     @Volatile var nickname = "uitest"
