@@ -19,7 +19,7 @@
 | 1 | 가구 배치 정보 넣기 | 에셋 팩의 방 격자(기준점·축)와 가구별 정보(칸 수, 방향별 이미지 크기·기준점·보정값, 러그 여부)를 앱 안 JSON으로 넣고 `code`로 찾는다 | 단위: 방 + 50종이 모두 읽히는지, 90°·270°에서 가로·세로 칸이 바뀌는지 | 완료 |
 | 2 | 좌표 계산 | 칸 ↔ 방 이미지 위치, 서버 x·y(0~1) ↔ 칸 번호, 방 밖·겹침 검사, 그리는 순서(러그 먼저, 뒤쪽 먼저), **확대·이동 계산**(화면 좌표 ↔ 방 좌표, 확대 1~3배, 방이 화면 밖으로 빠지지 않게 이동 제한) | 단위: 에셋 팩 배치 예시 54개가 미리보기 이미지와 같은 위치에 오는지, 확대 상태에서 손가락 위치가 같은 칸을 가리키는지 | 완료 |
 | 3 | 서버 연결 | 꾸미기 API 3개, `DecorRepository`, 기본 방은 `room_16x16`으로 찾기, 에러(`ITEM_NOT_OWNED_IN_ROOM` 등) 처리 | 단위: 가짜 서버(MockWebServer)로 응답·에러 | 완료 |
-| 4 | 방 보여주기 + 두 손가락 확대 | 이미 놓인 가구(서버에 저장된 배치)를 방 위 정확한 자리에 **보이게만** 한다. 놓기·옮기기는 6단계(방과 가구에 같은 배율, 이미지 기기 캐시). **두 손가락으로 확대·축소(1~3배), 확대했을 때 한 손가락으로 이동, 두 번 탭하면 원래 크기.** 디버그 테스트 화면에서 배치 예시로 확인 | UI: 확대·이동·되돌리기, 화면 캡처를 에셋 미리보기와 비교 | 대기 |
+| 4 | 방 보여주기 + 두 손가락 확대 | 이미 놓인 가구(서버에 저장된 배치)를 방 위 정확한 자리에 **보이게만** 한다. 놓기·옮기기는 6단계(방과 가구에 같은 배율, 이미지 기기 캐시). **두 손가락으로 확대·축소(1~3배), 확대했을 때 한 손가락으로 이동, 두 번 탭하면 원래 크기.** 디버그 테스트 화면에서 배치 예시로 확인 | UI: 확대·이동·되돌리기, 화면 캡처를 에셋 미리보기와 비교 | 완료 |
 | 5 | 방 화면에 연결 | 방 화면의 고정 일러스트를 실제 배치된 방으로 바꾼다. 저장한 적 없는 방은 기본 방. 방을 누르면 크게 보기(확대 가능) | UI: 조회 결과대로 그려지는지 | 대기 |
 | 6 | 꾸미기 편집 화면 (가구 놓기) | "방 꾸미기" → 편집 화면. 사용자가 가구 목록(바닥·벽 제외, 놓을 수 있는 개수 표시)에서 골라 방에 놓기, 드래그로 옮기면 칸에 맞춰짐, 회전, 빼기, 겹치거나 방 밖이면 빨간 표시. **확대 상태에서도 편집 가능: 가구를 잡고 끌면 가구 이동, 빈 곳을 끌면 화면 이동, 두 손가락은 확대** | UI: 놓기·옮기기·회전·겹침 막기, 확대 상태에서 옮기기 | 대기 |
 | 7 | 저장 | 저장 요청, 실패 시 되돌리기, 저장 안 하고 나가면 경고, 마지막 수정한 사람 표시 | UI + 단위 | 대기 |
@@ -154,7 +154,7 @@ UI는 아직 없어서 UI 테스트는 돌리지 않았다(이번 단계는 화�
 
 에셋 팩이 미리보기 이미지(`preview/room_example_1080.png`)를 만든 코드(`source/package.py` 117~139줄)를 읽어 계산 방식과 그리는 순서를 확인했다. 앱 계산 방식과 같다.
 
-`tools/make_room_layout_fixture.py`로 배치 예시 54개의 **정답 위치·크기·그리는 순서**를 매니페스트 원래 값(소수 끝까지)으로 계산해 `app/src/test/resources/decor/example_layout.json`에 넣었다. 54개에 4방향이 모두 들어 있다(0° 43, 90° 5, 180° 5, 270° 1). 앱 JSON은 소수 4자리로 줄였으므로, 그 반올림 때문에 위치가 틀어지지 않는지도 함께 확인된다.
+`tools/make_room_layout_fixture.py`로 배치 예시 54개의 **정답 위치·크기·그리는 순서**를 매니페스트 원래 값(소수 끝까지)으로 계산해 `app/src/test/resources/decor/example_layout.json`에 넣었다(4단계에서 디버그 화면도 쓰도록 `app/src/debug/assets/decor/example_layout.json`으로 옮김). 54개에 4방향이 모두 들어 있다(0° 43, 90° 5, 180° 5, 270° 1). 앱 JSON은 소수 4자리로 줄였으므로, 그 반올림 때문에 위치가 틀어지지 않는지도 함께 확인된다.
 
 ### 바뀐 파일
 
@@ -304,4 +304,118 @@ test02 계정의 방 9·10번을 조회했다. 서버 데이터는 바꾸지 않
 
 ```
 ./gradlew testDebugUnitTest --tests "com.dailyquest.app.data.decor.*"
+```
+
+---
+
+## 4단계. 방 보여주기 + 두 손가락 확대
+
+이미 놓인 가구를 방 위 정확한 자리에 **보여주기만** 한다. 놓기·옮기기는 6단계.
+
+### 무엇을 만들었나
+
+**`ui/decor/RoomView.kt`**
+- 방 그림 위에 가구 그림을 2단계 계산(`RoomLayout`)대로 그린다. 방과 가구에 같은 배율을 쓰고, 가구 그림 왼쪽 위는 방 이미지 기준 정수 픽셀로 맞춘다(에셋 팩도 미리보기를 만들 때 반올림해서 붙였다).
+- 방향은 서버 규칙대로 `_r090` 등의 그림 파일을 고른다(그림을 돌리지 않음).
+- 두 손가락: 1~3배 확대·축소(+ 같이 이동). 확대한 상태에서 한 손가락: 이동. 두 번 탭: 원래 크기.
+- **1배에서 한 손가락으로 끄는 동작은 가로채지 않는다.** 5단계에서 방 화면(세로 스크롤) 안에 넣어도 화면 스크롤이 막히지 않게 하기 위해서다.
+- 그림을 받는 동안 진행 표시, 하나라도 실패하면 "다시 시도". 받은 그림부터 하나씩 바로 그린다.
+- 확대 상태(`RoomViewState`)를 밖에 둘 수 있어, 6단계 편집 화면이 읽거나 되돌릴 수 있다.
+
+**`ui/decor/DecorImages.kt`** (그림 캐시)
+- 기기 저장: STEP 9의 GLB 디스크 캐시(`CachingAvatarModelFetcher`)를 그대로 쓰고 파일 검사만 PNG로 바꿨다. 폴더 `cacheDir/decor_images`, 최대 30MB(지금 전체 약 3MB). S3 가구 파일은 바뀌지 않으므로(1년 immutable) 서버에 다시 묻지 않는다.
+- 메모리: 읽은 그림을 24MB까지 보관(방 그림 약 3.5MB, 가구는 수십 KB).
+
+**STEP 9 파일 변경 (내 파일, 기본 동작 그대로)**
+- `HttpAvatarModelFetcher`, `CachingAvatarModelFetcher`에 "받은 파일 검사" 옵션 추가. 기본값은 지금처럼 GLB라 아바타 동작은 같다(기존 STEP 9 테스트 그대로 통과). `PngFormat` 추가.
+
+**디버그 전용 "DQ 방 테스트" 화면** (`app/src/debug`, 런처 아이콘 따로)
+- 에셋 팩 배치 예시 54개를 실제 S3 그림으로 그린다. 예시 54개 / 빈 방 / 원래 크기 / 캐시 비우기.
+- 상태 줄: 확대 배율, 가구 수, 기기 캐시 파일 수·크기, 다 그릴 때까지 걸린 시간.
+- 배치 예시 파일은 `app/src/debug/assets/decor/example_layout.json`으로 옮겼다(단위 테스트 `RoomLayoutTest`와 같은 파일을 쓴다).
+
+### S3 파일 확인
+
+S3의 방 1장 + 가구 200장을 내려받아 에셋 팩 파일과 비교했다. **201개 모두 바이트까지 같다.** 그래서 에셋 팩 미리보기 이미지를 정답으로 쓸 수 있다.
+
+### 바뀐 파일
+
+| 파일 | 변경 |
+| --- | --- |
+| `app/src/main/java/com/dailyquest/app/ui/decor/RoomView.kt` | 새 파일 |
+| `app/src/main/java/com/dailyquest/app/ui/decor/DecorImages.kt` | 새 파일 |
+| `app/src/main/java/com/dailyquest/app/data/avatar/AvatarModelFetcher.kt` | 파일 검사 옵션, `PngFormat` 추가 (기본값 GLB 그대로) |
+| `app/src/main/java/com/dailyquest/app/data/avatar/CachingAvatarModelFetcher.kt` | 파일 검사 옵션 추가 (기본값 GLB 그대로) |
+| `app/src/debug/AndroidManifest.xml` | "DQ 방 테스트" 런처 추가 |
+| `app/src/debug/java/com/dailyquest/app/debug/RoomDecorTestActivity.kt` | 새 파일 |
+| `app/src/debug/java/com/dailyquest/app/debug/ExampleRoomLayout.kt` | 새 파일 |
+| `app/src/debug/assets/decor/example_layout.json` | `app/src/test/resources/decor/`에서 옮김 |
+| `app/src/test/java/com/dailyquest/app/data/decor/RoomLayoutTest.kt` | 배치 예시 파일 경로만 변경 |
+| `tools/make_room_layout_fixture.py` | 출력 경로 안내만 변경 |
+| `app/src/test/java/com/dailyquest/app/data/avatar/PngFileCacheTest.kt` | 새 파일 (단위 3개) |
+| `app/src/androidTest/java/com/dailyquest/app/ui/decor/RoomViewTest.kt` | 새 파일 (UI 7개) |
+| `app/src/androidTest/java/com/dailyquest/app/debug/RoomExampleRenderTest.kt` | 새 파일 (UI 1개, 픽셀 비교) |
+| `app/src/androidTest/java/com/dailyquest/app/debug/RoomDecorTestScreenTest.kt` | 새 파일 (UI 1개) |
+| `app/src/androidTest/assets/decor/room_example_1080.png` | 에셋 팩 미리보기(정답 이미지, 650KB) |
+
+다른 팀원 파일은 건드리지 않았다. 아직 방 화면에는 연결하지 않았다(5단계).
+
+### 테스트가 확인하는 것
+
+`RoomViewTest` (가짜 그림, 인터넷 없이)
+| 테스트 | 확인 내용 |
+| --- | --- |
+| `pinchZoomsAndDoubleTapReturnsToOriginalSize` | 손가락 사이를 2배로 벌리면 2배, 두 번 탭하면 1배 |
+| `zoomStopsAtThreeTimes` | 크게 벌려도 3배에서 멈춤 |
+| `oneFingerAtNormalSizeScrollsTheScreenNotTheRoom` | 세로 스크롤 안에 넣고 1배에서 위로 끌면 **화면이 스크롤**되고 방은 그대로 |
+| `oneFingerWhenZoomedMovesTheRoomNotTheScreen` | 확대 상태에서 위로 끌면 **방이 움직이고** 화면은 스크롤되지 않음 |
+| `notZoomableIgnoresPinch` | 확대를 끈 상태에서는 두 손가락에 반응하지 않음 |
+| `showsLoadingUntilImagesArrive` | 그림을 받는 동안 진행 표시, 다 받으면 사라짐 |
+| `failedImageShowsRetryAndRetryLoadsAgain` | 실패하면 "다시 시도", 누르면 다시 받아 그림 |
+
+`RoomExampleRenderTest` (실제 S3 그림, 인터넷 필요)
+- 배치 예시 54개를 1080×810px(1배)로 그려 화면을 찍고, 에셋 팩 미리보기와 픽셀 비교(미리보기가 불투명한 곳만, 색 차이 8 이하를 "같음"으로).
+- 결과: **일치 100.00%, 평균 색 차이 0.033**(0~255 기준).
+- 같은 테스트에서 가구 없이 빈 방만 그려 비교하면 일치 74.46%, 평균 차이 10.97. 비교가 가구 자리를 실제로 구분한다는 뜻이다.
+- 기준: 일치 99.5% 이상, 평균 차이 1.0 이하.
+
+`RoomDecorTestScreenTest` (실제 S3)
+- 디버그 화면이 예시 54개를 다 그리면 "준비됨", 빈 방 → 다시 예시 → 원래 크기 버튼이 동작한다.
+
+`PngFileCacheTest` (단위)
+- PNG 헤더 판별, PNG 검사로 만든 다운로더는 PNG를 받고 GLB를 거절, PNG 캐시는 다시 받지 않고 깨진 파일은 다시 받음.
+
+### 테스트가 정말 틀린 코드를 잡는지 확인
+
+`RoomView`가 모든 가구를 0° 그림으로 그리도록 일부러 바꿔 `RoomExampleRenderTest`를 돌렸다. 일치율이 96.07%(평균 차이 1.64)로 떨어져 **실패했다**(돌린 가구 11개의 그림이 달라짐). 확인 후 원래 코드로 되돌렸다.
+
+### 직접 측정
+
+에뮬레이터(Pixel 8, API 35)에서 디버그 "DQ 방 테스트" 화면:
+| 상황 | 다 그릴 때까지 |
+| --- | --- |
+| 처음(인터넷에서 53개, 1.0MB) | 약 4.0초 |
+| 다음부터(기기 캐시) | 약 0.2초 |
+
+파일이 53개인 이유: 방 1장 + 예시에 쓰인 서로 다른 가구 그림 52장(같은 가구·같은 방향은 한 번만 받는다).
+
+### 테스트 결과
+
+| 종류 | 결과 |
+| --- | --- |
+| 단위 테스트 | 497개 통과(기존 494 + 새 3) |
+| 새 UI 테스트 | 9개 통과 (`RoomViewTest` 7, `RoomExampleRenderTest` 1, `RoomDecorTestScreenTest` 1) |
+| 전체 UI 테스트 | 121개 통과(새 9개 포함), 강제 종료 0 |
+| 빌드 | 성공, 새 컴파일 경고 없음 |
+
+### 직접 확인하는 방법
+
+1. 디버그 빌드 설치 → 런처의 **"DQ 방 테스트"** 아이콘
+2. 방과 가구 54개가 에셋 팩 미리보기와 같은 모습인지 본다.
+3. 두 손가락으로 벌려 확대(3배까지), 확대한 상태에서 한 손가락으로 끌어 이동, 두 번 탭해 원래 크기.
+4. "캐시 비우기" 후 상태 줄의 시간(인터넷)과, 앱을 다시 켰을 때의 시간(기기 캐시)을 비교한다.
+
+UI 테스트만 돌리려면:
+```
+./gradlew connectedDebugAndroidTest "-Pandroid.testInstrumentationRunnerArguments.class=com.dailyquest.app.ui.decor.RoomViewTest,com.dailyquest.app.debug.RoomExampleRenderTest,com.dailyquest.app.debug.RoomDecorTestScreenTest"
 ```

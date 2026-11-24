@@ -1,5 +1,5 @@
 """
-에셋 팩의 배치 예시(exampleLayout 54개)로 "정답 위치"를 계산해 단위 테스트 자료를 만든다. (STEP 10-2)
+에셋 팩의 배치 예시(exampleLayout 54개)로 "정답 위치"를 계산해 단위 테스트와 디버그 "DQ 방 테스트" 화면 자료를 만든다. (STEP 10-2, 10-4)
 
 계산은 에셋 팩이 미리보기 이미지(preview/room_example_1080.png)를 만들 때 쓴 방식(source/package.py 117~139줄)과 같다.
   - 그리는 순서: 러그(floor_decor) 먼저, 그다음 차지한 칸의 가운데 (cx + cy)가 작은 것(방 안쪽)부터
@@ -7,7 +7,7 @@
   - 기준점 = 바닥 + 보정값, 그림 왼쪽 위 = 기준점 − 그림 안 기준점
 매니페스트의 원래 값(소수 끝까지)을 써서, 앱 JSON의 반올림(소수 4자리)이 결과를 틀어지게 하지 않는지도 함께 확인한다.
 
-    python tools/make_room_layout_fixture.py <압축 푼 팩 폴더>/assets_manifest.json app/src/test/resources/decor/example_layout.json
+    python tools/make_room_layout_fixture.py <압축 푼 팩 폴더>/assets_manifest.json app/src/debug/assets/decor/example_layout.json
 """
 import json
 import sys

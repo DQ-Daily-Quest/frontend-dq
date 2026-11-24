@@ -25,12 +25,14 @@ import java.security.MessageDigest
  * @param network 실제로 받는 방법 (보통 [HttpAvatarModelFetcher])
  * @param directory 저장 폴더. 앱에서는 [AvatarModels.cacheDirectory]
  * @param clock 마지막 사용 시각 기록용. 테스트에서 시간 순서를 정하려고 바꿀 수 있다.
+ * @param isValid 저장된 파일이 온전한지 검사. 기본은 GLB. 방 꾸미기 이미지(PNG) 캐시도 이 클래스를 쓴다(STEP 10-4).
  */
 class CachingAvatarModelFetcher(
     private val network: AvatarModelFetcher,
     private val directory: File,
     private val maxBytes: Long = DEFAULT_MAX_BYTES,
     private val clock: () -> Long = System::currentTimeMillis,
+    private val isValid: (ByteArray) -> Boolean = GlbFormat::isGlb,
 ) : AvatarModelFetcher {
 
     private val lock = Mutex()
@@ -73,7 +75,7 @@ class CachingAvatarModelFetcher(
         if (!file.isFile) return@withContext null
         try {
             val bytes = file.readBytes()
-            if (GlbFormat.isGlb(bytes)) {
+            if (isValid(bytes)) {
                 file.setLastModified(clock())
                 bytes
             } else {

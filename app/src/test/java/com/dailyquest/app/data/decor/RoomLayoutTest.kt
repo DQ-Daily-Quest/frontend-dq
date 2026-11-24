@@ -16,7 +16,7 @@ import java.io.File
 
 /**
  * STEP 10-2 칸 ↔ 방 이미지 위치 계산.
- * 정답 자료(test/resources/decor/example_layout.json)는 에셋 팩이 미리보기 이미지를 만든 방식 그대로,
+ * 정답 자료(src/debug/assets/decor/example_layout.json)는 에셋 팩이 미리보기 이미지를 만든 방식 그대로,
  * 매니페스트 원래 값으로 계산했다(tools/make_room_layout_fixture.py).
  */
 class RoomLayoutTest {
@@ -29,7 +29,8 @@ class RoomLayoutTest {
     private class Example(val id: String, val placement: GridPlacement, val left: Double, val top: Double, val width: Int, val height: Int)
 
     private val fixture: JsonObject by lazy {
-        val text = javaClass.getResource("/decor/example_layout.json")!!.readText()
+        // 디버그 앱의 "DQ 방 테스트" 화면도 같은 파일로 배치 예시를 그린다(STEP 10-4).
+        val text = File("src/debug/assets/decor/example_layout.json").readText()
         Json.parseToJsonElement(text).jsonObject
     }
 

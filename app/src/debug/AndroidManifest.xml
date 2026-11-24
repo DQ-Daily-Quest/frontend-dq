@@ -15,6 +15,20 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- STEP 10 방 꾸미기 테스트 화면 -->
+        <activity
+            android:name="com.dailyquest.app.debug.RoomDecorTestActivity"
+            android:exported="true"
+            android:label="DQ 방 테스트"
+            android:screenOrientation="portrait"
+            android:taskAffinity="com.dailyquest.app.debugroom"
+            android:theme="@style/Theme.DailyQuest">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
     </application>
 
 </manifest>
