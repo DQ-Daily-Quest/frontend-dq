@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 /*
  * 백엔드 ProofDtos.kt / UploadResponse 계약 기준.
  * status: PENDING | APPROVED | REJECTED | EXPIRED, mediaType: IMAGE | VIDEO | TEXT, vote: APPROVE | REJECT.
- * 리액션·피드는 STEP 11 범위이므로 응답의 reactions 필드는 읽지 않는다(ignoreUnknownKeys).
+ * 리액션은 상세 응답의 reactions와 POST/DELETE /proofs/{id}/reactions 응답(전체 목록)으로만 받는다.
  */
 
 /** POST /uploads 응답. 썸네일은 이미지에만 있다. */
@@ -76,7 +76,15 @@ data class ProofDetailDto(
     val createdAt: String? = null,
     val mission: ProofMissionBriefDto,
     val room: ProofRoomRefDto,
+    val reactions: List<ReactionSummaryDto> = emptyList(),
 )
+
+/** emoji별 개수와 내가 눌렀는지 여부. 한 사용자가 여러 이모지를 동시에 남길 수 있다. */
+@Serializable
+data class ReactionSummaryDto(val emoji: String, val count: Int = 0, val reacted: Boolean = false)
+
+@Serializable
+data class ReactionRequest(val emoji: String)
 
 /** 승인·거절 응답. rewardGranted는 이 투표로 최종 승인이 확정됐을 때만 들어 있다. */
 @Serializable

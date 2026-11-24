@@ -305,6 +305,9 @@ private fun RoomMissionsTab(roomId: Long, vm: RoomMissionsViewModel, onOpen: (Lo
                 Modifier.testTag("roomMissionsEmpty"),
             )
         }
+        Btn("인증 피드 보기", Modifier.fillMaxWidth().height(40.dp).testTag("roomFeed"), com.dailyquest.app.ui.components.BtnStyle.Soft, size = 13f) {
+            nav.navigate(Routes.feed(roomId))
+        }
         Btn("승인 대기 인증 확인", Modifier.fillMaxWidth().height(40.dp).testTag("roomPendingProofs"), com.dailyquest.app.ui.components.BtnStyle.Soft, size = 13f) {
             nav.navigate(Routes.pendingProofs(roomId))
         }

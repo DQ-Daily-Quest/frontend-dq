@@ -14,6 +14,7 @@ object ProofErrorMessages {
             ApiErrorCode.PROOF_NOT_FOUND -> "존재하지 않거나 삭제된 인증이에요."
             ApiErrorCode.PROOF_ALREADY_SUBMITTED -> "이 미션에는 이미 인증을 제출했어요."
             ApiErrorCode.PROOF_ALREADY_FINALIZED -> "이미 승인 또는 거절이 확정된 인증이에요."
+            ApiErrorCode.INVALID_EMOJI -> "사용할 수 없는 리액션이에요."
             ApiErrorCode.CREATOR_CANNOT_SUBMIT -> "내가 만든 미션에는 인증을 올릴 수 없어요."
             ApiErrorCode.NOT_MISSION_ASSIGNEE -> "이 미션의 대상 멤버만 인증할 수 있어요."
             ApiErrorCode.NOT_MISSION_APPROVER -> "멤버 미션은 미션을 만든 사람만 승인·거절할 수 있어요."

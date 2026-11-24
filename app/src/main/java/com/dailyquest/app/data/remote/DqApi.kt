@@ -16,8 +16,13 @@ import com.dailyquest.app.data.remote.dto.MyRoomMissionsDto
 import com.dailyquest.app.data.remote.dto.OAuthLoginRequest
 import com.dailyquest.app.data.remote.dto.PageDto
 import com.dailyquest.app.data.remote.dto.PendingProofDto
+import com.dailyquest.app.data.remote.dto.FcmTokenRequest
+import com.dailyquest.app.data.remote.dto.NotificationDto
+import com.dailyquest.app.data.remote.dto.UnreadCountDto
 import com.dailyquest.app.data.remote.dto.ProofDetailDto
 import com.dailyquest.app.data.remote.dto.ProofDto
+import com.dailyquest.app.data.remote.dto.ReactionRequest
+import com.dailyquest.app.data.remote.dto.ReactionSummaryDto
 import com.dailyquest.app.data.remote.dto.SubmitProofRequest
 import com.dailyquest.app.data.remote.dto.UploadDto
 import com.dailyquest.app.data.remote.dto.VoteDto
@@ -235,6 +240,28 @@ interface DqApi {
         @Query("size") size: Int = 20,
     ): PageDto<PendingProofDto>
 
+    /** 최근 24시간(기본)의 방 인증 피드. 항목 형태는 승인 대기 목록과 같고 mediaUrl·리액션은 상세에서만 온다. */
+    @GET("rooms/{roomId}/feed")
+    suspend fun listFeed(
+        @Path("roomId") roomId: Long,
+        @Query("page") page: Int = 0,
+        @Query("size") size: Int = 20,
+    ): PageDto<PendingProofDto>
+
+    /** 멤버만. 이미 누른 이모지를 다시 보내도 변화가 없고, 응답은 갱신된 전체 리액션 목록이다. */
+    @Headers("X-DQ-No-Retry: true")
+    @POST("proofs/{proofId}/reactions")
+    suspend fun addReaction(@Path("proofId") proofId: Long, @Body body: ReactionRequest): List<ReactionSummaryDto>
+
+    @Headers("X-DQ-No-Retry: true")
+    @HTTP(method = "DELETE", path = "proofs/{proofId}/reactions", hasBody = true)
+    suspend fun removeReaction(@Path("proofId") proofId: Long, @Body body: ReactionRequest): List<ReactionSummaryDto>
+
+    /** 204. 작성자 본인의 승인 대기(PENDING) 인증만 삭제할 수 있다. */
+    @Headers("X-DQ-No-Retry: true")
+    @DELETE("proofs/{proofId}")
+    suspend fun deleteProof(@Path("proofId") proofId: Long)
+
     @Headers("X-DQ-No-Retry: true")
     @POST("proofs/{proofId}/approve")
     suspend fun approveProof(@Path("proofId") proofId: Long): VoteDto
@@ -242,6 +269,30 @@ interface DqApi {
     @Headers("X-DQ-No-Retry: true")
     @POST("proofs/{proofId}/reject")
     suspend fun rejectProof(@Path("proofId") proofId: Long): VoteDto
+
+    // ---- 알림 ----
+
+    @GET("notifications")
+    suspend fun listNotifications(
+        @Query("unreadOnly") unreadOnly: Boolean = false,
+        @Query("page") page: Int = 0,
+        @Query("size") size: Int = 20,
+    ): PageDto<NotificationDto>
+
+    @GET("notifications/unread-count")
+    suspend fun getUnreadCount(): UnreadCountDto
+
+    /** 204. 멱등이며 없거나 남의 알림이면 404 NOTIFICATION_NOT_FOUND. */
+    @PATCH("notifications/{notificationId}/read")
+    suspend fun markNotificationRead(@Path("notificationId") notificationId: Long)
+
+    /** 204. 멱등. */
+    @POST("notifications/read-all")
+    suspend fun markAllNotificationsRead()
+
+    /** 204. 사용자당 토큰 하나를 덮어쓰는 멱등 요청이다. 서버에는 삭제 API가 없다. */
+    @PUT("users/me/fcm-token")
+    suspend fun updateFcmToken(@Body body: FcmTokenRequest)
 
     // ---- 상점·인벤토리·코인 내역 ----
 

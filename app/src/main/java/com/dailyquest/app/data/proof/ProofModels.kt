@@ -7,6 +7,7 @@ import com.dailyquest.app.data.remote.dto.ApprovalDto
 import com.dailyquest.app.data.remote.dto.PendingProofDto
 import com.dailyquest.app.data.remote.dto.ProofDetailDto
 import com.dailyquest.app.data.remote.dto.ProofDto
+import com.dailyquest.app.data.remote.dto.ReactionSummaryDto
 import com.dailyquest.app.data.remote.dto.UploadDto
 import com.dailyquest.app.data.remote.dto.VoteDto
 
@@ -77,6 +78,7 @@ data class ProofDetail(
     val missionContent: String,
     val roomId: Long,
     val roomName: String,
+    val reactions: List<Reaction> = emptyList(),
 ) {
     /**
      * 화면에 승인·거절 버튼을 보일지 여부. 서버가 확정 전 투표 변경을 허용해도 앱은 투표 후에는 버튼을 숨긴다.
@@ -97,6 +99,19 @@ data class ProofDetail(
      */
     val isAutoApproved: Boolean
         get() = missionType == MissionType.APP && proof.status == ProofStatus.APPROVED && proof.approval.approved == 0
+}
+
+/** 서버가 허용하는 리액션 이모지(백엔드 ALLOWED_EMOJIS). 서버 응답에 없는 이모지는 개수 0으로 보여 준다. */
+object ReactionEmojis {
+    val ALLOWED = listOf("❤️", "🔥", "👏", "😂", "😮")
+}
+
+data class Reaction(val emoji: String, val count: Int, val reacted: Boolean)
+
+/** 서버 응답을 허용된 5개 이모지 순서로 정리한다. 허용되지 않은 값은 버리고 음수 개수는 0으로 본다. */
+fun List<ReactionSummaryDto>.toReactions(): List<Reaction> = ReactionEmojis.ALLOWED.map { e ->
+    val r = firstOrNull { it.emoji == e }
+    Reaction(e, (r?.count ?: 0).coerceAtLeast(0), r?.reacted == true)
 }
 
 data class PendingProof(
@@ -143,6 +158,7 @@ fun ProofDetailDto.toDetail() = ProofDetail(
     missionContent = mission.content,
     roomId = room.roomId,
     roomName = room.name,
+    reactions = reactions.toReactions(),
 )
 
 fun PendingProofDto.toPending() = PendingProof(

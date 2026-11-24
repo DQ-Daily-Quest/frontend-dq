@@ -96,7 +96,7 @@
 
 ### 무엇을 만들었나
 
-디버그 빌드에만 들어가는 **"DQ 3D 테스트"** 화면. 런처에 앱 아이콘과 별도로 아이콘이 하나 더 생긴다.
+디버그 빌드에만 들어가는 **"DQ 3D 테스트"** 화면. 런처 아이콘은 없고 개발용 경로(`adb shell am start -n com.dailyquest.app/.debug.Avatar3dTestActivity` 또는 Run 설정의 Specified Activity)로만 연다.
 
 - 위쪽 칩으로 파츠 5개 중 하나를 고르면 S3에서 GLB를 받아 3D로 보여준다: 남 몸체, 남 머리(3.7MB, 가장 무거움), 남 모자, 여 몸체, 여 상의
 - 한 손가락 드래그로 회전, 두 손가락으로 확대·축소
@@ -170,8 +170,8 @@
 
 1. **빌드·단위 테스트:** `./gradlew assembleDebug testDebugUnitTest` → `BUILD SUCCESSFUL`
 2. **화면 확인 (에뮬레이터 또는 실제 기기, 인터넷 필요)**
-   1. Android Studio에서 앱을 실행한다(▶ Run). 설치되면 기기 앱 목록에 **"DQ 3D 테스트"** 아이콘이 생긴다.
-   2. "DQ 3D 테스트"를 연다. Android Studio에서 바로 열려면 Run 설정의 Launch를 "Specified Activity"로 바꾸고 `com.dailyquest.app.debug.Avatar3dTestActivity`를 지정한다.
+   1. Android Studio에서 앱을 실행한다(▶ Run). 일반 실행은 로그인 화면으로 시작한다.
+   2. "DQ 3D 테스트"는 런처에 없으므로 `adb shell am start -n com.dailyquest.app/.debug.Avatar3dTestActivity`로 열거나, Run 설정의 Launch를 "Specified Activity"로 바꾸고 `com.dailyquest.app.debug.Avatar3dTestActivity`를 지정한다.
    3. 몇 초 뒤 남자 몸체가 보이고 아래 상태 줄이 초록색으로 바뀌면 성공이다.
    4. 칩을 하나씩 눌러 5개 파츠가 모두 보이는지 확인한다.
    5. 한 손가락으로 좌우 드래그하면 회전, 두 손가락으로 확대·축소된다.

@@ -42,6 +42,10 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.dailyquest.app.data.proof.AndroidProofMediaPreparer
+import com.dailyquest.app.ui.feed.FeedScreen
+import com.dailyquest.app.ui.notification.NotificationScreen
+import com.dailyquest.app.ui.notification.NotificationViewModel
+import com.dailyquest.app.ui.feed.FeedViewModel
 import com.dailyquest.app.ui.proof.PendingProofsScreen
 import com.dailyquest.app.ui.proof.PendingProofsViewModel
 import com.dailyquest.app.ui.proof.ProofDetailScreen
@@ -57,7 +61,7 @@ private val PUBLIC_ROUTES = setOf(Routes.SPLASH, Routes.LOGIN, Routes.SIGNUP_INF
 private val SERVER_BACKED_ROUTES = PUBLIC_ROUTES + setOf(
     Routes.SIGNUP_AVATAR, Routes.MY, Routes.JOIN_ROOM, Routes.CREATE_ROOM_ROUTE,
     Routes.MISSIONS, Routes.MISSION_DETAIL, Routes.SEND_ROOM_MISSION,
-    Routes.PROOF_SUBMIT, Routes.PROOF_DETAIL, Routes.PENDING_PROOFS,
+    Routes.PROOF_SUBMIT, Routes.PROOF_DETAIL, Routes.PENDING_PROOFS, Routes.FEED, Routes.NOTIFICATIONS,
     Routes.SHOP, Routes.COIN_HISTORY, Routes.INVENTORY,
     Routes.PROFILE_EDIT, Routes.PASSWORD_CHANGE, Routes.WITHDRAW,
 )
@@ -82,6 +86,15 @@ fun DQNavGraph() {
                 if (route == Routes.SPLASH || route == Routes.LOGIN) nav.navigate(auth.consumePostLoginRoute()) { popUpTo(0) { inclusive = true } }
             else -> if (route !in PUBLIC_ROUTES) nav.navigate(Routes.SPLASH) { popUpTo(0) { inclusive = true } }
         }
+    }
+
+    // 푸시 알림 탭 대상. 로그인된 계정에게만 한 번 전달하고, 이미 열린 화면 위에 중복으로 쌓지 않는다.
+    val pushTarget = LocalAppContainer.current.pendingPushTarget
+    val pushSignal by pushTarget.signal.collectAsStateWithLifecycle()
+    LaunchedEffect(session, route, pushSignal) {
+        val current = session as? SessionState.Authenticated ?: return@LaunchedEffect
+        if (route == null || route == Routes.SPLASH || route == Routes.LOGIN) return@LaunchedEffect
+        pushTarget.take(current.profile.userId)?.let { target -> nav.navigate(target) { launchSingleTop = true } }
     }
 
     CompositionLocalProvider(LocalNav provides nav) {
@@ -250,6 +263,23 @@ fun DQNavGraph() {
                     factory = PendingProofsViewModel.Factory(roomId, LocalAppContainer.current),
                 )
                 PendingProofsScreen(roomId, vm)
+            }
+
+            composable(Routes.NOTIFICATIONS) {
+                val vm: NotificationViewModel = viewModel(factory = NotificationViewModel.Factory(LocalAppContainer.current))
+                NotificationScreen(vm)
+            }
+
+            composable(
+                route = Routes.FEED,
+                arguments = listOf(navArgument("roomId") { type = NavType.LongType })
+            ) { backStackEntry ->
+                val roomId = requireNotNull(backStackEntry.arguments).getLong("roomId")
+                val vm: FeedViewModel = viewModel(
+                    key = "feed-$roomId",
+                    factory = FeedViewModel.Factory(roomId, LocalAppContainer.current),
+                )
+                FeedScreen(roomId, vm)
             }
 
             composable(
