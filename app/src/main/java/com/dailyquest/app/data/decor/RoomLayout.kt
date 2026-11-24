@@ -134,6 +134,33 @@ object RoomLayout {
     fun hitTest(room: RoomGeometry, placements: List<GridPlacement>, p: PxPoint): Int? =
         drawOrder(placements).lastOrNull { spriteBounds(room, placements[it]).contains(p) }
 
+    /**
+     * 새 가구를 놓을 빈자리. 방 가운데에서 가까운 칸부터, 기본 방향(0°)을 먼저 보고 안 되면 다른 방향도 본다.
+     * 러그처럼 겹쳐도 되는 가구는 방 안에만 들어가면 된다. 자리가 없으면 null.
+     */
+    fun findFreeSpot(room: RoomGeometry, existing: List<GridPlacement>, spec: FurnitureSpec): GridPlacement? {
+        val taken = existing.filter { it.spec.blocksPlacement }.flatMapTo(HashSet()) { it.cells }
+        val cx = room.columns / 2f
+        val cy = room.rows / 2f
+        val starts = buildList { for (x in 0 until room.columns) for (y in 0 until room.rows) add(Cell(x, y)) }
+        for (rotation in Rotation.entries) {
+            val s = spec.sprite(rotation)
+            val ordered = starts.sortedWith(
+                compareBy<Cell> {
+                    val dx = it.x + s.gridWidth / 2f - cx
+                    val dy = it.y + s.gridDepth / 2f - cy
+                    dx * dx + dy * dy
+                }.thenBy { it.y }.thenBy { it.x },
+            )
+            for (start in ordered) {
+                val p = GridPlacement(spec, start.x, start.y, rotation)
+                if (!fitsInRoom(room, p)) continue
+                if (!spec.blocksPlacement || p.cells.none { it in taken }) return p
+            }
+        }
+        return null
+    }
+
     // ---- 서버 값 변환 ----
     // 서버는 위치를 0~1 비율(x = gridX / 16, 0.0625 단위)로 저장한다. 연동 규칙 11-5.
 

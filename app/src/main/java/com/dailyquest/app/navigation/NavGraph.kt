@@ -48,6 +48,9 @@ import com.dailyquest.app.ui.proof.ProofDetailScreen
 import com.dailyquest.app.ui.proof.ProofDetailViewModel
 import com.dailyquest.app.ui.proof.ProofSubmitScreen
 import com.dailyquest.app.ui.proof.ProofSubmitViewModel
+import com.dailyquest.app.data.decor.RoomCatalogs
+import com.dailyquest.app.ui.decor.RoomDecorEditScreen
+import com.dailyquest.app.ui.decor.RoomDecorEditViewModel
 import com.dailyquest.app.ui.screens.*
 
 /** 로그인 없이 볼 수 있는 경로. 그 외 모든 경로는 인증된 세션이 있어야 한다. */
@@ -60,6 +63,7 @@ private val SERVER_BACKED_ROUTES = PUBLIC_ROUTES + setOf(
     Routes.PROOF_SUBMIT, Routes.PROOF_DETAIL, Routes.PENDING_PROOFS,
     Routes.SHOP, Routes.COIN_HISTORY, Routes.INVENTORY,
     Routes.PROFILE_EDIT, Routes.PASSWORD_CHANGE, Routes.WITHDRAW,
+    Routes.ROOM_DECOR,
 )
 
 @Composable
@@ -250,6 +254,21 @@ fun DQNavGraph() {
                     factory = PendingProofsViewModel.Factory(roomId, LocalAppContainer.current),
                 )
                 PendingProofsScreen(roomId, vm)
+            }
+
+            // 방 꾸미기 편집 (STEP 10-6). 화면 내용은 ui/decor 쪽에 있다.
+            composable(
+                route = Routes.ROOM_DECOR,
+                arguments = listOf(navArgument("roomId") { type = NavType.LongType })
+            ) { backStackEntry ->
+                val roomId = requireNotNull(backStackEntry.arguments).getLong("roomId")
+                val context = LocalContext.current
+                val catalog = remember { RoomCatalogs.load(context) }
+                val vm: RoomDecorEditViewModel = viewModel(
+                    key = "room-decor-$roomId",
+                    factory = RoomDecorEditViewModel.Factory(LocalAppContainer.current, roomId, catalog),
+                )
+                RoomDecorEditScreen(vm, catalog)
             }
 
             composable(

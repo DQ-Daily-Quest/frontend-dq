@@ -205,11 +205,11 @@ fun RoomScreen(roomId: Long, viewModel: RoomDetailViewModel, manage: RoomManageV
                     }
                 }
 
-                // STEP 10-5: 고정 일러스트 대신 서버에 저장된 실제 방. 편집 화면은 6단계에서 연결한다.
+                // STEP 10: 고정 일러스트 대신 서버에 저장된 실제 방. "방 꾸미기"는 편집 화면으로 간다.
                 RoomDecorCard(
                     roomId = roomId,
                     isMember = ui.isMember,
-                    onDecorate = { notice = "방 꾸미기 편집 화면은 곧 열려요." },
+                    onDecorate = { nav.navigate(Routes.roomDecor(roomId)) },
                     modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 14.dp),
                 )
 

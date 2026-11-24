@@ -116,10 +116,10 @@ class RoomDecorCardTest {
         compose.onNodeWithText("서버 설명 9101").assertExists()
     }
 
-    @Test fun decorateButtonTellsEditorIsComing() {
+    @Test fun decorateButtonOpensEditor() {
         openMyRoom1()
         waitFor(hasTestTag("roomDecorEdit"))
         compose.onNodeWithTag("roomDecorEdit").performClick()
-        compose.onNodeWithText("방 꾸미기 편집 화면은 곧 열려요.").assertExists()
+        waitFor(hasTestTag("decorEdit")) // STEP 10-6 편집 화면
     }
 }
