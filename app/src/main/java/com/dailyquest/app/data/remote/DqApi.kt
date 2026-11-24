@@ -311,6 +311,13 @@ interface DqApi {
     @GET("shop/items/{itemId}")
     suspend fun getShopItem(@Path("itemId") itemId: Long): ItemDto
 
+    /**
+     * 여러 아이템 한 번에 (api.md 7.1.1). [ids]는 쉼표로 이은 ID, 최대 100개. 체형으로 거르지 않고, 없는 ID는 결과에서 빠진다.
+     * 다른 사람의 착용 아이템 ID를 3D 파일 주소로 바꿀 때 쓴다(프로필 얼굴).
+     */
+    @GET("shop/items/batch")
+    suspend fun getShopItemsBatch(@Query("ids") ids: String): List<ItemDto>
+
     /** 코인 차감 + 소유권 지급이 한 번에 일어나는 상태 변경 요청이라 응답을 잃어도 자동 재전송하지 않는다. */
     @Headers("X-DQ-No-Retry: true")
     @POST("shop/items/{itemId}/purchase")

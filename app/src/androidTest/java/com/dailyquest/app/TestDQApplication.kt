@@ -445,6 +445,7 @@ class TestDQApplication : DQApplication() {
 
         override suspend fun listShopItems(type: String?, category: String?, page: Int, size: Int) = TestShopCalls.list(type, category, page, size)
         override suspend fun getShopItem(itemId: Long) = TestShopCalls.item(itemId)
+        override suspend fun getShopItemsBatch(ids: String) = TestShopCalls.batch(ids)
         override suspend fun purchaseItem(itemId: Long) = TestShopCalls.purchase(itemId)
         override suspend fun listMyItems(type: String?, category: String?) = TestShopCalls.mine(type, category)
         override suspend fun listCoinTransactions(page: Int, size: Int) = TestShopCalls.transactions(page)
@@ -595,6 +596,11 @@ object TestShopCalls {
     }
 
     fun item(id: Long): ItemDto = dto(stock.firstOrNull { it.itemId == id } ?: throw http(404, "ITEM_NOT_FOUND"))
+
+    fun batch(ids: String): List<ItemDto> {
+        val wanted = ids.split(',').mapNotNull { it.trim().toLongOrNull() }.toSet()
+        return stock.filter { it.itemId in wanted }.sortedBy { it.itemId }.map(::dto)
+    }
 
     fun purchase(id: Long): PurchaseDto {
         purchaseCalls.add(id)

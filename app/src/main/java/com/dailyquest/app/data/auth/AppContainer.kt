@@ -4,6 +4,7 @@ import com.dailyquest.app.data.auth.social.SocialAuthClient
 import com.dailyquest.app.data.auth.social.SocialProvider
 import com.dailyquest.app.data.customization.CustomizationData
 import com.dailyquest.app.data.shop.InventoryRepository
+import com.dailyquest.app.data.avatar.AvatarFaceRepository
 import com.dailyquest.app.data.avatar.MyAvatarRepository
 import com.dailyquest.app.data.decor.DecorRepository
 import com.dailyquest.app.ui.decor.DecorImageSource
@@ -66,6 +67,8 @@ class AppContainer(
     val notificationRepository = NotificationRepository(api)
     val myAvatarRepository = MyAvatarRepository(api, session)
     val decorRepository = DecorRepository(api)
+    /** 다른 사람 아바타(아이템 ID) → 얼굴용 3D 주소. 아이템 주소를 앱이 켜진 동안 기억한다(프로필 얼굴). */
+    val avatarFaceRepository = AvatarFaceRepository(api)
 
     /** 화면 수명과 무관하게 이어져야 하는 갱신(코인 잔액 등)을 위한 앱 범위. */
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
