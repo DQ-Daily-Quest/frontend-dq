@@ -13,6 +13,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
@@ -73,6 +74,32 @@ fun AvatarView(
     onStatusChange: (AvatarLoadStatus) -> Unit = {},
     onFrame: ((frameTimeNanos: Long) -> Unit)? = null,
 ) {
+    // 3D 엔진(Filament)은 처음 만들 때 메인 스레드를 오래 붙잡는다(에뮬레이터 실측 약 5~6초).
+    // 그동안은 화면이 멈춰 진행 표시도 그려지지 않으므로, 진행 표시를 먼저 한 번 그린 뒤 엔진을 만든다.
+    var sceneStarted by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        withFrameNanos { }
+        withFrameNanos { }
+        sceneStarted = true
+    }
+    if (sceneStarted) {
+        AvatarScene(parts, modifier, interactive, fetcher, onStatusChange, onFrame)
+    } else {
+        Box(modifier.testTag("avatarView")) {
+            CircularProgressIndicator(Modifier.align(Alignment.Center).testTag("avatarViewLoading"))
+        }
+    }
+}
+
+@Composable
+private fun AvatarScene(
+    parts: Map<AvatarPart, String>,
+    modifier: Modifier,
+    interactive: Boolean,
+    fetcher: AvatarModelFetcher,
+    onStatusChange: (AvatarLoadStatus) -> Unit,
+    onFrame: ((frameTimeNanos: Long) -> Unit)?,
+) {
     val engine = rememberEngine()
     val modelLoader = rememberModelLoader(engine)
     // 화면을 떠나면 modelLoader가 모델을 모두 지운다. 그 뒤에 남은 지우기 작업이 다시 지우지 않게 막는다.
@@ -83,7 +110,7 @@ fun AvatarView(
         AvatarPartsLoader<ModelInstance>(
             fetcher = fetcher,
             // Filament 모델 생성·삭제는 반드시 메인 스레드에서 한다. 다른 스레드면 네이티브 코드가 앱을 강제 종료한다(STEP 9-2).
-            createModel = { bytes -> withContext(Dispatchers.Main) { createModelSafely(modelLoader, bytes) } },
+            createModel = { bytes -> withContext(Dispatchers.Main) { createModelSafely(modelLoader, bytes, lifecycle) } },
             releaseModel = { instance ->
                 withContext(Dispatchers.Main) {
                     // 화면에서 노드가 빠진 다음 프레임 이후에 지운다. 그리는 중인 모델을 지우면 안 된다.
@@ -131,7 +158,13 @@ fun AvatarView(
         ) {
             loader.shown.values.forEach { ModelNode(modelInstance = it.model) }
         }
-        AvatarStatusOverlay(loader.status, isEmpty = loader.shown.isEmpty(), onRetry = { retryCount++ })
+        // 3D 화면이 막 생겨 아직 불러오기를 시작하지 않은 순간에도 빈 상자 대신 진행 표시를 보인다.
+        val notStartedYet = parts.isNotEmpty() && loader.shown.isEmpty() && loader.status is AvatarLoadStatus.Ready
+        AvatarStatusOverlay(
+            if (notStartedYet) AvatarLoadStatus.Loading else loader.status,
+            isEmpty = loader.shown.isEmpty(),
+            onRetry = { retryCount++ },
+        )
     }
 }
 
@@ -143,14 +176,20 @@ fun AvatarView(
  * 들어오면 "아직 만드는 중인 텍스처"를 쓰려다 앱이 강제 종료된다
  * (`PreconditionPanic in setImage: Texture is not created yet. It may be in the process of asynchronous loading`, STEP 9-6에서 발생).
  * 원본 데이터를 텍스처가 끝날 때까지 들고 있으면 주소가 겹치지 않는다. 모델도 하나씩 차례로 만들게 된다.
+ *
+ * 화면이 사라지면 modelLoader도 함께 지워진다. 그 뒤에 만들거나 만지면 네이티브 코드가 앱을 강제 종료하므로
+ * (`SIGSEGV in AssetLoader::createAsset`), 만들기 전과 기다린 뒤마다 화면이 살아 있는지 확인한다.
+ * 화면 제거와 이 함수는 모두 메인 스레드에서 돌아서 확인과 사용 사이에 화면이 사라지지 않는다.
  */
-private suspend fun createModelSafely(modelLoader: ModelLoader, bytes: ByteArray): ModelInstance {
+private suspend fun createModelSafely(modelLoader: ModelLoader, bytes: ByteArray, lifecycle: ViewLifecycle): ModelInstance {
+    lifecycle.ensureAlive()
     val model = modelLoader.createModel(ByteBuffer.wrap(bytes), releaseSourceData = false)
     val deadline = SystemClock.uptimeMillis() + TEXTURE_LOAD_TIMEOUT_MS
     // 진행률은 렌더 루프가 매 프레임 갱신하지만, 화면이 아직 안 그려지는 중일 수도 있어 직접도 갱신한다.
     while (modelLoader.progress < 1f && SystemClock.uptimeMillis() < deadline) {
         modelLoader.updateLoad()
         delay(TEXTURE_POLL_MS)
+        lifecycle.ensureAlive()
     }
     model.releaseSourceData()
     return model.instance
@@ -161,6 +200,11 @@ private const val TEXTURE_POLL_MS = 16L
 
 private class ViewLifecycle {
     @Volatile var disposed = false
+
+    /** 화면이 이미 사라졌으면 모델 만들기를 멈춘다. 이 실패는 [AvatarPartsLoader]가 "못 불러옴"으로 처리한다. */
+    fun ensureAlive() {
+        check(!disposed) { "AvatarView가 이미 화면에서 사라졌습니다" }
+    }
 }
 
 @Composable

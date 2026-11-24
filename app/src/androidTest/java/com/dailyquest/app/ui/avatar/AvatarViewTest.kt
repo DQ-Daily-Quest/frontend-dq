@@ -17,6 +17,7 @@ import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
+import kotlinx.coroutines.awaitCancellation
 import java.io.IOException
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -67,6 +68,33 @@ class AvatarViewTest {
         compose.onNodeWithTag("avatarViewRetry").performClick()
         waitUntil("다시 시도 후 재요청") { calls.get() == 2 }
         waitUntil("다시 실패 표시") { compose.exists("avatarViewRetry") }
+    }
+
+    @Test fun loadingShowsOnFirstFrameBeforeSceneStarts() {
+        // 3D 엔진을 만드는 동안 화면이 멈추므로, 엔진을 만들기 전 첫 화면에 이미 진행 표시가 있어야 한다.
+        compose.setContent {
+            AvatarView(
+                parts = mapOf(AvatarPart.SKIN to "https://example.invalid/body.glb"),
+                modifier = Modifier.size(300.dp),
+                fetcher = { awaitCancellation() },
+            )
+        }
+        assertTrue(compose.exists("avatarViewLoading"))
+    }
+
+    @Test fun loadingStaysWhileModelsAreDownloading() {
+        val calls = AtomicInteger(0)
+        compose.setContent {
+            AvatarView(
+                parts = mapOf(AvatarPart.SKIN to "https://example.invalid/body.glb"),
+                modifier = Modifier.size(300.dp),
+                fetcher = { calls.incrementAndGet(); awaitCancellation() },
+            )
+        }
+        waitUntil("3D 화면 시작 후 다운로드 요청") { calls.get() == 1 }
+        compose.mainClock.advanceTimeBy(1_000)
+        assertTrue(compose.exists("avatarViewLoading"))
+        assertTrue(!compose.exists("avatarViewRetry"))
     }
 
     @Test fun emptyPartsIsReadyWithoutFetching() {
