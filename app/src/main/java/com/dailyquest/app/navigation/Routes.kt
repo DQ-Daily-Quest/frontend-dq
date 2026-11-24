@@ -68,6 +68,7 @@ object Routes {
 
     // 로그인 및 회원가입
     const val LOGIN = "login"
+    const val PASSWORD_RESET = "password_reset"
     const val SIGNUP_INFO = "signup_info"
     const val SIGNUP_AVATAR = "signup_avatar"
 

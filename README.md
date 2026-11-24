@@ -23,6 +23,7 @@ The following features are implemented and connected to the real backend API.
 - Google login (Credential Manager) and Kakao login
 - JWT authentication with automatic access-token refresh
 - Tokens stored encrypted with an Android Keystore key
+- Password recovery by emailed 6-digit code (request, verify, reset) for email-registered accounts
 
 **Rooms**
 - Public and private room creation, public room search, and joining by invite code
@@ -186,11 +187,11 @@ See [Testing](#9-testing).
 
 Latest recorded results:
 
-- 327 unit tests passed
-- 72 instrumented tests passed, run before the final account-withdrawal safety fix
+- 363 unit tests passed
+- 84 instrumented tests passed
 - Debug build successful
 
-The full instrumented suite has not been re-run since that final fix. Only the unit tests were re-run afterwards.
+The password-reset flow is verified only against a fake API; it has not been exercised against the real server by automated tests.
 
 ```bash
 # Unit tests
@@ -218,6 +219,7 @@ Unit tests use JUnit, coroutine test utilities and MockWebServer. Instrumented t
 - Coin rewards
 - Shop and inventory
 - Profile and account management
+- Password recovery
 
 **In progress / planned**
 - 3D avatar integration (modeling and app integration are handled by a separate team member)
@@ -225,7 +227,6 @@ Unit tests use JUnit, coroutine test utilities and MockWebServer. Instrumented t
 - Stories and feeds
 - Rankings
 - Notifications and FCM
-- Password recovery
 - Final integration and physical device testing
 
 ## 11. Team

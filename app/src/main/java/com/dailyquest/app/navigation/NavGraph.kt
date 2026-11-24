@@ -51,7 +51,7 @@ import com.dailyquest.app.ui.proof.ProofSubmitViewModel
 import com.dailyquest.app.ui.screens.*
 
 /** 로그인 없이 볼 수 있는 경로. 그 외 모든 경로는 인증된 세션이 있어야 한다. */
-private val PUBLIC_ROUTES = setOf(Routes.SPLASH, Routes.LOGIN, Routes.SIGNUP_INFO)
+private val PUBLIC_ROUTES = setOf(Routes.SPLASH, Routes.LOGIN, Routes.SIGNUP_INFO, Routes.PASSWORD_RESET)
 
 /** 서버와 연동된 화면. 이 외 화면은 아직 Mock 데이터를 사용한다. */
 private val SERVER_BACKED_ROUTES = PUBLIC_ROUTES + setOf(
@@ -318,6 +318,10 @@ fun DQNavGraph() {
 
             composable(Routes.LOGIN) {
                 LoginScreen()
+            }
+
+            composable(Routes.PASSWORD_RESET) {
+                PasswordResetScreen()
             }
 
             composable(Routes.SIGNUP_INFO) {

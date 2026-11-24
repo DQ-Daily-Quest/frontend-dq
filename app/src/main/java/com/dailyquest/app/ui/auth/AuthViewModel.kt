@@ -124,6 +124,8 @@ class AuthViewModel(private val container: AppContainer) : ViewModel() {
     }
 
     fun consumeSignupOutcome() = _ui.update { it.copy(signupOutcome = null) }
+    /** 다른 화면(비밀번호 재설정 완료 등)에서 로그인 화면에 안내를 남긴다. */
+    fun showNotice(message: String) = _ui.update { it.copy(error = null, notice = message) }
     fun clearMessages() = _ui.update { it.copy(error = null, notice = null) }
 
     private fun fail(message: String) = _ui.update { it.copy(error = message, notice = null) }

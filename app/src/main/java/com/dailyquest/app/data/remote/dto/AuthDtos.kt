@@ -50,3 +50,21 @@ data class UserSummaryDto(
     val avatarUrl: String? = null,
     val coins: Int = 0,
 )
+
+/** POST /auth/password-reset/request (로그인 없이 호출, 성공 204). 이메일 가입 여부와 무관하게 항상 204다. */
+@Serializable
+data class PasswordResetRequest(val email: String) {
+    override fun toString() = "PasswordResetRequest(email=***)"
+}
+
+/** POST /auth/password-reset/verify (성공 204). 코드는 소모되지 않는다. code는 앞자리 0을 보존하는 문자열이다. */
+@Serializable
+data class PasswordResetVerifyRequest(val email: String, val code: String) {
+    override fun toString() = "PasswordResetVerifyRequest(email=***, code=***)"
+}
+
+/** POST /auth/password-reset/confirm (성공 204). 성공하면 서버가 코드를 폐기하고 Refresh Token을 모두 폐기한다. */
+@Serializable
+data class PasswordResetConfirmRequest(val email: String, val code: String, val newPassword: String) {
+    override fun toString() = "PasswordResetConfirmRequest(email=***, code=***, newPassword=***)"
+}

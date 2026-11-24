@@ -89,6 +89,18 @@ class TestDQApplication : DQApplication() {
             TestProfileCalls.withdrawFailure?.let { throw it }
         }
         override suspend fun me() = meResponse()
+        override suspend fun requestPasswordReset(body: com.dailyquest.app.data.remote.dto.PasswordResetRequest) {
+            TestResetCalls.requests += body.email
+            TestResetCalls.requestFailure?.let { throw it }
+        }
+        override suspend fun verifyPasswordReset(body: com.dailyquest.app.data.remote.dto.PasswordResetVerifyRequest) {
+            TestResetCalls.verifies += body.email to body.code
+            if (body.code != TestResetCalls.VALID_CODE) throw http(400, "INVALID_RESET_CODE")
+        }
+        override suspend fun confirmPasswordReset(body: com.dailyquest.app.data.remote.dto.PasswordResetConfirmRequest) {
+            TestResetCalls.confirms += Triple(body.email, body.code, body.newPassword)
+            TestResetCalls.confirmFailure?.let { throw it }
+        }
 
         // 방 API는 아직 화면에서 사용하지 않는다(Mock UI 유지). 호출되면 테스트가 실패하도록 한다.
         override suspend fun listPublicRooms(keyword: String?, sort: String?, page: Int, size: Int): PageDto<RoomSummaryDto> = PageDto(
@@ -508,4 +520,18 @@ object TestRoomCalls {
     /** 지정한 방의 상세 조회를 403으로 응답하게 한다. 테스트가 끝나면 null로 되돌린다. */
     @Volatile var forbiddenRoomId: Long? = null
     val membersRequested: MutableList<Long> = java.util.Collections.synchronizedList(mutableListOf())
+}
+
+/** 비밀번호 재설정 API 호출 기록과 응답 설정. 실제 서버에는 요청하지 않는다. */
+object TestResetCalls {
+    const val VALID_CODE = "012345"
+    val requests: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
+    val verifies: MutableList<Pair<String, String>> = java.util.Collections.synchronizedList(mutableListOf())
+    val confirms: MutableList<Triple<String, String, String>> = java.util.Collections.synchronizedList(mutableListOf())
+    @Volatile var requestFailure: Throwable? = null
+    @Volatile var confirmFailure: Throwable? = null
+
+    fun reset() {
+        requests.clear(); verifies.clear(); confirms.clear(); requestFailure = null; confirmFailure = null
+    }
 }

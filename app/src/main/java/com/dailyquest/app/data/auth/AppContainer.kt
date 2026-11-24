@@ -35,6 +35,7 @@ class AppContainer(
         session.expire(LogoutReason.EXPIRED)
     }
     val authRepository = AuthRepository(api, tokens, session, socialClients)
+    val passwordResetRepository = PasswordResetRepository(api)
     val profileRepository = ProfileRepository(api, session, authRepository)
     val roomRepository = RoomRepository(api)
     val missionRepository = MissionRepository(api)

@@ -21,6 +21,9 @@ import com.dailyquest.app.data.remote.dto.ProofDto
 import com.dailyquest.app.data.remote.dto.SubmitProofRequest
 import com.dailyquest.app.data.remote.dto.UploadDto
 import com.dailyquest.app.data.remote.dto.VoteDto
+import com.dailyquest.app.data.remote.dto.PasswordResetConfirmRequest
+import com.dailyquest.app.data.remote.dto.PasswordResetRequest
+import com.dailyquest.app.data.remote.dto.PasswordResetVerifyRequest
 import com.dailyquest.app.data.remote.dto.RefreshRequest
 import com.dailyquest.app.data.remote.dto.RoomDetailDto
 import com.dailyquest.app.data.remote.dto.RoomMemberDto
@@ -65,6 +68,22 @@ interface DqApi {
     @Headers("$NO_AUTH_HEADER: 1")
     @POST("auth/refresh")
     suspend fun refresh(@Body body: RefreshRequest): TokenResponse
+
+    /**
+     * 비밀번호 재설정은 로그인 없이 호출하는 공개 API다(Bearer 없음, 토큰 갱신 대상 아님).
+     * 코드 요청을 자동 재전송하면 코드가 여러 번 발급될 수 있고 응답 유실 시 결과를 임의로 확정하면 안 되므로 재시도하지 않는다.
+     */
+    @Headers("$NO_AUTH_HEADER: 1", "X-DQ-No-Retry: true")
+    @POST("auth/password-reset/request")
+    suspend fun requestPasswordReset(@Body body: PasswordResetRequest)
+
+    @Headers("$NO_AUTH_HEADER: 1", "X-DQ-No-Retry: true")
+    @POST("auth/password-reset/verify")
+    suspend fun verifyPasswordReset(@Body body: PasswordResetVerifyRequest)
+
+    @Headers("$NO_AUTH_HEADER: 1", "X-DQ-No-Retry: true")
+    @POST("auth/password-reset/confirm")
+    suspend fun confirmPasswordReset(@Body body: PasswordResetConfirmRequest)
 
     /** 성공 204(body 없음). Unit 반환이면 Retrofit이 빈 본문을 허용한다. */
     @POST("auth/logout")

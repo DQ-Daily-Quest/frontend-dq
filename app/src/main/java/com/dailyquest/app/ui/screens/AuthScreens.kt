@@ -42,6 +42,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.dailyquest.app.R
@@ -124,7 +125,7 @@ fun LoginScreen() {
                 ) { auth.login(email, pw) }
 
                 Row(Modifier.fillMaxWidth().padding(top = 14.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.width(110.dp).clickable { }, contentAlignment = Alignment.Center) { Txt("비밀번호 찾기", size = 13f, color = DQColors.Muted) }
+                    Box(Modifier.width(110.dp).testTag("forgotPassword").clickable { nav.navigate(Routes.PASSWORD_RESET) { launchSingleTop = true } }, contentAlignment = Alignment.Center) { Txt("비밀번호 찾기", size = 13f, color = DQColors.Muted) }
                     Box(Modifier.padding(horizontal = 14.dp).size(1.dp, 14.dp).background(DQColors.Soft))
                     Box(Modifier.width(110.dp).clickable { nav.navigate(Routes.SIGNUP_INFO) }, contentAlignment = Alignment.Center) {
                         Txt("회원가입", size = 13f, weight = Bold, color = DQColors.Green)

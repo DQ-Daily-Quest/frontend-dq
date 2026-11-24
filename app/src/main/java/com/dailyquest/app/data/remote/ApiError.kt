@@ -16,6 +16,8 @@ object ApiErrorCode {
     const val TOKEN_EXPIRED = "TOKEN_EXPIRED"
     const val INVALID_CREDENTIALS = "INVALID_CREDENTIALS"
     const val INVALID_REFRESH_TOKEN = "INVALID_REFRESH_TOKEN"
+    const val INVALID_RESET_CODE = "INVALID_RESET_CODE"
+    const val MAIL_UNAVAILABLE = "MAIL_UNAVAILABLE"
     const val DUPLICATE_EMAIL = "DUPLICATE_EMAIL"
     const val DUPLICATE_NICKNAME = "DUPLICATE_NICKNAME"
     const val INVALID_OAUTH_TOKEN = "INVALID_OAUTH_TOKEN"
@@ -90,7 +92,7 @@ internal fun buildReport(request: Request?, status: Int, responseBody: String?):
         ?.let { runCatching { Buffer().also { b -> it.writeTo(b) }.readUtf8() }.getOrNull() }
     return buildString {
         append(request?.method ?: "?").append(' ').append(request?.url ?: "?")
-        append("\nrequest body: ").append(requestBody?.let(SensitiveMasker::maskJson) ?: "-")
+        append("\nrequest body: ").append(requestBody?.let(SensitiveMasker::maskRequestJson) ?: "-")
         append("\nstatus: ").append(status)
         append("\nresponse body: ").append(responseBody?.let(SensitiveMasker::maskJson) ?: "-")
     }
