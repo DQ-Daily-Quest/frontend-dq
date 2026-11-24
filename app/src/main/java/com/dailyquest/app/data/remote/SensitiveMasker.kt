@@ -10,5 +10,11 @@ object SensitiveMasker {
         RegexOption.IGNORE_CASE,
     )
 
+    // 요청 본문에는 비밀번호 재설정의 인증 코드와 이메일도 있으므로 응답의 오류 code와 구분해 요청에서만 추가로 가린다.
+    private val requestOnlyField = Regex("\"(code|email)\"\\s*:\\s*\"(?:[^\"\\\\]|\\\\.)*\"", RegexOption.IGNORE_CASE)
+
     fun maskJson(text: String): String = jsonField.replace(text) { "\"${it.groupValues[1]}\":\"***\"" }
+
+    fun maskRequestJson(text: String): String =
+        requestOnlyField.replace(maskJson(text)) { "\"${it.groupValues[1]}\":\"***\"" }
 }
