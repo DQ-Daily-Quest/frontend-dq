@@ -67,33 +67,28 @@ import com.dailyquest.app.ui.theme.DQColors
 // 마을 지도에서 사용할 방 데이터
 private data class MapRoom(
     val room: Room,
-    val pin: Pair<Float, Float>,
     val label: Pair<Float, Float>,
 )
 
 // 마을 지도 전용 이미지 및 배치 정보
 private data class MapRoomSlot(
-    val pin: Pair<Float, Float>,
     val label: Pair<Float, Float>,
 )
 
-// 기존 마을 지도 디자인 유지
+// 기존 마을 지도 디자인 유지. 방 이름표 자리(그 밑에 멤버 얼굴 줄이 붙는다).
+// 아래 두 자리는 이름표+얼굴(약 103dp)이 바텀시트(490)에 가리지 않게 원래보다 위로 올렸다(420→372, 430→380).
 private val MAP_ROOM_SLOTS = listOf(
     MapRoomSlot(
-        34f to 170f,
         33f to 240f
     ),
     MapRoomSlot(
-        240f to 182f,
         251f to 250f
     ),
     MapRoomSlot(
-        34f to 326f,
-        31.5f to 420f
+        31.5f to 372f
     ),
     MapRoomSlot(
-        240f to 336f,
-        245f to 430f
+        245f to 380f
     )
 )
 
@@ -102,7 +97,6 @@ private fun createMapRooms(rooms: List<Room>): List<MapRoom> {
     return rooms.zip(MAP_ROOM_SLOTS).map { (room, slot) ->
         MapRoom(
             room = room,
-            pin = slot.pin,
             label = slot.label
         )
     }
@@ -272,65 +266,67 @@ private fun MapRoomPin(
     personFaces: Map<Long, PersonFace?>,
     onClick: () -> Unit
 ) {
-    Row(
-        Modifier
-            .at(r.pin.first, r.pin.second)
-            .clickable(onClick = onClick),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        MapRoomFaces(r.room.roomId, r.room.memberCount, faces, personFaces)
-    }
-
     val wood = RoundedCornerShape(10.dp)
 
+    // 방 이름표와 그 바로 밑 멤버 얼굴 줄을 한 묶음으로, 가운데 맞춤(프로필 얼굴: 사용자 요청으로 이름표 밑으로 옮김).
     Column(
-        Modifier
-            .at(r.label.first, r.label.second)
-            .background(DQColors.Wood, wood)
-            .border(1.dp, DQColors.WoodLine, wood)
-            .clickable(onClick = onClick),
+        Modifier.at(r.label.first, r.label.second),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(3.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        val pill = RoundedCornerShape(14.dp)
-
-        Box(
+        Column(
             Modifier
-                .background(DQColors.WoodPill, pill)
-                .border(1.5.dp, DQColors.WoodPillLine, pill)
-                .padding(horizontal = 14.dp, vertical = 5.dp)
+                .background(DQColors.Wood, wood)
+                .border(1.dp, DQColors.WoodLine, wood)
+                .clickable(onClick = onClick),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(3.dp),
         ) {
-            Txt(
-                r.room.name,
-                size = 13f,
-                weight = Bold,
-                color = DQColors.InkGreen,
-                maxLines = 1
-            )
-        }
+            val pill = RoundedCornerShape(14.dp)
 
-        Row(
-            Modifier
-                .background(
-                    Color.White.copy(alpha = 0.9f),
-                    RoundedCornerShape(10.dp)
+            Box(
+                Modifier
+                    .background(DQColors.WoodPill, pill)
+                    .border(1.5.dp, DQColors.WoodPillLine, pill)
+                    .padding(horizontal = 14.dp, vertical = 5.dp)
+            ) {
+                Txt(
+                    r.room.name,
+                    size = 13f,
+                    weight = Bold,
+                    color = DQColors.InkGreen,
+                    maxLines = 1
                 )
-                .padding(horizontal = 8.dp, vertical = 2.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(3.dp),
-        ) {
-            DqIcon(
-                R.drawable.ic_users,
-                13.dp
-            )
+            }
 
-            Txt(
-                "${r.room.memberCount}명",
-                size = 11f,
-                weight = Bold,
-                color = DQColors.InkGreen
-            )
+            Row(
+                Modifier
+                    .background(
+                        Color.White.copy(alpha = 0.9f),
+                        RoundedCornerShape(10.dp)
+                    )
+                    .padding(horizontal = 8.dp, vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(3.dp),
+            ) {
+                DqIcon(
+                    R.drawable.ic_users,
+                    13.dp
+                )
+
+                Txt(
+                    "${r.room.memberCount}명",
+                    size = 11f,
+                    weight = Bold,
+                    color = DQColors.InkGreen
+                )
+            }
         }
+
+        MapRoomFaces(
+            r.room.roomId, r.room.memberCount, faces, personFaces,
+            Modifier.clickable(onClick = onClick),
+        )
     }
 }
 
