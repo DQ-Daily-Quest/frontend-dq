@@ -39,6 +39,9 @@ import com.dailyquest.app.data.remote.dto.UpdateAvatarRequest
 import com.dailyquest.app.data.remote.dto.UpdateMeRequest
 import com.dailyquest.app.data.remote.dto.UserMeResponse
 import com.dailyquest.app.data.remote.dto.WithdrawRequest
+import com.dailyquest.app.data.remote.dto.AvailableItemDto
+import com.dailyquest.app.data.remote.dto.DecorationsDto
+import com.dailyquest.app.data.remote.dto.SaveDecorationsRequest
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
@@ -268,4 +271,16 @@ interface DqApi {
 
     @GET("users/me/coins/transactions")
     suspend fun listCoinTransactions(@Query("page") page: Int = 0, @Query("size") size: Int = 20): PageDto<CoinTransactionDto>
+
+    // ---- 방 꾸미기 (api.md 8장, STEP 10) ----
+
+    @GET("rooms/{roomId}/decorations")
+    suspend fun getDecorations(@Path("roomId") roomId: Long): DecorationsDto
+
+    /** 방 전체를 요청 내용으로 바꾼다. 같은 요청을 다시 보내도 결과가 같아 자동 재전송을 막지 않는다. */
+    @PUT("rooms/{roomId}/decorations")
+    suspend fun saveDecorations(@Path("roomId") roomId: Long, @Body body: SaveDecorationsRequest): DecorationsDto
+
+    @GET("rooms/{roomId}/decorations/available")
+    suspend fun listAvailableDecor(@Path("roomId") roomId: Long): List<AvailableItemDto>
 }

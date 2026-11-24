@@ -54,6 +54,12 @@ import com.dailyquest.app.data.remote.dto.SignupRequest
 import com.dailyquest.app.data.remote.dto.SignupResponse
 import com.dailyquest.app.data.remote.dto.TokenResponse
 import com.dailyquest.app.data.remote.dto.UserMeResponse
+import com.dailyquest.app.data.remote.dto.AvailableItemDto
+import com.dailyquest.app.data.remote.dto.DecorItemDto
+import com.dailyquest.app.data.remote.dto.DecorUserDto
+import com.dailyquest.app.data.remote.dto.DecorationsDto
+import com.dailyquest.app.data.remote.dto.PlacementDto
+import com.dailyquest.app.data.remote.dto.SaveDecorationsRequest
 import com.dailyquest.app.navigation.Routes
 
 /** 기존 Mock UI 테스트용: 가짜 토큰과 가짜 API로 로그인된 상태에서 시작하고 개발용 Catalog로 진입한다. */
@@ -382,6 +388,57 @@ class TestDQApplication : DQApplication() {
         override suspend fun purchaseItem(itemId: Long) = TestShopCalls.purchase(itemId)
         override suspend fun listMyItems(type: String?, category: String?) = TestShopCalls.mine(type, category)
         override suspend fun listCoinTransactions(page: Int, size: Int) = TestShopCalls.transactions(page)
+
+        override suspend fun getDecorations(roomId: Long) = TestDecorCalls.get(roomId)
+        override suspend fun saveDecorations(roomId: Long, body: SaveDecorationsRequest) = TestDecorCalls.save(roomId, body)
+        override suspend fun listAvailableDecor(roomId: Long) = TestDecorCalls.available(roomId)
+    }
+}
+
+/**
+ * STEP 10 방 꾸미기 가짜 서버 상태. 기본은 "한 번도 저장하지 않은 빈 방"과 기본 방만 가진 배치 가능 목록이다.
+ * 저장하면 받은 요청을 기록하고, 배치 가능 목록에 있는 아이템으로 응답을 만들어 다음 조회에 돌려준다.
+ */
+object TestDecorCalls {
+    val defaultRoom = DecorItemDto(9001, "기본 방", "FLOOR", "https://example.invalid/room_16x16.png", null, "room_16x16")
+
+    @Volatile var availableItems: List<AvailableItemDto> = listOf(AvailableItemDto(defaultRoom, ownerCount = 1))
+    private val saved: MutableMap<Long, DecorationsDto> = java.util.Collections.synchronizedMap(mutableMapOf())
+    val saveRequests: MutableList<Pair<Long, SaveDecorationsRequest>> = java.util.Collections.synchronizedList(mutableListOf())
+    @Volatile var failure: Throwable? = null
+
+    fun get(roomId: Long): DecorationsDto {
+        failure?.let { throw it }
+        return saved[roomId] ?: DecorationsDto(roomId)
+    }
+
+    fun available(roomId: Long): List<AvailableItemDto> {
+        failure?.let { throw it }
+        return availableItems
+    }
+
+    fun save(roomId: Long, body: SaveDecorationsRequest): DecorationsDto {
+        failure?.let { throw it }
+        saveRequests += roomId to body
+        val items = availableItems.associate { it.item.itemId to it.item }
+        val result = DecorationsDto(
+            roomId = roomId,
+            background = body.backgroundItemId?.let(items::get),
+            placements = body.placements.mapIndexed { i, p ->
+                PlacementDto(i + 1L, items.getValue(p.itemId), ownerId = 1, x = p.x, y = p.y, z = p.z, rotation = p.rotation)
+            },
+            updatedAt = "2026-11-24T00:00:00Z",
+            updatedBy = DecorUserDto(1, "테스터"),
+        )
+        saved[roomId] = result
+        return result
+    }
+
+    fun reset() {
+        availableItems = listOf(AvailableItemDto(defaultRoom, ownerCount = 1))
+        saved.clear()
+        saveRequests.clear()
+        failure = null
     }
 }
 

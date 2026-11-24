@@ -18,7 +18,7 @@
 | --- | --- | --- | --- | --- |
 | 1 | 가구 배치 정보 넣기 | 에셋 팩의 방 격자(기준점·축)와 가구별 정보(칸 수, 방향별 이미지 크기·기준점·보정값, 러그 여부)를 앱 안 JSON으로 넣고 `code`로 찾는다 | 단위: 방 + 50종이 모두 읽히는지, 90°·270°에서 가로·세로 칸이 바뀌는지 | 완료 |
 | 2 | 좌표 계산 | 칸 ↔ 방 이미지 위치, 서버 x·y(0~1) ↔ 칸 번호, 방 밖·겹침 검사, 그리는 순서(러그 먼저, 뒤쪽 먼저), **확대·이동 계산**(화면 좌표 ↔ 방 좌표, 확대 1~3배, 방이 화면 밖으로 빠지지 않게 이동 제한) | 단위: 에셋 팩 배치 예시 54개가 미리보기 이미지와 같은 위치에 오는지, 확대 상태에서 손가락 위치가 같은 칸을 가리키는지 | 완료 |
-| 3 | 서버 연결 | 꾸미기 API 3개, `DecorRepository`, 기본 방은 `room_16x16`으로 찾기, 에러(`ITEM_NOT_OWNED_IN_ROOM` 등) 처리 | 단위: 가짜 서버(MockWebServer)로 응답·에러 | 대기 |
+| 3 | 서버 연결 | 꾸미기 API 3개, `DecorRepository`, 기본 방은 `room_16x16`으로 찾기, 에러(`ITEM_NOT_OWNED_IN_ROOM` 등) 처리 | 단위: 가짜 서버(MockWebServer)로 응답·에러 | 완료 |
 | 4 | 방 보여주기 + 두 손가락 확대 | 이미 놓인 가구(서버에 저장된 배치)를 방 위 정확한 자리에 **보이게만** 한다. 놓기·옮기기는 6단계(방과 가구에 같은 배율, 이미지 기기 캐시). **두 손가락으로 확대·축소(1~3배), 확대했을 때 한 손가락으로 이동, 두 번 탭하면 원래 크기.** 디버그 테스트 화면에서 배치 예시로 확인 | UI: 확대·이동·되돌리기, 화면 캡처를 에셋 미리보기와 비교 | 대기 |
 | 5 | 방 화면에 연결 | 방 화면의 고정 일러스트를 실제 배치된 방으로 바꾼다. 저장한 적 없는 방은 기본 방. 방을 누르면 크게 보기(확대 가능) | UI: 조회 결과대로 그려지는지 | 대기 |
 | 6 | 꾸미기 편집 화면 (가구 놓기) | "방 꾸미기" → 편집 화면. 사용자가 가구 목록(바닥·벽 제외, 놓을 수 있는 개수 표시)에서 골라 방에 놓기, 드래그로 옮기면 칸에 맞춰짐, 회전, 빼기, 겹치거나 방 밖이면 빨간 표시. **확대 상태에서도 편집 가능: 가구를 잡고 끌면 가구 이동, 빈 곳을 끌면 화면 이동, 두 손가락은 확대** | UI: 놓기·옮기기·회전·겹침 막기, 확대 상태에서 옮기기 | 대기 |
@@ -226,4 +226,82 @@ UI는 아직 없어서 UI 테스트는 돌리지 않았다(이번 단계는 화�
 
 ```
 ./gradlew testDebugUnitTest --tests "com.dailyquest.app.data.decor.*" --tests "com.dailyquest.app.ui.decor.*"
+```
+
+---
+
+## 3단계. 서버 연결
+
+### 서버 규칙 확인 (backend `origin/main` 7bf9e02, `DecorService.kt`)
+
+- `PUT /rooms/{roomId}/decorations`는 **방 전체를 요청 내용으로 바꾼다.** 요청에 없는 가구는 지워진다.
+- `backgroundItemId`를 null로 보내면 **배경도 지운다.** 그래서 앱은 항상 배경을 채워 보낸다(한 번도 저장 안 한 방이면 기본 방).
+- 같은 가구는 "방 멤버 중 그 가구를 가진 사람 수"까지만 놓을 수 있다. 넘으면 403 `ITEM_NOT_OWNED_IN_ROOM`이고, 서버 문구에 가구 이름과 개수가 들어 있다.
+- 멤버가 아니면 403 `FORBIDDEN`, 방이 없으면 404 `ROOM_NOT_FOUND`, 판매 종료·가구 아님은 404 `ITEM_NOT_FOUND`.
+- 기본 방(FLOOR)도 "배치 가능 목록"에 들어 있다. 그래서 기본 방 `itemId`는 이 목록에서 `code = room_16x16`로 찾는다(따로 `GET /users/me/items`를 부르지 않는다).
+
+### 무엇을 만들었나
+
+| 파일 | 내용 |
+| --- | --- |
+| `data/remote/dto/DecorDtos.kt` (새 파일) | 서버 응답·요청 형식 그대로 |
+| `data/remote/DqApi.kt` | `getDecorations`, `saveDecorations`(PUT), `listAvailableDecor` 추가. PUT은 같은 요청을 다시 보내도 결과가 같아서 자동 재전송을 막지 않는다 |
+| `data/remote/ApiError.kt` | `ITEM_NOT_OWNED_IN_ROOM` 코드 추가 |
+| `data/decor/DecorRepository.kt` (새 파일) | 조회·배치 가능 목록·저장, 서버 값 ↔ 칸 좌표 변환, 오류 문구 |
+| `data/auth/AppContainer.kt` | `decorRepository` 한 줄 추가 |
+| `androidTest/.../TestDQApplication.kt` | FakeApi에 새 API 3개, 가짜 방 꾸미기 상태 `TestDecorCalls` (5~7단계 UI 테스트용) |
+
+**`DecorRepository`가 하는 일**
+- `load(roomId, catalog)`: 서버 배치를 칸 좌표(`GridPlacement`)로 바꾼 `RoomDecor`. 한 번도 저장 안 한 방은 `background = null`.
+- `available(roomId, catalog)`: 배경(WALL·FLOOR)과 가구로 나누고 기본 방을 찾는다. 앱이 모르는 가구는 `spec = null`(놓을 수 없음).
+- `save(decor, catalog, defaultBackground)`: 칸 → 서버 비율, 방향 → 각도, `z`는 앱의 그리는 순서(러그 0, 다른 기기가 z만 봐도 같은 모습이 되게).
+- **앱이 그릴 수 없는 배치는 지우지 않고 그대로 둔다**(`KeptPlacement`). 앱이 모르는 새 가구, 칸에 안 맞는 위치(예전 32칸 값), 90도 단위가 아닌 방향, 방 밖으로 나간 위치. 저장할 때 받은 값 그대로 다시 보낸다. 저장이 방 전체를 바꾸는 방식이라 빼고 보내면 서버에서 지워지기 때문이다.
+- `DecorErrorMessages`: 개수 초과는 서버 문구(가구 이름 포함)를 그대로, 나머지는 안내 문구.
+
+배치 정보(`RoomCatalog`)는 앱 assets에서 읽는데 `AppContainer`에는 Context가 없다. 그래서 화면 쪽이 `RoomCatalogs.load(context)`로 읽어 저장소 함수에 넘긴다.
+
+### 실서버 확인 (읽기만)
+
+test02 계정의 방 9·10번을 조회했다. 서버 데이터는 바꾸지 않았다(저장 확인은 8단계).
+- `GET /rooms/{id}/decorations`: 필드 `roomId`, `background`, `placements`, `updatedAt`, `updatedBy`. 두 방 모두 저장한 적 없어 `background = null`, 배치 0개.
+- `GET /rooms/{id}/decorations/available`: 필드 `item`(`itemId`, `name`, `category`, `imageUrl`, `modelUrl`, `code`), `ownerCount`, `placedCount`, `owners`. 두 방 모두 기본 방(`room_16x16`, FLOOR, 보유 2명)만 있다.
+- 앱 DTO의 필드 이름과 모두 같다.
+
+### 다른 팀원 파일
+
+| 파일 | 변경 |
+| --- | --- |
+| `DqApi.kt`, `ApiError.kt`, `AppContainer.kt` | 추가만 (기존 코드 변경 없음) |
+| `TestDQApplication.kt` | FakeApi에 메서드 3개 추가, `TestDecorCalls` 추가 |
+
+### 테스트가 확인하는 것 (`DecorRepositoryTest`, MockWebServer, 서버 `DecorDtos.kt` 형식)
+
+| 테스트 | 확인 내용 |
+| --- | --- |
+| `loadTurnsServerRatiosIntoCells` | 0.25·0.375·90° → 칸 (4, 6)·90°, 연동 규칙 예시 (0.4375, 0.1875) → (7, 3), 배경·수정한 사람 |
+| `neverSavedRoomHasNoBackground` | 저장 안 한 방은 배경 null, 배치 없음 |
+| `placementsTheAppCannotDrawAreKeptNotDropped` | 모르는 가구·32칸 시절 값·45°·방 밖 4개는 버리지 않고 보관 |
+| `availableSplitsBackgroundFromFurniture` | 기본 방은 배경으로, 가구만 목록에. 보유자 수·놓인 수, 모르는 가구는 spec 없음 |
+| `saveSendsRatiosRotationDrawOrderAndDefaultBackground` | 보낸 요청: 기본 방 ID, 칸 → 0.4375·0.1875, 270°, z(러그 0·의자 1), 보관한 배치는 받은 값 그대로 |
+| `saveKeepsCurrentBackgroundOverDefault` | 이미 배경이 있으면 그 배경을 보냄 |
+| `saveReturnsWhatServerStored` | 저장 응답을 다시 칸 좌표로 |
+| `everyCellAndDirectionSurvivesSaveAndLoad` | 16칸 × 4방향 모두 저장(소수 4자리) → 조회 후 같은 칸·방향 |
+| `tooManyCopiesShowsServerMessageWithItemName` | 개수 초과 시 서버 문구 그대로 |
+| `otherErrorsHaveFriendlyMessages` | 멤버 아님·방 없음·판매 종료 문구 |
+| `networkFailureIsReportedNotThrown` | 서버가 꺼져 있으면 앱이 멈추지 않고 네트워크 오류로 알림 |
+
+### 테스트 결과
+
+| 종류 | 결과 |
+| --- | --- |
+| `DecorRepositoryTest` | 11개 통과 |
+| 전체 단위 테스트 | 494개 통과(기존 483 + 새 11) |
+| 빌드, UI 테스트 컴파일 | 성공, 새 컴파일 경고 없음 |
+
+화면 변화가 없어 UI 테스트는 돌리지 않았다(FakeApi는 컴파일로 확인).
+
+### 직접 확인하는 방법
+
+```
+./gradlew testDebugUnitTest --tests "com.dailyquest.app.data.decor.*"
 ```

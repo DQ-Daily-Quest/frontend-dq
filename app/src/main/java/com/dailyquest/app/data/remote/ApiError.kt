@@ -53,6 +53,8 @@ object ApiErrorCode {
     const val ITEM_NOT_OWNED = "ITEM_NOT_OWNED"
     const val ITEM_GENDER_MISMATCH = "ITEM_GENDER_MISMATCH"
     const val GENDER_ALREADY_SET = "GENDER_ALREADY_SET"
+    // 방 꾸미기 (STEP 10)
+    const val ITEM_NOT_OWNED_IN_ROOM = "ITEM_NOT_OWNED_IN_ROOM"
     const val NO_PASSWORD_SET = "NO_PASSWORD_SET"
     const val OWNER_MUST_TRANSFER = "OWNER_MUST_TRANSFER"
     const val USER_NOT_FOUND = "USER_NOT_FOUND"
