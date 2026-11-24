@@ -99,7 +99,7 @@ class PasswordResetRepositoryTest {
         assertNotNull(PasswordResetValidator.email(""))
         assertNotNull(PasswordResetValidator.email("not-an-email"))
         assertNull(PasswordResetValidator.email("user@example.com"))
-        assertEquals("User@Example.com", PasswordResetValidator.normalizeEmail("  User@Example.com "))
+        assertEquals("user@example.com", PasswordResetValidator.normalizeEmail("  User@Example.com "))
     }
 
     @Test fun codeMustBeSixDigitsAndKeepsLeadingZeros() {

@@ -18,6 +18,7 @@ object ApiErrorCode {
     const val INVALID_REFRESH_TOKEN = "INVALID_REFRESH_TOKEN"
     const val INVALID_RESET_CODE = "INVALID_RESET_CODE"
     const val MAIL_UNAVAILABLE = "MAIL_UNAVAILABLE"
+    const val TOO_MANY_REQUESTS = "TOO_MANY_REQUESTS"
     const val DUPLICATE_EMAIL = "DUPLICATE_EMAIL"
     const val DUPLICATE_NICKNAME = "DUPLICATE_NICKNAME"
     const val INVALID_OAUTH_TOKEN = "INVALID_OAUTH_TOKEN"
@@ -70,7 +71,11 @@ sealed class ApiException(message: String?, cause: Throwable? = null) : Exceptio
         val code: String?,
         val serverMessage: String?,
         val report: String,
-    ) : ApiException("HTTP $status ${code.orEmpty()}")
+        /** 429 응답의 Retry-After(초). 헤더가 없거나 양의 정수가 아니면 null. */
+        val retryAfterSeconds: Long? = null,
+    ) : ApiException("HTTP $status ${code.orEmpty()}") {
+        val isRateLimited: Boolean get() = status == 429 || code == ApiErrorCode.TOO_MANY_REQUESTS
+    }
 
     /** 연결 실패·타임아웃 등 일시적인 네트워크 오류. 인증 만료와 구분된다. */
     class Network(cause: Throwable) : ApiException("Network error: ${cause.javaClass.simpleName}", cause) {
@@ -106,11 +111,16 @@ internal fun buildReport(request: Request?, status: Int, responseBody: String?):
     }
 }
 
+/** Retry-After는 초 단위 정수만 받아들인다. 형식이 다르거나 0 이하이면 무시하고, 하루를 넘는 값은 하루로 제한한다. */
+fun parseRetryAfter(value: String?): Long? =
+    value?.trim()?.toLongOrNull()?.takeIf { it > 0 }?.coerceAtMost(86_400L)
+
 fun HttpException.toApiException(): ApiException.Http {
     val raw = response()?.raw()
     val body = runCatching { response()?.errorBody()?.string() }.getOrNull()
     val parsed = parseErrorBody(body)
-    return ApiException.Http(code(), parsed?.code, parsed?.message, buildReport(raw?.request, code(), body))
+    val retryAfter = parseRetryAfter(response()?.headers()?.get("Retry-After"))
+    return ApiException.Http(code(), parsed?.code, parsed?.message, buildReport(raw?.request, code(), body), retryAfter)
 }
 
 /** Retrofit suspend 호출을 [ApiResult]로 변환한다. 취소 예외는 그대로 전파한다. */

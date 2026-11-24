@@ -113,7 +113,7 @@ flowchart LR
 - **Repositories:** wrap API calls with `apiCall` and return `ApiResult`, mapping server errors to Korean user-facing messages.
 - **Authentication:** an OkHttp interceptor adds the bearer token, an authenticator refreshes it, and a session guard ends the session on unrecoverable 401 responses.
 
-Some screens (avatar customization, room decoration, story) are still sample-data UI and are not connected to the backend; see [Development Status](#10-development-status).
+The story strip is a preview of the room feed, and the development-only Catalog screens still use sample data; avatar and room decoration are connected to the backend. See [Development Status](#10-development-status).
 
 ## 6. Project Structure
 
@@ -192,15 +192,17 @@ See [Testing](#9-testing).
 - **Lost responses:** when the outcome of a state-changing request is unknown, the app re-queries server state (for example inventory and balance after a purchase) instead of retrying blindly. If a withdrawal result cannot be confirmed, the app reports it as unconfirmed rather than successful.
 - **Error handling:** server error codes are parsed into `ApiException` and mapped to Korean messages per feature.
 
-Notifications and push: the FCM token is registered with `PUT /users/me/fcm-token` after login and whenever it changes (idempotent; the server keeps one token per user and has no delete endpoint, so it is not cleared on logout). Inbox items and push payloads (`type`, `roomId`, `missionId`, `proofId`, all strings and optional) share one router, and IDs are parsed as untrusted input.
+Notifications and push: the FCM token is registered with `PUT /users/me/fcm-token` after login and whenever it changes (idempotent; the server keeps one token per user). Backend v0.8 unlinks the token on logout, password reset and withdrawal and adds `DELETE /users/me/fcm-token`, but the deployed server did not expose that endpoint when last checked, so the app does not call it. Push messages are hidden while logged out and the notification tray is cleared on logout or account change. Inbox items and push payloads (`type`, `roomId`, `missionId`, `proofId`, all strings and optional) share one router, and IDs are parsed as untrusted input.
 
 ## 9. Testing
 
 Latest recorded results:
 
-- 411 unit tests passed
-- 103 instrumented tests passed
+- 597 unit tests passed (includes 429 / account-input rules)
+- 164 instrumented tests passed (run with `adb shell am instrument` so app data is kept)
 - Debug build successful
+
+Backend rate limit (HTTP 429 `TOO_MANY_REQUESTS`, `Retry-After` seconds) is shown as a Korean message with the wait time and is never retried automatically. Emails are trimmed and lowercased; passwords are 8~64 characters and at most 72 UTF-8 bytes (Korean up to 24); nicknames are trimmed, 2~12 characters, and must not start with "탈퇴회원".
 
 The password-reset flow is verified only against a fake API; it has not been exercised against the real server by automated tests.
 
@@ -211,8 +213,14 @@ The password-reset flow is verified only against a fake API; it has not been exe
 # Build the instrumented test APK
 ./gradlew assembleDebugAndroidTest
 
-# Instrumented tests (requires a running emulator or device)
+# Instrumented tests (requires a running emulator or device).
+# Note: connectedDebugAndroidTest uninstalls the app afterwards, which erases its data and login session.
 ./gradlew connectedDebugAndroidTest
+
+# Same tests while keeping app data: install both APKs, then run the instrumentation directly
+adb install -r -t app/build/outputs/apk/debug/app-debug.apk
+adb install -r -t app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+adb shell am instrument -w -r com.dailyquest.app.test/com.dailyquest.app.DQTestRunner
 
 # A single instrumented test class
 ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.dailyquest.app.ProfileFlowTest
@@ -231,12 +239,13 @@ Unit tests use JUnit, coroutine test utilities and MockWebServer. Instrumented t
 - Shop and inventory
 - Profile and account management
 - Password recovery
+- 3D avatar, gender selection and item equipping
+- Room decoration and furniture placement
 - Room proof feed, reactions and notification inbox
 - FCM push notifications
 
 **In progress / planned**
-- 3D avatar integration (modeling and app integration are handled by a separate team member)
-- Room decoration and furniture placement
+- Avatar profile display and 3D loading performance (handled by a separate team member)
 - Rankings (the backend has no ranking API yet)
 - Expiring 24-hour stories (the backend has no story API; the current story strip is a preview of the room feed)
 - Final integration and physical device testing
