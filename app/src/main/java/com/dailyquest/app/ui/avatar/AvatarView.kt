@@ -51,6 +51,19 @@ private val AVATAR_CAMERA_HOME = Position(0f, 0.75f, 2.6f)
 private val AVATAR_CAMERA_TARGET = Position(0f, 0.7f, 0f)
 
 /**
+ * 아바타를 비추는 카메라 자리. [position]에서 [target]을 바라본다(단위: m, 원점 = 발 사이 바닥).
+ * - [FULL_BODY]: 전신 (기본, STEP 9)
+ * - [FACE]: 머리만 가깝게 (프로필 얼굴 사진용).
+ */
+data class AvatarCamera(val position: Position, val target: Position) {
+    companion object {
+        val FULL_BODY = AvatarCamera(AVATAR_CAMERA_HOME, AVATAR_CAMERA_TARGET)
+        /** 머리 전체와 큰 모자까지 정사각형 안에 들어오는 값 (얼굴 테스트 화면에서 남·여·모자 4가지로 맞춤). */
+        val FACE = AvatarCamera(Position(0f, 1.11f, 1.3f), Position(0f, 1.08f, 0f))
+    }
+}
+
+/**
  * 슬롯별 GLB를 같은 원점에 겹쳐 그리는 3D 아바타.
  *
  * - [parts]가 바뀌면 바뀐 슬롯만 다시 받는다. 새 모델이 준비될 때까지 이전 모습이 그대로 보인다.
@@ -61,6 +74,7 @@ private val AVATAR_CAMERA_TARGET = Position(0f, 0.7f, 0f)
  *
  * @param parts 슬롯 → GLB 주소(`modelUrl`). 없는 슬롯은 그리지 않는다(예: 모자를 안 쓴 경우).
  * @param interactive true면 드래그로 돌리고 두 손가락으로 확대·축소할 수 있다. false면 고정된 정면 모습.
+ * @param camera 카메라 자리. 기본은 전신. 프로필 얼굴 사진은 [AvatarCamera.FACE].
  * @param fetcher GLB 내용을 가져오는 방법. 기본은 앱 공용 디스크 캐시([AvatarModels.fetcher]) — 한 번 받은 파일은 다시 받지 않는다.
  * @param onStatusChange 불러오기 상태가 바뀔 때마다 호출된다.
  * @param onFrame 3D 화면이 한 프레임 그릴 때마다 호출된다 (FPS 측정 등).
@@ -70,6 +84,7 @@ fun AvatarView(
     parts: Map<AvatarPart, String>,
     modifier: Modifier = Modifier,
     interactive: Boolean = true,
+    camera: AvatarCamera = AvatarCamera.FULL_BODY,
     fetcher: AvatarModelFetcher = AvatarModels.fetcher(LocalContext.current),
     onStatusChange: (AvatarLoadStatus) -> Unit = {},
     onFrame: ((frameTimeNanos: Long) -> Unit)? = null,
@@ -83,7 +98,7 @@ fun AvatarView(
         sceneStarted = true
     }
     if (sceneStarted) {
-        AvatarScene(parts, modifier, interactive, fetcher, onStatusChange, onFrame)
+        AvatarScene(parts, modifier, interactive, camera, fetcher, onStatusChange, onFrame)
     } else {
         Box(modifier.testTag("avatarView")) {
             CircularProgressIndicator(Modifier.align(Alignment.Center).testTag("avatarViewLoading"))
@@ -96,6 +111,7 @@ private fun AvatarScene(
     parts: Map<AvatarPart, String>,
     modifier: Modifier,
     interactive: Boolean,
+    camera: AvatarCamera,
     fetcher: AvatarModelFetcher,
     onStatusChange: (AvatarLoadStatus) -> Unit,
     onFrame: ((frameTimeNanos: Long) -> Unit)?,
@@ -132,12 +148,17 @@ private fun AvatarScene(
     }
 
     val cameraNode = rememberCameraNode(engine) {
-        position = AVATAR_CAMERA_HOME
-        lookAt(AVATAR_CAMERA_TARGET)
+        position = camera.position
+        lookAt(camera.target)
+    }
+    // 카메라 자리가 바뀌면(얼굴 테스트 화면에서 맞출 때) 같은 카메라를 옮긴다. 3D 화면은 새로 만들지 않는다.
+    LaunchedEffect(cameraNode, camera) {
+        cameraNode.position = camera.position
+        cameraNode.lookAt(camera.target)
     }
     // 카메라 조작기가 있으면 매 프레임 카메라 위치를 정한다. 없으면 위 cameraNode 위치에 고정된다.
     val cameraManipulator = if (interactive) {
-        rememberCameraManipulator(orbitHomePosition = AVATAR_CAMERA_HOME, targetPosition = AVATAR_CAMERA_TARGET)
+        rememberCameraManipulator(orbitHomePosition = camera.position, targetPosition = camera.target)
     } else {
         null
     }
