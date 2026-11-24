@@ -17,7 +17,7 @@
 | # | 작업 | 내용 | 테스트 | 상태 |
 | --- | --- | --- | --- | --- |
 | 1 | 가구 배치 정보 넣기 | 에셋 팩의 방 격자(기준점·축)와 가구별 정보(칸 수, 방향별 이미지 크기·기준점·보정값, 러그 여부)를 앱 안 JSON으로 넣고 `code`로 찾는다 | 단위: 방 + 50종이 모두 읽히는지, 90°·270°에서 가로·세로 칸이 바뀌는지 | 완료 |
-| 2 | 좌표 계산 | 칸 ↔ 방 이미지 위치, 서버 x·y(0~1) ↔ 칸 번호, 방 밖·겹침 검사, 그리는 순서(러그 먼저, 뒤쪽 먼저), **확대·이동 계산**(화면 좌표 ↔ 방 좌표, 확대 1~3배, 방이 화면 밖으로 빠지지 않게 이동 제한) | 단위: 에셋 팩 배치 예시 54개가 미리보기 이미지와 같은 위치에 오는지, 확대 상태에서 손가락 위치가 같은 칸을 가리키는지 | 대기 |
+| 2 | 좌표 계산 | 칸 ↔ 방 이미지 위치, 서버 x·y(0~1) ↔ 칸 번호, 방 밖·겹침 검사, 그리는 순서(러그 먼저, 뒤쪽 먼저), **확대·이동 계산**(화면 좌표 ↔ 방 좌표, 확대 1~3배, 방이 화면 밖으로 빠지지 않게 이동 제한) | 단위: 에셋 팩 배치 예시 54개가 미리보기 이미지와 같은 위치에 오는지, 확대 상태에서 손가락 위치가 같은 칸을 가리키는지 | 완료 |
 | 3 | 서버 연결 | 꾸미기 API 3개, `DecorRepository`, 기본 방은 `room_16x16`으로 찾기, 에러(`ITEM_NOT_OWNED_IN_ROOM` 등) 처리 | 단위: 가짜 서버(MockWebServer)로 응답·에러 | 대기 |
 | 4 | 방 보여주기 + 두 손가락 확대 | 이미 놓인 가구(서버에 저장된 배치)를 방 위 정확한 자리에 **보이게만** 한다. 놓기·옮기기는 6단계(방과 가구에 같은 배율, 이미지 기기 캐시). **두 손가락으로 확대·축소(1~3배), 확대했을 때 한 손가락으로 이동, 두 번 탭하면 원래 크기.** 디버그 테스트 화면에서 배치 예시로 확인 | UI: 확대·이동·되돌리기, 화면 캡처를 에셋 미리보기와 비교 | 대기 |
 | 5 | 방 화면에 연결 | 방 화면의 고정 일러스트를 실제 배치된 방으로 바꾼다. 저장한 적 없는 방은 기본 방. 방을 누르면 크게 보기(확대 가능) | UI: 조회 결과대로 그려지는지 | 대기 |
@@ -115,3 +115,115 @@ UI는 아직 없어서 UI 테스트는 돌리지 않았다(이번 단계는 화�
 ./gradlew testDebugUnitTest --tests "com.dailyquest.app.data.decor.*"
 ```
 결과는 `app/build/reports/tests/testDebugUnitTest/index.html`에서 볼 수 있다. 화면에서 보이는 변화는 4단계부터 생긴다.
+
+---
+
+## 2단계. 좌표 계산 + 확대·이동 계산
+
+화면 없이 숫자만 다루는 계산을 먼저 만들고 단위 테스트로 굳혔다. 4단계 이후 화면은 이 계산만 불러 쓴다.
+
+### 좌표 두 가지
+
+- **칸 좌표**: 바닥 격자 0~15. 칸 (0, 0)이 방 안쪽 구석. 가구 위치는 차지한 칸들의 시작 칸 (gridX, gridY).
+- **방 이미지 좌표**: 방 PNG(1080×810) 위의 픽셀. 화면에서는 여기에 같은 배율을 곱하고 위치를 옮긴다.
+
+### 무엇을 만들었나
+
+**`data/decor/RoomLayout.kt`**
+
+| 기능 | 하는 일 |
+| --- | --- |
+| `groundPx` | 칸 좌표 → 방 이미지 좌표 (바닥 위치) |
+| `gridAt`, `cellAt` | 반대 방향. 손가락이 가리키는 바닥 칸을 찾는다. 방 밖이면 null |
+| `spriteBounds` | 가구 그림이 그려질 사각형. 바닥 가운데 → 보정값 더하기 → 그림 안 기준점 빼기 |
+| `snapStart` | 가구 가운데를 손가락에 맞췄을 때의 시작 칸 (드래그할 때 칸에 맞추기) |
+| `fitsInRoom` | 돌린 방향의 칸 수로 방 안에 들어가는지 |
+| `problems` | 놓을 수 없는 가구(방 밖, 다른 가구와 칸 겹침). 러그는 겹쳐도 되고 방 밖만 검사 |
+| `drawOrder` | 그리는 순서. 러그 먼저, 그다음 방 안쪽(칸 가운데 X + Y가 작은 것)부터 |
+| `hitTest` | 손가락 아래 가장 앞쪽 가구. 그림 사각형으로 판단(작은 가구도 누르기 쉽게) |
+| `toServerRatio`, `fromServerRatio` | 칸 번호 ↔ 서버 x·y(0~1, 0.0625 단위). 칸 경계에 안 맞거나 방 밖인 값은 null(예전 32칸 값 등을 엉뚱한 칸에 놓지 않게) |
+
+**`ui/decor/RoomViewport.kt`** (두 손가락 확대·이동)
+
+- 1배 = 방 전체가 화면 칸 안에 들어오는 크기(가로·세로 중 먼저 닿는 쪽에 맞춤). 1~3배.
+- 확대·축소할 때 두 손가락 사이에 있던 방 지점이 그 자리에 머문다.
+- 방이 화면보다 크면 빈 곳이 보이지 않을 만큼만 움직인다. 작으면 가운데에 둔다.
+- 두 번 탭 → 원래 크기(`reset`), 화면 크기 변경 시 배율 유지(`resized`).
+
+### 정답 자료 (에셋 팩과 같은 위치인지)
+
+에셋 팩이 미리보기 이미지(`preview/room_example_1080.png`)를 만든 코드(`source/package.py` 117~139줄)를 읽어 계산 방식과 그리는 순서를 확인했다. 앱 계산 방식과 같다.
+
+`tools/make_room_layout_fixture.py`로 배치 예시 54개의 **정답 위치·크기·그리는 순서**를 매니페스트 원래 값(소수 끝까지)으로 계산해 `app/src/test/resources/decor/example_layout.json`에 넣었다. 54개에 4방향이 모두 들어 있다(0° 43, 90° 5, 180° 5, 270° 1). 앱 JSON은 소수 4자리로 줄였으므로, 그 반올림 때문에 위치가 틀어지지 않는지도 함께 확인된다.
+
+### 바뀐 파일
+
+| 파일 | 변경 |
+| --- | --- |
+| `app/src/main/java/com/dailyquest/app/data/decor/RoomLayout.kt` | 새 파일 |
+| `app/src/main/java/com/dailyquest/app/ui/decor/RoomViewport.kt` | 새 파일 |
+| `app/src/test/java/com/dailyquest/app/data/decor/RoomLayoutTest.kt` | 새 파일 (14개) |
+| `app/src/test/java/com/dailyquest/app/ui/decor/RoomViewportTest.kt` | 새 파일 (9개) |
+| `app/src/test/resources/decor/example_layout.json` | 새 파일 (정답 자료) |
+| `tools/make_room_layout_fixture.py` | 새 파일 |
+
+다른 팀원 파일은 건드리지 않았다.
+
+### 테스트가 확인하는 것
+
+`RoomLayoutTest`
+| 테스트 | 확인 내용 |
+| --- | --- |
+| `exampleLayoutPositionsMatchAssetPack` | 54개 모두 그림 위치가 정답과 0.01px 안, 크기는 정확히 같음 |
+| `exampleLayoutDrawOrderMatchesAssetPack` | 54개 그리는 순서가 정답과 같음 |
+| `exampleLayoutHasNoProblems` | 예시 배치에 방 밖·겹침 없음 |
+| `gridAtIsInverseOfGroundPx` | 칸 → 이미지 → 칸이 원래대로 |
+| `cellAtFindsCellUnderFingerAndNullOutside` | 손가락 아래 칸, 방 끝 칸, 방 밖·벽 위는 null |
+| `snapStartPutsFurnitureCenterUnderFinger` | 드래그 시 칸 맞춤(돌린 소파 포함, 가운데에서 조금 비껴도 같은 칸) |
+| `fitsInRoomChecksRotatedSize` | 2×1 책상: 14번 칸 OK, 15번 칸 밖. 돌리면 반대 |
+| `overlappingFurnitureAreBothProblems` | 겹친 두 가구 모두 표시, 안 겹친 가구는 아님 |
+| `rugMayOverlapButNotLeaveRoom` | 러그 위 테이블·의자 OK, 러그가 방 밖이면 표시 |
+| `outOfRoomIsProblemEvenWithoutOverlap` | 방 밖 가구 표시 |
+| `rugIsDrawnFirstThenBackToFront` | 러그 → 안쪽 → 앞쪽 순 |
+| `hitTestPicksFrontMostFurniture` | 겹친 곳을 누르면 앞 가구, 빈 곳은 null |
+| `serverRatioRoundTripsEveryCell` | 0~15칸 모두 왕복, 연동 규칙 예시(0.4375 → 7) |
+| `serverRatioRejectsValuesOffTheGrid` | 32칸 시절 반 칸·1.0·음수는 null, 소수 4자리 오차는 허용 |
+
+`RoomViewportTest`
+| 테스트 | 확인 내용 |
+| --- | --- |
+| `fitUsesSmallerSideAndCenters` | 1배 크기와 가운데 맞춤(정사각 화면, 방 화면 칸 358×252) |
+| `zoomKeepsPointUnderFingersInPlace` | 확대해도 손가락 사이 지점이 그대로 |
+| `zoomStaysBetweenOneAndThree` | 1~3배를 넘지 않음 |
+| `panCannotShowEmptySpaceOutsideRoom` | 아무리 끌어도 방 밖 빈 곳이 안 보임 |
+| `cannotPanWhenRoomFitsTheView` | 1배에서 방이 화면에 다 들어오면 안 움직임 |
+| `resetReturnsToFit` | 두 번 탭 → 처음 상태와 같음 |
+| `resizeKeepsZoomAndStaysInBounds` | 화면 크기 바뀌어도 배율 유지, 범위 안 |
+| `screenAndContentRoundTrip` | 화면 ↔ 방 좌표 왕복 |
+| `fingerPointsAtSameCellWhenZoomed` | 3배 확대 + 이동 상태에서 손가락이 가리키는 칸이 정확함 |
+
+### 테스트가 정말 틀린 코드를 잡는지 확인
+
+일부러 계산을 틀리게 바꿔 돌려 보고 원래대로 되돌렸다.
+
+| 일부러 바꾼 것 | 실패한 테스트 |
+| --- | --- |
+| 보정값을 빼먹음 | `exampleLayoutPositionsMatchAssetPack` |
+| 러그를 먼저 그리지 않음 | `rugIsDrawnFirstThenBackToFront`, `exampleLayoutDrawOrderMatchesAssetPack` |
+| 러그도 겹침 검사 | `exampleLayoutHasNoProblems`, `rugMayOverlapButNotLeaveRoom` |
+
+### 테스트 결과
+
+| 종류 | 결과 |
+| --- | --- |
+| 새 테스트 | 23개 통과 (`RoomLayoutTest` 14, `RoomViewportTest` 9) |
+| 전체 단위 테스트 | 483개 통과 |
+| 빌드 | 성공, 새 컴파일 경고 없음 |
+
+화면 변화가 없어 UI 테스트는 돌리지 않았다.
+
+### 직접 확인하는 방법
+
+```
+./gradlew testDebugUnitTest --tests "com.dailyquest.app.data.decor.*" --tests "com.dailyquest.app.ui.decor.*"
+```
