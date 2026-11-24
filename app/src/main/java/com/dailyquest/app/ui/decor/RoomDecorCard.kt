@@ -33,6 +33,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.dailyquest.app.data.decor.RoomCatalogs
@@ -69,6 +71,8 @@ fun RoomDecorCard(
     var fullScreen by rememberSaveable(roomId) { mutableStateOf(false) }
 
     LaunchedEffect(isMember) { vm.setMember(isMember) }
+    // 편집 화면에서 저장하고 돌아오면(또는 다른 멤버가 바꿨으면) 다시 받는다. 받는 동안 이전 모습은 그대로 보인다.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.onResume() }
 
     val furniture = ui.decor?.furniture.orEmpty()
     val shape = RoundedCornerShape(20.dp)

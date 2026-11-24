@@ -45,7 +45,14 @@ data class DecorEditUiState(
     val dirty: Boolean = false,
     /** 한 번 보여 줄 안내. 보여 준 뒤 [RoomDecorEditViewModel.consumeMessage]로 지운다. */
     val message: String? = null,
+    /** 저장 요청 중 (STEP 10-7). 저장 버튼을 막는다. */
+    val saving: Boolean = false,
+    /** 저장 성공. 화면이 방 화면으로 돌아간 뒤 [RoomDecorEditViewModel.consumeSaved]로 지운다. */
+    val saved: Boolean = false,
 ) {
+    /** 저장 버튼을 누를 수 있는지. 바뀐 것이 있고 저장 중이 아니어야 한다. 겹침이 있어도 누를 수는 있다(누르면 어디가 문제인지 알려 준다). */
+    val canSave: Boolean get() = dirty && !saving && !loading && loadError == null
+
     val selected: EditItem? get() = items.firstOrNull { it.key == selectedKey }
 
     /** [RoomView]에 넘길 가구 목록 (순서 = [items] 순서). */
@@ -63,6 +70,7 @@ class RoomDecorEditViewModel(
     private val catalog: RoomCatalog,
     private val loadDecor: suspend (Long) -> ApiResult<RoomDecor>,
     private val loadChoices: suspend (Long) -> ApiResult<DecorChoices>,
+    private val saveDecor: suspend (RoomDecor, DecorItem?) -> ApiResult<RoomDecor> = { _, _ -> error("저장이 연결되지 않았습니다") },
 ) : ViewModel() {
     private val _ui = MutableStateFlow(DecorEditUiState(roomId = roomId))
     val ui: StateFlow<DecorEditUiState> = _ui.asStateFlow()
@@ -153,6 +161,46 @@ class RoomDecorEditViewModel(
 
     fun consumeMessage() = _ui.update { it.copy(message = null) }
 
+    fun consumeSaved() = _ui.update { it.copy(saved = false) }
+
+    /**
+     * 방 전체를 저장한다 (STEP 10-7).
+     * - 겹치거나 방 밖인 가구가 있으면 보내지 않고, 첫 번째 문제 가구를 선택해 알려 준다(서버는 칸 겹침을 검사하지 않는다).
+     * - 성공하면 서버가 저장한 결과로 화면을 다시 채우고 [DecorEditUiState.saved]를 켠다.
+     * - 실패하면 편집한 내용을 그대로 두고 안내한다. 개수 초과(403)는 서버 문구에 가구 이름이 들어 있다.
+     */
+    fun save() {
+        val s = _ui.value
+        if (!s.canSave) return
+        if (s.problemKeys.isNotEmpty()) {
+            val first = s.items.first { it.key in s.problemKeys }
+            _ui.update {
+                it.copy(
+                    selectedKey = first.key,
+                    message = "겹치거나 방 밖으로 나간 가구 ${s.problemKeys.size}개를 먼저 옮겨 주세요.",
+                )
+            }
+            return
+        }
+        _ui.update { it.copy(saving = true) }
+        viewModelScope.launch {
+            val decor = RoomDecor(roomId, s.background, s.furniture, s.kept)
+            when (val r = saveDecor(decor, s.choices?.defaultBackground)) {
+                is ApiResult.Success -> {
+                    val items = r.value.furniture.map { EditItem(nextKey++, it.item, it.placement) }
+                    original = items.snapshot()
+                    _ui.update {
+                        it.copy(
+                            saving = false, saved = true, message = "방을 저장했어요.",
+                            background = r.value.background, items = items, kept = r.value.kept, selectedKey = null,
+                        ).withChecks()
+                    }
+                }
+                is ApiResult.Failure -> _ui.update { it.copy(saving = false, message = DecorErrorMessages.forApi(r.error)) }
+            }
+        }
+    }
+
     private fun message(text: String) = _ui.update { it.copy(message = text) }
 
     private fun update(change: (DecorEditUiState) -> DecorEditUiState) = _ui.update { change(it).withChecks() }
@@ -178,6 +226,7 @@ class RoomDecorEditViewModel(
             roomId, catalog,
             loadDecor = { container.decorRepository.load(it, catalog) },
             loadChoices = { container.decorRepository.available(it, catalog) },
+            saveDecor = { decor, defaultBackground -> container.decorRepository.save(decor, catalog, defaultBackground) },
         ) as T
     }
 

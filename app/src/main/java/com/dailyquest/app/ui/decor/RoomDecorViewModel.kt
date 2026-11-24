@@ -53,6 +53,12 @@ class RoomDecorViewModel(
         }
     }
 
+    /** 화면이 다시 보일 때(편집 화면에서 저장하고 돌아왔을 때 등). 이미 한 번 받은 멤버만 조용히 다시 받는다. */
+    fun onResume() {
+        val s = _ui.value
+        if (s.isMember && s.decor != null) refresh()
+    }
+
     fun refresh() {
         if (!_ui.value.isMember) return
         job?.cancel()

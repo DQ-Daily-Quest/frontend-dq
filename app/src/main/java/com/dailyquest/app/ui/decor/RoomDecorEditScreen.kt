@@ -21,10 +21,16 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.activity.compose.BackHandler
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -47,6 +53,7 @@ import com.dailyquest.app.ui.components.BtnStyle
 import com.dailyquest.app.ui.components.DqScreen
 import com.dailyquest.app.ui.components.NavHeader
 import com.dailyquest.app.ui.components.Txt
+import com.dailyquest.app.navigation.LocalNav
 import com.dailyquest.app.ui.room.LocalAppContainer
 import com.dailyquest.app.ui.theme.DQColors
 
@@ -56,7 +63,8 @@ import com.dailyquest.app.ui.theme.DQColors
  * - 위: 방. 가구를 잡고 끌면 칸에 맞춰 옮겨진다. 두 손가락으로 확대, 확대한 뒤 빈 곳을 끌면 화면 이동.
  * - 가운데: 선택한 가구의 돌리기·빼기, 겹침·방 밖 개수.
  * - 아래: 놓을 수 있는 가구 목록(바닥·벽 제외). 누르면 방 가운데 가까운 빈자리에 놓인다. 남은 개수를 보여준다.
- * - 저장은 7단계에서 연결한다.
+ * - 오른쪽 위 "저장"(STEP 10-7): 바뀐 것이 있을 때만 켜진다. 저장하면 방 화면으로 돌아간다.
+ * - 저장하지 않고 나가려 하면(위 뒤로 버튼·기기 뒤로 버튼) 확인을 묻는다.
  */
 @Composable
 fun RoomDecorEditScreen(vm: RoomDecorEditViewModel, catalog: RoomCatalog) {
@@ -66,13 +74,55 @@ fun RoomDecorEditScreen(vm: RoomDecorEditViewModel, catalog: RoomCatalog) {
     val images = container.decorImages ?: remember { DecorImages.source(context) }
     val viewState = rememberRoomViewState()
 
+    val nav = LocalNav.current
+    var askLeave by remember { mutableStateOf(false) }
+
     LaunchedEffect(ui.message) {
         ui.message?.let { Toast.makeText(context, it, Toast.LENGTH_SHORT).show(); vm.consumeMessage() }
+    }
+    LaunchedEffect(ui.saved) {
+        if (ui.saved) {
+            vm.consumeSaved()
+            nav.popBackStack()
+        }
+    }
+    // 바뀐 것이 있으면 나가기 전에 묻는다. 저장 중에는 응답을 기다린다.
+    val leave: () -> Unit = {
+        when {
+            ui.saving -> Unit
+            ui.dirty -> askLeave = true
+            else -> { nav.popBackStack() }
+        }
+    }
+    BackHandler(enabled = ui.dirty || ui.saving) { leave() }
+
+    if (askLeave) {
+        AlertDialog(
+            onDismissRequest = { askLeave = false },
+            title = { Text("저장하지 않고 나갈까요?") },
+            text = { Text("바꾼 배치가 사라져요.") },
+            confirmButton = {
+                TextButton(onClick = { askLeave = false; nav.popBackStack() }, modifier = Modifier.testTag("decorLeaveConfirm")) { Text("나가기") }
+            },
+            dismissButton = {
+                TextButton(onClick = { askLeave = false }, modifier = Modifier.testTag("decorLeaveCancel")) { Text("계속 꾸미기") }
+            },
+        )
     }
 
     DqScreen {
         Column(Modifier.fillMaxSize().navigationBarsPadding().testTag("decorEdit")) {
-            NavHeader("방 꾸미기")
+            NavHeader(
+                "방 꾸미기",
+                onBack = leave,
+                right = {
+                    Btn(
+                        if (ui.saving) "저장 중…" else "저장",
+                        Modifier.width(72.dp).height(34.dp).testTag("decorSave"),
+                        size = 13f, enabled = ui.canSave, onClick = vm::save,
+                    )
+                },
+            )
             when {
                 ui.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(Modifier.testTag("decorEditLoading"))
