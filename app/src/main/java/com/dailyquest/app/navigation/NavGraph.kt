@@ -88,6 +88,15 @@ fun DQNavGraph() {
         }
     }
 
+    // 푸시 알림 탭 대상. 로그인된 계정에게만 한 번 전달하고, 이미 열린 화면 위에 중복으로 쌓지 않는다.
+    val pushTarget = LocalAppContainer.current.pendingPushTarget
+    val pushSignal by pushTarget.signal.collectAsStateWithLifecycle()
+    LaunchedEffect(session, route, pushSignal) {
+        val current = session as? SessionState.Authenticated ?: return@LaunchedEffect
+        if (route == null || route == Routes.SPLASH || route == Routes.LOGIN) return@LaunchedEffect
+        pushTarget.take(current.profile.userId)?.let { target -> nav.navigate(target) { launchSingleTop = true } }
+    }
+
     CompositionLocalProvider(LocalNav provides nav) {
         Box(Modifier.fillMaxSize()) {
         NavHost(

@@ -17,6 +17,10 @@ import com.dailyquest.app.data.room.RoomRepository
 import com.dailyquest.app.data.remote.NetworkModule
 import com.dailyquest.app.navigation.Routes
 import kotlinx.coroutines.CoroutineScope
+import com.dailyquest.app.data.push.NoPushTokenSource
+import com.dailyquest.app.data.push.PendingPushTarget
+import com.dailyquest.app.data.push.PushTokenRegistrar
+import com.dailyquest.app.data.push.PushTokenSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 
@@ -27,6 +31,7 @@ class AppContainer(
     /** 로그인 직후 진입 화면. 기본은 홈이며 계측 테스트만 개발용 Catalog로 바꾼다. */
     val startAfterAuth: String = Routes.HOME,
     val socialClients: Map<SocialProvider, SocialAuthClient> = emptyMap(),
+    pushTokenSource: PushTokenSource = NoPushTokenSource,
 ) {
     val tokens = SessionTokens(tokenStore)
     val session = SessionManager(
@@ -50,6 +55,8 @@ class AppContainer(
     /** 화면 수명과 무관하게 이어져야 하는 갱신(코인 잔액 등)을 위한 앱 범위. */
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     val unreadTracker = UnreadCountTracker(notificationRepository, session.state, appScope)
+    val pushRegistrar = PushTokenRegistrar(notificationRepository, session.state, pushTokenSource, appScope)
+    val pendingPushTarget = PendingPushTarget()
     val proofSync = ProofSync(appScope) {
         if (session.state.value is SessionState.Authenticated) authRepository.refreshProfile()
     }

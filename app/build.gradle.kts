@@ -6,6 +6,9 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
+// google-services.json 은 Git에 올리지 않는다. 파일이 없는 환경에서도 빌드되도록 있을 때만 플러그인을 적용하며, 이때 푸시는 비활성(토큰 없음)으로 동작한다.
+if (file("google-services.json").exists()) apply(plugin = "com.google.gms.google-services")
+
 // 소셜 로그인 설정값은 Git에 올리지 않는 local.properties 또는 환경 변수로 주입한다. (docs/social-login-setup.md)
 val localProps = Properties().apply {
     rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
@@ -76,6 +79,8 @@ dependencies {
     implementation(libs.androidx.credentials.play.services.auth)
     implementation(libs.google.id)
     implementation(libs.kakao.sdk.user)
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.messaging)
     testImplementation(libs.junit)
     testImplementation(libs.okhttp.mockwebserver)
     testImplementation(libs.kotlinx.coroutines.test)

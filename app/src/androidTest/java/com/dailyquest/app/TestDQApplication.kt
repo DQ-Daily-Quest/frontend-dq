@@ -58,6 +58,8 @@ import com.dailyquest.app.navigation.Routes
 
 /** 기존 Mock UI 테스트용: 가짜 토큰과 가짜 API로 로그인된 상태에서 시작하고 개발용 Catalog로 진입한다. */
 class TestDQApplication : DQApplication() {
+    override val promptsNotificationPermission = false
+
     override fun createContainer() = AppContainer(
         tokenStore = InMemoryTokenStore(TokenPair("test-access", "test-refresh")),
         apiFactory = { _, _ -> FakeApi },

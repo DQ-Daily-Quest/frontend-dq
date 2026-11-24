@@ -3,6 +3,7 @@ package com.dailyquest.app.data.notification
 import com.dailyquest.app.data.remote.ApiResult
 import com.dailyquest.app.data.remote.DqApi
 import com.dailyquest.app.data.remote.apiCall
+import com.dailyquest.app.data.remote.dto.FcmTokenRequest
 
 /** 알림 API 호출 계층. 전역 상태를 보관하지 않는다. */
 class NotificationRepository(private val api: DqApi) {
@@ -16,6 +17,8 @@ class NotificationRepository(private val api: DqApi) {
     suspend fun markRead(id: Long): ApiResult<Unit> = apiCall { api.markNotificationRead(id) }
 
     suspend fun markAllRead(): ApiResult<Unit> = apiCall { api.markAllNotificationsRead() }
+
+    suspend fun registerFcmToken(token: String): ApiResult<Unit> = apiCall { api.updateFcmToken(FcmTokenRequest(token)) }
 
     companion object { const val DEFAULT_PAGE_SIZE = 20 }
 }
