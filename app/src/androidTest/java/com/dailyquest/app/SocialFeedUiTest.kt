@@ -62,4 +62,48 @@ class SocialFeedUiTest {
         compose.onNodeWithTag("feedRetry").performClick()
         waitTag("feedItem-7203")
     }
+
+    private fun openDetail(id: Long) {
+        openFeed(); waitTag("feedItem-$id"); compose.onNodeWithTag("feedItem-$id").performClick(); waitTag("reactionBar")
+    }
+
+    @Test fun reactionTogglesWithServerCountAndSupportsSeveralEmojis() {
+        TestProofCalls.seedPending(7301, 9101, 8001)
+        openDetail(7301)
+        compose.onNodeWithTag("reaction-🔥").performScrollTo().performClick()
+        compose.waitUntil(5_000) { TestProofCalls.calls.contains("react:7301:🔥") }
+        compose.waitUntil(5_000) { compose.onAllNodes(hasTestTag("reaction-🔥") and hasText("🔥 1")).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("reaction-👏").performScrollTo().performClick()
+        compose.waitUntil(5_000) { compose.onAllNodes(hasTestTag("reaction-👏") and hasText("👏 1")).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("reaction-🔥").assertTextContains("1", substring = true)
+        compose.onNodeWithTag("reaction-🔥").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodes(hasTestTag("reaction-🔥") and hasText("🔥 0")).fetchSemanticsNodes().isNotEmpty() }
+        assertTrue(TestProofCalls.calls.contains("unreact:7301:🔥"))
+    }
+
+    @Test fun reactionFailureKeepsStateAndShowsError() {
+        TestProofCalls.seedPending(7302, 9101, 8001)
+        openDetail(7302)
+        TestProofCalls.reactionFailure = TestShopCalls.http(400, "INVALID_EMOJI")
+        compose.onNodeWithTag("reaction-😮").performScrollTo().performClick()
+        waitTag("reactionError")
+        compose.onNodeWithTag("reaction-😮").assertTextContains("0", substring = true)
+    }
+
+    @Test fun deleteIsHiddenForOthersProofs() {
+        TestProofCalls.seedPending(7303, 9101, 8001)
+        openDetail(7303)
+        compose.onNodeWithTag("proofDelete").assertDoesNotExist()
+    }
+
+    @Test fun ownPendingProofCanBeDeletedAfterConfirmation() {
+        TestProofCalls.seedPending(7304, 9101, 8001, user = com.dailyquest.app.data.remote.dto.RoomOwnerDto(1, "uitest"))
+        openDetail(7304)
+        compose.onNodeWithTag("proofDelete").performScrollTo().performClick()
+        compose.onNodeWithText("이 인증을 삭제할까요?").assertExists()
+        assertTrue(TestProofCalls.calls.none { it.startsWith("delete:") })
+        compose.onNodeWithTag("proofDeleteConfirm").performClick()
+        compose.waitUntil(5_000) { TestProofCalls.calls.contains("delete:7304") }
+        waitTag("feed")
+    }
 }

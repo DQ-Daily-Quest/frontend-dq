@@ -18,6 +18,8 @@ import com.dailyquest.app.data.remote.dto.PageDto
 import com.dailyquest.app.data.remote.dto.PendingProofDto
 import com.dailyquest.app.data.remote.dto.ProofDetailDto
 import com.dailyquest.app.data.remote.dto.ProofDto
+import com.dailyquest.app.data.remote.dto.ReactionRequest
+import com.dailyquest.app.data.remote.dto.ReactionSummaryDto
 import com.dailyquest.app.data.remote.dto.SubmitProofRequest
 import com.dailyquest.app.data.remote.dto.UploadDto
 import com.dailyquest.app.data.remote.dto.VoteDto
@@ -231,6 +233,20 @@ interface DqApi {
         @Query("page") page: Int = 0,
         @Query("size") size: Int = 20,
     ): PageDto<PendingProofDto>
+
+    /** 멤버만. 이미 누른 이모지를 다시 보내도 변화가 없고, 응답은 갱신된 전체 리액션 목록이다. */
+    @Headers("X-DQ-No-Retry: true")
+    @POST("proofs/{proofId}/reactions")
+    suspend fun addReaction(@Path("proofId") proofId: Long, @Body body: ReactionRequest): List<ReactionSummaryDto>
+
+    @Headers("X-DQ-No-Retry: true")
+    @HTTP(method = "DELETE", path = "proofs/{proofId}/reactions", hasBody = true)
+    suspend fun removeReaction(@Path("proofId") proofId: Long, @Body body: ReactionRequest): List<ReactionSummaryDto>
+
+    /** 204. 작성자 본인의 승인 대기(PENDING) 인증만 삭제할 수 있다. */
+    @Headers("X-DQ-No-Retry: true")
+    @DELETE("proofs/{proofId}")
+    suspend fun deleteProof(@Path("proofId") proofId: Long)
 
     @Headers("X-DQ-No-Retry: true")
     @POST("proofs/{proofId}/approve")

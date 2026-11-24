@@ -3,6 +3,7 @@ package com.dailyquest.app.data.proof
 import com.dailyquest.app.data.remote.ApiResult
 import com.dailyquest.app.data.remote.DqApi
 import com.dailyquest.app.data.remote.apiCall
+import com.dailyquest.app.data.remote.dto.ReactionRequest
 import com.dailyquest.app.data.remote.dto.SubmitProofRequest
 
 /**
@@ -35,6 +36,16 @@ class ProofRepository(private val api: DqApi) {
         val r = api.listFeed(roomId, page, size)
         PendingPage(r.content.map { it.toPending() }, r.page, r.totalPages, r.totalElements)
     }
+
+    /** 서버가 돌려주는 갱신된 전체 목록이 기준이다. 이미 눌렀어도 서버에서 변화가 없으므로 응답 유실 뒤 다시 보내도 안전하다. */
+    suspend fun addReaction(proofId: Long, emoji: String): ApiResult<List<Reaction>> =
+        apiCall { api.addReaction(proofId, ReactionRequest(emoji)).toReactions() }
+
+    suspend fun removeReaction(proofId: Long, emoji: String): ApiResult<List<Reaction>> =
+        apiCall { api.removeReaction(proofId, ReactionRequest(emoji)).toReactions() }
+
+    /** 작성자 본인의 승인 대기 인증만 삭제된다. */
+    suspend fun delete(proofId: Long): ApiResult<Unit> = apiCall { api.deleteProof(proofId) }
 
     suspend fun vote(proofId: Long, choice: VoteChoice): ApiResult<VoteResult> = apiCall {
         when (choice) {

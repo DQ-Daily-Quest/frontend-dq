@@ -11,6 +11,7 @@ import com.dailyquest.app.data.proof.ProofDetail
 import com.dailyquest.app.data.proof.ProofErrorMessages
 import com.dailyquest.app.data.proof.ProofRepository
 import com.dailyquest.app.data.proof.ProofStatus
+import com.dailyquest.app.data.proof.ReactionEmojis
 import com.dailyquest.app.data.proof.VoteChoice
 import com.dailyquest.app.data.proof.VoteResult
 import com.dailyquest.app.data.remote.ApiException
@@ -27,6 +28,11 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+
+const val REACTION_OUTCOME_UNKNOWN_MESSAGE =
+    "리액션이 처리됐는지 확인하지 못했어요. 최신 상태를 불러왔어요."
+const val DELETE_OUTCOME_UNKNOWN_MESSAGE =
+    "삭제가 처리됐는지 확인하지 못했어요. 자동으로 다시 보내지 않고 최신 상태를 불러왔어요."
 
 const val VOTE_OUTCOME_UNKNOWN_MESSAGE =
     "투표가 처리됐는지 확인하지 못했어요. 자동으로 다시 보내지 않고 최신 상태를 불러왔어요. 내 투표 상태를 확인해 주세요."
@@ -45,7 +51,15 @@ data class ProofDetailUiState(
     val voteError: String? = null,
     /** 투표 직후 한 번 보여주는 서버 확정 결과 안내. */
     val voteNotice: String? = null,
+    val reacting: Boolean = false,
+    val reactionError: String? = null,
+    val deleting: Boolean = false,
+    val deleteError: String? = null,
+    /** 서버가 삭제를 확정했다. 화면은 이전 목록으로 돌아간다. */
+    val deleted: Boolean = false,
 ) {
+    /** 서버 규칙: 작성자 본인의 승인 대기 인증만 삭제할 수 있다. */
+    val canDelete: Boolean get() = detail?.let { it.isMine(userId) && it.proof.status == ProofStatus.PENDING } == true && !deleting && !deleted
     val canVote: Boolean get() = detail?.canVote(userId, missionCreatorId) == true && !voting
 }
 
@@ -68,6 +82,7 @@ class ProofDetailViewModel(
 
     private var job: Job? = null
     private var voteJob: Job? = null
+    private var mutationJob: Job? = null
     private var generation = 0
 
     init {
@@ -81,6 +96,7 @@ class ProofDetailViewModel(
                     generation++
                     job?.cancel()
                     voteJob?.cancel()
+                    mutationJob?.cancel()
                     _ui.value = ProofDetailUiState(proofId, userId = userId)
                     if (userId != null) load()
                 }
@@ -118,6 +134,55 @@ class ProofDetailViewModel(
                             loading = false, gone = gone, error = ProofErrorMessages.forApi(e),
                         )
                     }
+                }
+            }
+        }
+    }
+
+    /** 내가 이미 누른 이모지면 취소, 아니면 등록한다. 한 번에 하나의 요청만 보내며 화면 값은 서버가 돌려준 목록으로만 바꾼다. */
+    fun toggleReaction(emoji: String) {
+        val s = _ui.value
+        val d = s.detail ?: return
+        if (s.reacting || s.deleting || emoji !in ReactionEmojis.ALLOWED) return
+        val mine = d.reactions.firstOrNull { it.emoji == emoji }?.reacted == true
+        val gen = generation
+        _ui.update { it.copy(reacting = true, reactionError = null) }
+        mutationJob = viewModelScope.launch {
+            val r = if (mine) proofs.removeReaction(proofId, emoji) else proofs.addReaction(proofId, emoji)
+            if (gen != generation) return@launch
+            when (r) {
+                is ApiResult.Success -> _ui.update { cur ->
+                    cur.copy(reacting = false, detail = cur.detail?.copy(reactions = r.value))
+                }
+                is ApiResult.Failure -> {
+                    val e = r.error
+                    val http = e is ApiException.Http
+                    _ui.update { it.copy(reacting = false, reactionError = if (http) ProofErrorMessages.forApi(e) else REACTION_OUTCOME_UNKNOWN_MESSAGE) }
+                    // 응답을 못 받았으면 결과를 추측하지 않고 서버 상태를 다시 읽는다. 자동 재전송은 하지 않는다.
+                    if (!http || (e as ApiException.Http).status in setOf(403, 404)) load()
+                }
+            }
+        }
+    }
+
+    fun requestDelete() {
+        val s = _ui.value
+        if (!s.canDelete || s.reacting) return
+        val gen = generation
+        _ui.update { it.copy(deleting = true, deleteError = null) }
+        mutationJob = viewModelScope.launch {
+            val r = proofs.delete(proofId)
+            if (gen != generation) return@launch
+            when (r) {
+                is ApiResult.Success -> {
+                    _ui.update { it.copy(deleting = false, deleted = true) }
+                    runCatching { onChanged() }
+                }
+                is ApiResult.Failure -> {
+                    val e = r.error
+                    val http = e is ApiException.Http
+                    _ui.update { it.copy(deleting = false, deleteError = if (http) ProofErrorMessages.forApi(e) else DELETE_OUTCOME_UNKNOWN_MESSAGE) }
+                    load()
                 }
             }
         }

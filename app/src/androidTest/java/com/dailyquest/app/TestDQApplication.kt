@@ -16,6 +16,8 @@ import com.dailyquest.app.data.remote.dto.CreateMissionRequest
 import com.dailyquest.app.data.remote.dto.PendingMissionBriefDto
 import com.dailyquest.app.data.remote.dto.PendingProofDto
 import com.dailyquest.app.data.remote.dto.ProofDetailDto
+import com.dailyquest.app.data.remote.dto.ReactionRequest
+import com.dailyquest.app.data.remote.dto.ReactionSummaryDto
 import com.dailyquest.app.data.remote.dto.ProofDto
 import com.dailyquest.app.data.remote.dto.ProofMissionBriefDto
 import com.dailyquest.app.data.remote.dto.ProofRoomRefDto
@@ -265,6 +267,24 @@ class TestDQApplication : DQApplication() {
             TestProofCalls.calls.add("detail:$proofId")
             return TestProofCalls.proofs[proofId] ?: throw http(404, "PROOF_NOT_FOUND")
         }
+        override suspend fun addReaction(proofId: Long, body: ReactionRequest): List<ReactionSummaryDto> = reaction(proofId, body.emoji, true)
+        override suspend fun removeReaction(proofId: Long, body: ReactionRequest): List<ReactionSummaryDto> = reaction(proofId, body.emoji, false)
+        private fun reaction(proofId: Long, emoji: String, add: Boolean): List<ReactionSummaryDto> {
+            TestProofCalls.calls.add("${if (add) "react" else "unreact"}:$proofId:$emoji")
+            TestProofCalls.reactionFailure?.let { throw it }
+            val d = TestProofCalls.proofs[proofId] ?: throw http(404, "PROOF_NOT_FOUND")
+            val rest = d.reactions.filter { it.emoji != emoji }
+            val cur = d.reactions.firstOrNull { it.emoji == emoji }
+            val next = if (add) rest + ReactionSummaryDto(emoji, (cur?.count ?: 0) + if (cur?.reacted == true) 0 else 1, true)
+            else if (cur != null && cur.count > 1) rest + ReactionSummaryDto(emoji, cur.count - 1, false) else rest
+            TestProofCalls.proofs[proofId] = d.copy(reactions = next)
+            return next
+        }
+        override suspend fun deleteProof(proofId: Long) {
+            TestProofCalls.calls.add("delete:$proofId")
+            TestProofCalls.deleteFailure?.let { throw it }
+            TestProofCalls.proofs.remove(proofId) ?: throw http(404, "PROOF_NOT_FOUND")
+        }
         override suspend fun listFeed(roomId: Long, page: Int, size: Int): PageDto<PendingProofDto> {
             TestProofCalls.calls.add("feed:$roomId")
             TestProofCalls.feedFailure?.let { throw it }
@@ -461,8 +481,10 @@ object TestProofCalls {
     @Volatile var submitFailure: Throwable? = null
     @Volatile var voteFailure: Throwable? = null
     @Volatile var feedFailure: Throwable? = null
+    @Volatile var reactionFailure: Throwable? = null
+    @Volatile var deleteFailure: Throwable? = null
     fun reset() {
-        feedFailure = null
+        feedFailure = null; reactionFailure = null; deleteFailure = null
         calls.clear(); submitRequests.clear(); proofs.clear(); uploadFailure = null; submitFailure = null; voteFailure = null
     }
     /** 방 [roomId]의 APP 미션 [missionId]에 다른 멤버가 낸 승인 대기 인증을 시드한다. */

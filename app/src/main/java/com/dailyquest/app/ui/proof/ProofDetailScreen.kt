@@ -36,6 +36,11 @@ import com.dailyquest.app.data.mission.MissionType
 import com.dailyquest.app.data.proof.ProofDetail
 import com.dailyquest.app.data.proof.ProofMediaType
 import com.dailyquest.app.data.proof.ProofStatus
+import com.dailyquest.app.data.proof.Reaction
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import com.dailyquest.app.data.proof.proofStatusLabel
 import com.dailyquest.app.data.proof.VoteChoice
 import com.dailyquest.app.navigation.LocalNav
@@ -59,6 +64,8 @@ fun ProofDetailScreen(viewModel: ProofDetailViewModel) {
     val ui by viewModel.ui.collectAsStateWithLifecycle()
     val d = ui.detail
     var confirm by remember { mutableStateOf<VoteChoice?>(null) }
+    var confirmDelete by remember { mutableStateOf(false) }
+    androidx.compose.runtime.LaunchedEffect(ui.deleted) { if (ui.deleted) nav.backOrHome() }
 
     DqScreen {
         Column(Modifier.fillMaxSize().testTag("proofDetail")) {
@@ -71,7 +78,13 @@ fun ProofDetailScreen(viewModel: ProofDetailViewModel) {
                         if (!ui.gone) Btn("다시 시도", Modifier.padding(top = 16.dp).width(140.dp).height(44.dp)) { viewModel.retry() }
                         Btn("돌아가기", Modifier.padding(top = 10.dp).width(140.dp).height(44.dp)) { nav.backOrHome() }
                     }
-                    else -> Body(d, ui.userId, ui.error)
+                    else -> {
+                        Body(d, ui.userId, ui.error)
+                        ReactionBar(d.reactions, enabled = !ui.reacting && !ui.deleting) { viewModel.toggleReaction(it) }
+                        ui.reactionError?.let { Txt(it, size = 12f, color = DQColors.Orange, modifier = Modifier.padding(top = 8.dp).testTag("reactionError")) }
+                        if (ui.canDelete) Btn("인증 삭제", Modifier.padding(top = 14.dp).fillMaxWidth().height(44.dp).testTag("proofDelete"), BtnStyle.Outline, size = 13f) { confirmDelete = true }
+                        ui.deleteError?.let { Txt(it, size = 12f, color = DQColors.Orange, modifier = Modifier.padding(top = 8.dp).testTag("proofDeleteError")) }
+                    }
                 }
                 ui.voteNotice?.let {
                     Txt(it, size = 13f, weight = Bold, color = DQColors.PrimaryStrong, modifier = Modifier.padding(top = 14.dp).testTag("proofVoteNotice"))
@@ -89,6 +102,18 @@ fun ProofDetailScreen(viewModel: ProofDetailViewModel) {
                 }
             }
         }
+    }
+
+    if (confirmDelete) {
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            title = { Text("이 인증을 삭제할까요?") },
+            text = { Text("삭제하면 되돌릴 수 없고, 달린 리액션도 함께 사라져요. 승인 대기 중인 내 인증만 삭제할 수 있어요.") },
+            confirmButton = {
+                TextButton(onClick = { confirmDelete = false; viewModel.requestDelete() }, modifier = Modifier.testTag("proofDeleteConfirm")) { Text("삭제") }
+            },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("취소") } },
+        )
     }
 
     val pick = confirm
@@ -160,4 +185,23 @@ private fun Body(d: ProofDetail, myUserId: Long?, error: String?) {
         }
     }
     if (error != null) Txt(error, size = 11.5f, color = DQColors.Orange, modifier = Modifier.padding(top = 10.dp))
+}
+
+@Composable
+private fun ReactionBar(reactions: List<Reaction>, enabled: Boolean, onToggle: (String) -> Unit) {
+    FieldLabel("리액션")
+    Row(Modifier.fillMaxWidth().testTag("reactionBar"), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        reactions.forEach { r ->
+            val bg = if (r.reacted) DQColors.PrimaryStrong.copy(alpha = 0.18f) else DQColors.Soft
+            Row(
+                Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(bg)
+                    .clickable(enabled = enabled, role = Role.Button) { onToggle(r.emoji) }
+                    .semantics { stateDescription = if (r.reacted) "선택됨" else "선택 안 됨" }
+                    .padding(vertical = 8.dp).testTag("reaction-${r.emoji}"),
+                horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Txt("${r.emoji} ${r.count}", size = 13f, weight = if (r.reacted) Bold else com.dailyquest.app.ui.components.Medium)
+            }
+        }
+    }
 }
