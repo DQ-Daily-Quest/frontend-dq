@@ -24,6 +24,13 @@ class FaceStudio(val store: FaceStore) {
     private val _version = MutableStateFlow(0)
     val version: StateFlow<Int> = _version.asStateFlow()
 
+    private val _tries = MutableStateFlow(0)
+    /**
+     * 찍기 결과를 받을 때마다(성공·실패 모두) 오른다. [FaceStudioHost]는 이 값이 바뀌면 맨 앞 얼굴을 새로 시도한다.
+     * 대기열에 얼굴이 하나뿐이면 실패해도 맨 앞이 그대로라, 이 값이 없으면 다시 시도하지 않고 멈춘다(6단계에서 발견).
+     */
+    val tries: StateFlow<Int> = _tries.asStateFlow()
+
     private val attempts = HashMap<String, Int>()
     private val gaveUp = HashSet<String>()
 
@@ -45,6 +52,7 @@ class FaceStudio(val store: FaceStore) {
                 attempts.remove(key.id)
             }
             _version.update { it + 1 }
+            _tries.update { it + 1 }
             return
         }
         synchronized(this) {
@@ -56,6 +64,7 @@ class FaceStudio(val store: FaceStore) {
             }
             if (n >= MAX_ATTEMPTS) gaveUp += key.id
         }
+        _tries.update { it + 1 }
     }
 
     companion object {

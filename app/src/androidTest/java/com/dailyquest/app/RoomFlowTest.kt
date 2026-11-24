@@ -210,6 +210,10 @@ class RoomFlowTest {
         TestRoomCalls.forbiddenRoomId = 9101L
         click("홈 · 우리만 (마을 지도)")
         compose.waitUntil(5_000) { compose.onAllNodesWithText("서버 내 방 1").fetchSemanticsNodes().isNotEmpty() }
+        // 홈 지도는 핀 얼굴을 그리려고 보이는 방들의 멤버를 조회한다(프로필 얼굴 6단계). 그 조회가 끝난 뒤부터 방 화면의 조회만 센다.
+        compose.waitUntil(5_000) { 9101L in TestRoomCalls.membersRequested }
+        compose.waitForIdle()
+        TestRoomCalls.membersRequested.clear()
         compose.onNodeWithText("서버 내 방 1").performClick()
         compose.waitUntil(5_000) { compose.onAllNodesWithText("접근 권한이 없어요.").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("이 작업을 수행할 권한이 없어요.").assertExists()

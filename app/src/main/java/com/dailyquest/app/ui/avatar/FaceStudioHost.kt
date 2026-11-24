@@ -39,7 +39,7 @@ import kotlin.math.roundToInt
  * 화면의 **가장 아래 층**(다른 화면이 덮는 자리)에 둔다. TextureView는 화면에 붙어 그려져야 내용이 생기므로 숨기지 않고 가려 둔다.
  * - 대기열이 처음 생길 때 3D 화면을 만들고, 그 뒤로는 계속 둔다(3D 엔진을 만들 때 화면이 잠깐 멈추므로 한 번만).
  * - 맨 앞 얼굴을 입혀 준비되면 [AvatarSnapshot.captureSettled]로 찍고, [SIZE_PX]로 줄여 PNG로 넘긴다.
- * - 한 얼굴에 [TIMEOUT_MS]를 넘기면 실패로 넘긴다(대기열이 막히지 않게).
+ * - 한 얼굴이 [LOAD_TIMEOUT_MS] 안에 준비되지 않으면 실패로 넘긴다(대기열이 막히지 않게). 실패한 얼굴은 [FaceStudio.tries]가 올라 다시 시도한다.
  */
 @Composable
 fun FaceStudioHost(studio: FaceStudio, modifier: Modifier = Modifier) {
@@ -51,7 +51,11 @@ fun FaceStudioHost(studio: FaceStudio, modifier: Modifier = Modifier) {
 
     val view = LocalView.current
     val current = pending.firstOrNull()
+    val tries by studio.tries.collectAsState()
     var status by remember { mutableStateOf<AvatarLoadStatus>(AvatarLoadStatus.Loading) }
+    // 3D 화면이 상태를 알린 횟수. 시도마다 [reload]로 "다시 확인"을 보내고, 그 뒤에 온 알림만 믿는다(예전 상태로 찍지 않게).
+    var statusSeq by remember { mutableIntStateOf(0) }
+    var reload by remember { mutableIntStateOf(0) }
     var framesSinceReady by remember { mutableIntStateOf(0) }
     var bounds by remember { mutableStateOf<android.graphics.Rect?>(null) }
 
@@ -68,25 +72,32 @@ fun FaceStudioHost(studio: FaceStudio, modifier: Modifier = Modifier) {
             camera = AvatarCamera.FACE,
             onStatusChange = {
                 status = it
-                if (it !is AvatarLoadStatus.Ready) framesSinceReady = 0
+                framesSinceReady = 0
+                statusSeq++
             },
             onFrame = { if (status is AvatarLoadStatus.Ready && framesSinceReady < 1000) framesSinceReady++ },
+            reloadKey = reload,
         )
     }
 
-    LaunchedEffect(current?.id) {
+    // 맨 앞 얼굴이 바뀌거나, 같은 얼굴이라도 결과가 나와 다시 시도할 차례(tries)가 되면 찍는다.
+    LaunchedEffect(current?.id, tries) {
         val key = current ?: return@LaunchedEffect
-        status = AvatarLoadStatus.Loading
-        framesSinceReady = 0
-        val png = withTimeoutOrNull(TIMEOUT_MS) {
-            // 이 얼굴의 파츠로 준비되고 몇 프레임 더 그린 뒤(또는 실패하면 바로)
-            val (s, _) = snapshotFlow { status to framesSinceReady }
-                .first { (st, frames) -> (st is AvatarLoadStatus.Ready && frames >= SETTLE_FRAMES) || st is AvatarLoadStatus.Failed }
-            if (s is AvatarLoadStatus.Failed) return@withTimeoutOrNull null
+        val since = statusSeq
+        reload++
+        // 이 얼굴의 파츠로 준비되고 몇 프레임 더 그린 뒤(또는 실패하면 바로). 처음 설치한 앱은 3D 파일을 받느라 오래 걸릴 수 있다.
+        val ready = withTimeoutOrNull(LOAD_TIMEOUT_MS) {
+            snapshotFlow { Triple(statusSeq, status, framesSinceReady) }.first { (seq, st, frames) ->
+                seq > since && ((st is AvatarLoadStatus.Ready && frames >= SETTLE_FRAMES) || st is AvatarLoadStatus.Failed)
+            }.second
+        }
+        val png = if (ready is AvatarLoadStatus.Ready) {
             delay(SETTLE_MS)
-            val b = bounds ?: return@withTimeoutOrNull null
-            val bmp = AvatarSnapshot.captureSettled(view.rootView, b) ?: return@withTimeoutOrNull null
-            withContext(Dispatchers.Default) { toPng(bmp) }
+            val b = bounds
+            val bmp = if (b != null) AvatarSnapshot.captureSettled(view.rootView, b) else null
+            bmp?.let { withContext(Dispatchers.Default) { toPng(it) } }
+        } else {
+            null
         }
         studio.complete(key, png)
     }
@@ -103,7 +114,8 @@ private const val SIZE_PX = 256
 private const val HOST_DP = 128
 private const val SETTLE_FRAMES = 10
 private const val SETTLE_MS = 300L
-private const val TIMEOUT_MS = 30_000L
+/** 한 얼굴의 3D 파일을 받고 준비되기까지 기다리는 최대 시간. 느린 인터넷에서 처음 받는 경우(파일 약 7MB)를 넉넉히. */
+private const val LOAD_TIMEOUT_MS = 120_000L
 
 /** 읽어 둔 얼굴 그림. 화면을 오갈 때 다시 읽지 않는다. 한 장 약 256KB(256×256). */
 private object FaceMemory : LruCache<String, ImageBitmap>(8 * 1024 * 1024) {

@@ -88,6 +88,8 @@ fun AvatarView(
     fetcher: AvatarModelFetcher = AvatarModels.fetcher(LocalContext.current),
     onStatusChange: (AvatarLoadStatus) -> Unit = {},
     onFrame: ((frameTimeNanos: Long) -> Unit)? = null,
+    /** 값이 바뀌면 같은 [parts]라도 다시 맞춰 보고 상태를 다시 알린다(실패한 파츠는 다시 받는다). 얼굴 공장이 다시 찍을 때 쓴다. */
+    reloadKey: Int = 0,
 ) {
     // 3D 엔진(Filament)은 처음 만들 때 메인 스레드를 오래 붙잡는다(에뮬레이터 실측 약 5~6초).
     // 그동안은 화면이 멈춰 진행 표시도 그려지지 않으므로, 진행 표시를 먼저 한 번 그린 뒤 엔진을 만든다.
@@ -98,7 +100,7 @@ fun AvatarView(
         sceneStarted = true
     }
     if (sceneStarted) {
-        AvatarScene(parts, modifier, interactive, camera, fetcher, onStatusChange, onFrame)
+        AvatarScene(parts, modifier, interactive, camera, fetcher, onStatusChange, onFrame, reloadKey)
     } else {
         Box(modifier.testTag("avatarView")) {
             CircularProgressIndicator(Modifier.align(Alignment.Center).testTag("avatarViewLoading"))
@@ -115,6 +117,7 @@ private fun AvatarScene(
     fetcher: AvatarModelFetcher,
     onStatusChange: (AvatarLoadStatus) -> Unit,
     onFrame: ((frameTimeNanos: Long) -> Unit)?,
+    reloadKey: Int,
 ) {
     val engine = rememberEngine()
     val modelLoader = rememberModelLoader(engine)
@@ -139,7 +142,7 @@ private fun AvatarScene(
     }
 
     var retryCount by remember { mutableIntStateOf(0) }
-    LaunchedEffect(loader, parts, retryCount) { loader.sync(parts) }
+    LaunchedEffect(loader, parts, retryCount, reloadKey) { loader.sync(parts) }
 
     val currentOnStatusChange by rememberUpdatedState(onStatusChange)
     // 불러오기가 끝날 때마다(결과가 이전과 같아도) 한 번씩 알린다.

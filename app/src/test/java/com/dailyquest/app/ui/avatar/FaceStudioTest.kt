@@ -55,4 +55,16 @@ class FaceStudioTest {
         assertEquals("포기한 얼굴은 이번 실행에서 다시 줄 서지 않는다", listOf(key("b").id), s.pending.value.map { it.id })
         assertEquals(0, s.version.value)
     }
+
+    @Test fun `결과가 나올 때마다 tries가 올라 같은 얼굴 하나만 있어도 다시 시도한다`() = runBlocking {
+        val s = studio()
+        s.request(key("a"))
+        assertEquals(0, s.tries.value)
+        s.complete(key("a"), null)
+        assertEquals("실패해도 대기열 맨 앞은 그대로 a", listOf(key("a").id), s.pending.value.map { it.id })
+        assertEquals("그래서 tries로 다시 시도할 때를 알린다", 1, s.tries.value)
+        s.complete(key("a"), byteArrayOf(1))
+        assertEquals(2, s.tries.value)
+        assertTrue(s.pending.value.isEmpty())
+    }
 }

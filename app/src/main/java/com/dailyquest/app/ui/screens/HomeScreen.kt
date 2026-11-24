@@ -1,7 +1,6 @@
 
 package com.dailyquest.app.ui.screens
 
-import androidx.annotation.DrawableRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -14,7 +13,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -33,6 +31,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.dailyquest.app.R
+import com.dailyquest.app.data.avatar.MapFaces
+import com.dailyquest.app.data.avatar.PersonFace
 import com.dailyquest.app.data.model.Room
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
@@ -42,13 +42,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.testTag
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dailyquest.app.ui.room.LocalMyRooms
-import com.dailyquest.app.ui.room.mapExtraAvatarCount
 import com.dailyquest.app.navigation.LocalNav
 import com.dailyquest.app.navigation.Routes
 import com.dailyquest.app.ui.components.Bold
 import com.dailyquest.app.ui.components.Btn
 import com.dailyquest.app.ui.components.BtnStyle
-import com.dailyquest.app.ui.components.DqAvatar
+import com.dailyquest.app.ui.avatar.MapRoomFaces
+import com.dailyquest.app.ui.avatar.rememberMapFaces
+import com.dailyquest.app.ui.avatar.rememberMapPersonFaces
 import com.dailyquest.app.ui.components.DqCard
 import com.dailyquest.app.ui.components.DqIcon
 import com.dailyquest.app.ui.components.DqImage
@@ -66,16 +67,12 @@ import com.dailyquest.app.ui.theme.DQColors
 // 마을 지도에서 사용할 방 데이터
 private data class MapRoom(
     val room: Room,
-    @DrawableRes val story: Int,
-    val avatars: List<Int>,
     val pin: Pair<Float, Float>,
     val label: Pair<Float, Float>,
 )
 
 // 마을 지도 전용 이미지 및 배치 정보
 private data class MapRoomSlot(
-    @DrawableRes val story: Int,
-    val avatars: List<Int>,
     val pin: Pair<Float, Float>,
     val label: Pair<Float, Float>,
 )
@@ -83,38 +80,18 @@ private data class MapRoomSlot(
 // 기존 마을 지도 디자인 유지
 private val MAP_ROOM_SLOTS = listOf(
     MapRoomSlot(
-        R.drawable.img_avatar_story_1,
-        listOf(
-            R.drawable.img_avatar_boy,
-            R.drawable.img_avatar_girl,
-            R.drawable.img_avatar_boy
-        ),
         34f to 170f,
         33f to 240f
     ),
     MapRoomSlot(
-        R.drawable.img_avatar_story_2,
-        listOf(
-            R.drawable.img_avatar_boy,
-            R.drawable.img_avatar_girl
-        ),
         240f to 182f,
         251f to 250f
     ),
     MapRoomSlot(
-        R.drawable.img_avatar_story_3,
-        listOf(
-            R.drawable.img_avatar_girl,
-            R.drawable.img_avatar_boy
-        ),
         34f to 326f,
         31.5f to 420f
     ),
     MapRoomSlot(
-        R.drawable.img_avatar_story_4,
-        listOf(
-            R.drawable.img_avatar_boy
-        ),
         240f to 336f,
         245f to 430f
     )
@@ -125,9 +102,6 @@ private fun createMapRooms(rooms: List<Room>): List<MapRoom> {
     return rooms.zip(MAP_ROOM_SLOTS).map { (room, slot) ->
         MapRoom(
             room = room,
-            story = slot.story,
-            // 멤버 상세는 STEP 3-4 전이므로 임시 캐릭터만 쓴다. 스토리 이미지가 이미 캐릭터 1명이므로 추가분은 멤버 수-1까지만 그린다.
-            avatars = slot.avatars.take(mapExtraAvatarCount(room.memberCount, slot.avatars.size)),
             pin = slot.pin,
             label = slot.label
         )
@@ -145,6 +119,9 @@ fun HomeScreen() {
     val currentPage = ui.currentPage
     val pageCount = ui.pageCount
     val mapRooms = createMapRooms(ui.pageRooms)
+    // 프로필 얼굴 6단계: 핀에 실제 멤버 얼굴. 보이는 방들의 멤버를 받아 오고, 얼굴 정보는 한 번에 받는다.
+    val mapFaces = rememberMapFaces(ui.pageRooms)
+    val personFaces = rememberMapPersonFaces(mapFaces)
 
     // 방 상세·생성·참여는 서버 연동 전이므로 안내만 표시한다. 서버 roomId를 Mock 화면으로 넘기지 않는다.
     var notice by remember { mutableStateOf<String?>(null) }
@@ -161,7 +138,7 @@ fun HomeScreen() {
                 )
 
                 mapRooms.forEach { r ->
-                    MapRoomPin(r) {
+                    MapRoomPin(r, mapFaces[r.room.roomId], personFaces) {
                         nav.navigate(Routes.room(r.room.roomId))
                     }
                 }
@@ -291,6 +268,8 @@ fun HomeScreen() {
 @Composable
 private fun MapRoomPin(
     r: MapRoom,
+    faces: MapFaces?,
+    personFaces: Map<Long, PersonFace?>,
     onClick: () -> Unit
 ) {
     Row(
@@ -299,20 +278,7 @@ private fun MapRoomPin(
             .clickable(onClick = onClick),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        DqImage(
-            r.story,
-            Modifier.size(44.dp)
-        )
-
-        r.avatars.forEachIndexed { i, a ->
-            DqAvatar(
-                a,
-                32.dp,
-                Modifier.offset(
-                    x = (if (i == 0) -2 else -2 - 5 * i).dp
-                )
-            )
-        }
+        MapRoomFaces(r.room.roomId, r.room.memberCount, faces, personFaces)
     }
 
     val wood = RoundedCornerShape(10.dp)
