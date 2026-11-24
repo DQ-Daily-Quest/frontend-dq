@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- debug 빌드에만 합쳐지는 매니페스트. STEP 9 3D 테스트 화면. 런처 intent-filter가 없어 일반 실행에는 나타나지 않고 adb 또는 Specified Activity로만 연다. release 빌드에는 들어가지 않는다. -->
+<!-- debug 빌드에만 합쳐지는 매니페스트. STEP 9 3D 테스트 화면, STEP 10 방 테스트 화면. 런처 intent-filter가 없어 일반 실행에는 나타나지 않고 adb 또는 Specified Activity로만 연다. release 빌드에는 들어가지 않는다. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <application>
@@ -9,6 +9,16 @@
             android:label="DQ 3D 테스트"
             android:screenOrientation="portrait"
             android:taskAffinity="com.dailyquest.app.debug3d"
+            android:theme="@style/Theme.DailyQuest">
+        </activity>
+
+        <!-- STEP 10 방 꾸미기 테스트 화면. 3D 테스트 화면과 같이 런처 아이콘 없이 adb로 연다. -->
+        <activity
+            android:name="com.dailyquest.app.debug.RoomDecorTestActivity"
+            android:exported="true"
+            android:label="DQ 방 테스트"
+            android:screenOrientation="portrait"
+            android:taskAffinity="com.dailyquest.app.debugroom"
             android:theme="@style/Theme.DailyQuest">
         </activity>
     </application>

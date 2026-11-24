@@ -80,18 +80,30 @@ class ShopViewModel(
 
     init {
         viewModelScope.launch {
+            // 계정과 함께 성별도 본다. 서버는 내 성별의 아바타 아이템만 내려 주므로(backend v0.4),
+            // 로그인 직후(성별 없음 → 아바타 0개) 캐릭터를 만들면 같은 계정이어도 목록을 다시 받아야 한다.
+            var currentUser: Long? = null
+            var first = true
             session
                 .filter { it is SessionState.Authenticated || it is SessionState.Unauthenticated }
-                .map { (it as? SessionState.Authenticated)?.profile?.userId }
+                .map { s -> (s as? SessionState.Authenticated)?.profile.let { it?.userId to it?.gender } }
                 .distinctUntilChanged()
-                .collect { userId ->
-                    accountGen++
-                    generation++
-                    listJob?.cancel()
-                    detailJob?.cancel()
-                    purchaseInFlight = false
-                    _ui.value = ShopUiState(userId = userId)
-                    if (userId != null) load(reset = true)
+                .collect { (userId, _) ->
+                    if (first || userId != currentUser) {
+                        // 계정이 바뀜: 목록·구매 상태를 모두 버린다.
+                        first = false
+                        currentUser = userId
+                        accountGen++
+                        generation++
+                        listJob?.cancel()
+                        detailJob?.cancel()
+                        purchaseInFlight = false
+                        _ui.value = ShopUiState(userId = userId)
+                        if (userId != null) load(reset = true)
+                    } else if (userId != null) {
+                        // 같은 계정에서 성별만 바뀜(캐릭터 만들기): 보던 탭·카테고리는 그대로 두고 목록만 다시 받는다.
+                        load(reset = true)
+                    }
                 }
         }
     }

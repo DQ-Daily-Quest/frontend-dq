@@ -47,7 +47,7 @@ import com.dailyquest.app.ui.components.Medium
 import com.dailyquest.app.ui.components.Member
 import com.dailyquest.app.ui.components.MemberRow
 import com.dailyquest.app.ui.components.NavHeader
-import com.dailyquest.app.ui.components.RoomInterior
+import com.dailyquest.app.ui.decor.RoomDecorCard
 import com.dailyquest.app.ui.components.Txt
 import com.dailyquest.app.ui.mission.RoomMissionsViewModel
 import com.dailyquest.app.data.mission.MissionScope
@@ -205,17 +205,13 @@ fun RoomScreen(roomId: Long, viewModel: RoomDetailViewModel, manage: RoomManageV
                     }
                 }
 
-                RoomInterior(
-                    height = 252f,
-                    avatars = emptyList(),
-                    avatarSize = 52.dp,
-                    decoX = 265f,
-                    decoY = 213f,
-                    decoWidth = 82.dp,
+                // STEP 10: 고정 일러스트 대신 서버에 저장된 실제 방. "방 꾸미기"는 편집 화면으로 간다.
+                RoomDecorCard(
+                    roomId = roomId,
+                    isMember = ui.isMember,
+                    onDecorate = { nav.navigate(Routes.roomDecor(roomId)) },
                     modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 14.dp),
-                ) {
-                    notice = "방 꾸미기는 아직 서버와 연결되지 않았어요. 곧 사용할 수 있어요."
-                }
+                )
 
                 Row(
                     Modifier.fillMaxWidth().padding(top = 16.dp).drawBehind {

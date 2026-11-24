@@ -62,6 +62,11 @@ object Routes {
     const val SEND_ROOM_MISSION = "room/{roomId}/send-mission"
 
     fun sendRoomMission(roomId: Long): String = "room/$roomId/send-mission"
+
+    // 방 꾸미기 편집 (STEP 10-6)
+    const val ROOM_DECOR = "room/{roomId}/decor"
+
+    fun roomDecor(roomId: Long): String = "room/$roomId/decor"
     const val SHOP = "shop"
     const val COIN_HISTORY = "coin_history"
     const val INVENTORY = "inventory"

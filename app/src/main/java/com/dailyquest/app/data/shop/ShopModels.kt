@@ -40,11 +40,17 @@ data class ShopItem(
     val modelUrl: String?,
     val isDefault: Boolean,
     val owned: Boolean,
-)
+    /** 상점용 썸네일. 없으면 null (STEP 10-8). 카드에는 [cardImageUrl]을 쓴다. */
+    val thumbnailUrl: String? = null,
+) {
+    /** 상점 카드·상세에 보여 줄 그림: 썸네일이 있으면 썸네일, 없으면 원래 그림. */
+    val cardImageUrl: String? get() = thumbnailUrl ?: imageUrl
+}
 
 fun ItemDto.toShopItem() = ShopItem(
     itemId, name, ItemType.parse(type), ItemCategory.parse(category), price,
     ApiConfig.resolveFileUrl(imageUrl), modelUrl, isDefault, owned,
+    thumbnailUrl = ApiConfig.resolveFileUrl(thumbnailUrl),
 )
 
 enum class AcquiredBy(val label: String) {
@@ -66,11 +72,16 @@ data class InventoryItem(
     val acquiredAt: String?,
     val acquiredBy: AcquiredBy,
     val equipped: Boolean,
-)
+    /** 상점용 썸네일. 없으면 null (STEP 10-8). 카드에는 [cardImageUrl]을 쓴다. */
+    val thumbnailUrl: String? = null,
+) {
+    val cardImageUrl: String? get() = thumbnailUrl ?: imageUrl
+}
 
 fun MyItemDto.toInventoryItem() = InventoryItem(
     itemId, name, ItemType.parse(type), ItemCategory.parse(category), price,
     ApiConfig.resolveFileUrl(imageUrl), modelUrl, isDefault, acquiredAt, AcquiredBy.parse(acquiredBy), equipped,
+    thumbnailUrl = ApiConfig.resolveFileUrl(thumbnailUrl),
 )
 
 data class ShopPage(val items: List<ShopItem>, val page: Int, val totalPages: Int, val totalElements: Long) {
