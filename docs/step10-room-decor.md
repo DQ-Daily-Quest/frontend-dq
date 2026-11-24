@@ -20,7 +20,7 @@
 | 2 | 좌표 계산 | 칸 ↔ 방 이미지 위치, 서버 x·y(0~1) ↔ 칸 번호, 방 밖·겹침 검사, 그리는 순서(러그 먼저, 뒤쪽 먼저), **확대·이동 계산**(화면 좌표 ↔ 방 좌표, 확대 1~3배, 방이 화면 밖으로 빠지지 않게 이동 제한) | 단위: 에셋 팩 배치 예시 54개가 미리보기 이미지와 같은 위치에 오는지, 확대 상태에서 손가락 위치가 같은 칸을 가리키는지 | 완료 |
 | 3 | 서버 연결 | 꾸미기 API 3개, `DecorRepository`, 기본 방은 `room_16x16`으로 찾기, 에러(`ITEM_NOT_OWNED_IN_ROOM` 등) 처리 | 단위: 가짜 서버(MockWebServer)로 응답·에러 | 완료 |
 | 4 | 방 보여주기 + 두 손가락 확대 | 이미 놓인 가구(서버에 저장된 배치)를 방 위 정확한 자리에 **보이게만** 한다. 놓기·옮기기는 6단계(방과 가구에 같은 배율, 이미지 기기 캐시). **두 손가락으로 확대·축소(1~3배), 확대했을 때 한 손가락으로 이동, 두 번 탭하면 원래 크기.** 디버그 테스트 화면에서 배치 예시로 확인 | UI: 확대·이동·되돌리기, 화면 캡처를 에셋 미리보기와 비교 | 완료 |
-| 5 | 방 화면에 연결 | 방 화면의 고정 일러스트를 실제 배치된 방으로 바꾼다. 저장한 적 없는 방은 기본 방. 방을 누르면 크게 보기(확대 가능) | UI: 조회 결과대로 그려지는지 | 대기 |
+| 5 | 방 화면에 연결 | 방 화면의 고정 일러스트를 실제 배치된 방으로 바꾼다. 저장한 적 없는 방은 기본 방. 방을 누르면 크게 보기(확대 가능) | UI: 조회 결과대로 그려지는지 | 완료 |
 | 6 | 꾸미기 편집 화면 (가구 놓기) | "방 꾸미기" → 편집 화면. 사용자가 가구 목록(바닥·벽 제외, 놓을 수 있는 개수 표시)에서 골라 방에 놓기, 드래그로 옮기면 칸에 맞춰짐, 회전, 빼기, 겹치거나 방 밖이면 빨간 표시. **확대 상태에서도 편집 가능: 가구를 잡고 끌면 가구 이동, 빈 곳을 끌면 화면 이동, 두 손가락은 확대** | UI: 놓기·옮기기·회전·겹침 막기, 확대 상태에서 옮기기 | 대기 |
 | 7 | 저장 | 저장 요청, 실패 시 되돌리기, 저장 안 하고 나가면 경고, 마지막 수정한 사람 표시 | UI + 단위 | 대기 |
 | 8 | 상점 정리 + 실서버 확인 | ① 상점 버그 수정(캐릭터 만든 직후 아바타 목록이 빔 → `(userId, gender)`로 다시 받기, `fix:` 커밋 따로) ② 가구 썸네일이 잘리지 않게(`RemoteImage`에 맞춤 방식 옵션 추가, 기본값 그대로) ③ 실서버로 전체 흐름 확인 | UI + 실서버 | 대기 |
@@ -419,3 +419,106 @@ UI 테스트만 돌리려면:
 ```
 ./gradlew connectedDebugAndroidTest "-Pandroid.testInstrumentationRunnerArguments.class=com.dailyquest.app.ui.decor.RoomViewTest,com.dailyquest.app.debug.RoomExampleRenderTest,com.dailyquest.app.debug.RoomDecorTestScreenTest"
 ```
+
+---
+
+## 5단계. 방 화면에 연결
+
+방 화면의 고정 일러스트(`RoomInterior`) 자리에 서버에 저장된 실제 방을 보여준다.
+
+### 무엇을 만들었나
+
+**`ui/decor/RoomDecorCard.kt`** (새 파일)
+- 멤버: `GET /rooms/{id}/decorations`로 받은 배치를 그린다. 한 번도 저장하지 않은 방은 기본 방.
+  카드 안쪽 아래 작은 띠에 "마지막으로 꾸민 사람: 닉네임" 또는 "아직 꾸미지 않은 방이에요. 가구를 놓아 보세요.".
+  오른쪽 아래 "방 꾸미기" 버튼(지금은 "편집 화면은 곧 열려요" 안내, 6단계에서 편집 화면 연결).
+- 비멤버: 꾸미기 API가 멤버 전용(403)이라 **부르지 않고** 기본 방만 보여준다. "방에 참여하면 멤버들이 꾸민 모습을 볼 수 있어요.".
+- 앱이 모르는 가구가 있으면 "앱을 업데이트하면 보이는 가구가 N개 있어요."(3단계의 보관 규칙).
+- 불러오기 실패: 안내 문구 + "다시 시도". 다시 받다가 실패해도 이전에 받은 모습은 그대로 보여준다.
+- **방을 한 번 탭하면 "방 크게 보기" 창**: 두 손가락 확대·이동, 두 번 탭 되돌리기. 카드 안에서는 확대하지 않는다(방 화면이 세로 스크롤이라 손가락 동작이 겹치지 않게).
+- **카드 크기는 예전 고정 일러스트와 같은 비율(358:252)이다.** 방 화면의 아래쪽(탭·미션 목록) 위치가 바뀌지 않게 하기 위해서다. 방 그림(4:3)은 그 안에 맞춰 넣어 양옆에 좁은 빈 곳이 생긴다. 안내 문구도 카드 아래가 아니라 카드 안쪽에 넣었다(아래 "기존 테스트 실패와 수정" 참고).
+
+**`ui/decor/RoomDecorViewModel.kt`** (새 파일): 멤버 여부가 정해지거나 바뀔 때(참여 직후·나감) 다시 판단한다. 같은 상태로 다시 불려도 또 부르지 않는다.
+
+**`RoomView` 추가**: 한 번 탭 동작(`onTap`), 화면 읽기용 설명("방, 가구 N개").
+
+**`DecorRepository.DEFAULT_ROOM_IMAGE_URL`**: 기본 방 그림 주소. 연동 규칙 11-2의 파일 주소 규칙(`items/furniture/{code}/{code}.png`)으로 만든다. 비멤버는 배치 가능 목록도 부를 수 없어서 이 주소를 쓴다.
+
+**`AppContainer.decorImages`** 옵션: 그림을 가져오는 곳. 앱은 기본(S3 + 기기 캐시), UI 테스트는 빈 그림을 주는 가짜를 넣어 인터넷 없이 돈다(STEP 9의 `avatar3dEnabled`와 같은 방식).
+
+ViewModel은 카드 안에서 방 ID별로 만든다. 그래서 내비게이션 파일(`NavGraph.kt`, `Routes.kt`)은 건드리지 않았다.
+
+### 다른 팀원 파일
+
+| 파일 | 담당 | 변경 |
+| --- | --- | --- |
+| `ui/screens/RoomScreen.kt` | 홈·방 | `RoomInterior(...)` 블록 하나를 `RoomDecorCard(...)`로 교체, import 1줄 교체. 다른 곳은 그대로 |
+| `data/auth/AppContainer.kt` | (공용) | `decorImages` 옵션 추가 |
+| `androidTest/.../TestDQApplication.kt` | (공용) | 빈 그림 공급, `TestDecorCalls.getRequests`·`seed` 추가 |
+
+`RoomInterior`는 Mock 방·B 흐름 화면에서 계속 쓰여 지우지 않았다.
+
+### 바뀐 파일
+
+| 파일 | 변경 |
+| --- | --- |
+| `app/src/main/java/com/dailyquest/app/ui/decor/RoomDecorCard.kt` | 새 파일 |
+| `app/src/main/java/com/dailyquest/app/ui/decor/RoomDecorViewModel.kt` | 새 파일 |
+| `app/src/main/java/com/dailyquest/app/ui/decor/RoomView.kt` | 한 번 탭, 화면 읽기 설명 |
+| `app/src/main/java/com/dailyquest/app/data/decor/DecorRepository.kt` | 기본 방 그림 주소 상수 |
+| `app/src/main/java/com/dailyquest/app/data/auth/AppContainer.kt` | `decorImages` 옵션 |
+| `app/src/main/java/com/dailyquest/app/ui/screens/RoomScreen.kt` | 고정 일러스트 → 실제 방 카드 |
+| `app/src/androidTest/java/com/dailyquest/app/TestDQApplication.kt` | 빈 그림, 조회 기록·미리 저장 |
+| `app/src/test/java/com/dailyquest/app/ui/decor/RoomDecorViewModelTest.kt` | 새 파일 (단위 6개) |
+| `app/src/androidTest/java/com/dailyquest/app/RoomDecorCardTest.kt` | 새 파일 (UI 6개) |
+
+### 테스트가 확인하는 것
+
+`RoomDecorViewModelTest` (단위)
+| 테스트 | 확인 내용 |
+| --- | --- |
+| `nonMemberDoesNotCallServerAndShowsDefaultRoom` | 비멤버는 서버를 부르지 않고 기본 방 |
+| `memberLoadsDecorAndUsesSavedBackground` | 멤버는 조회, 저장된 배경·마지막 수정한 사람 |
+| `neverSavedRoomUsesDefaultRoomImage` | 저장 안 한 방은 기본 방 그림 |
+| `failureKeepsPreviousDecorAndRetryLoadsAgain` | 실패해도 이전 모습 유지, 다시 시도로 회복 |
+| `forbiddenShowsMemberOnlyMessage` | 403이면 "이 방의 멤버만…" |
+| `becomingMemberLoadsAndLeavingClears` | 참여 직후 조회, 같은 상태 반복은 조회 안 함, 나가면 비움 |
+
+`RoomDecorCardTest` (UI, 앱 전체 + 가짜 서버, 방 9101)
+| 테스트 | 확인 내용 |
+| --- | --- |
+| `neverSavedRoomShowsDefaultRoomEmptyAndDecorateButton` | 가구 0개, "아직 꾸미지 않은 방", 방 꾸미기 버튼, 서버 조회함 |
+| `savedPlacementsAreDrawnWithLastEditor` | 저장된 가구 2개(책상 90°, 러그), "마지막으로 꾸민 사람: 지원" |
+| `furnitureTheAppDoesNotKnowIsCountedNotDrawn` | 모르는 가구는 그리지 않고 "앱을 업데이트하면 보이는 가구가 1개" |
+| `loadFailureShowsRetryAndRetryLoads` | 실패 → 다시 시도 → 정상 |
+| `tappingRoomOpensFullViewAndCloseReturns` | 방 탭 → 크게 보기 → 닫기 → 방 화면 |
+| `decorateButtonTellsEditorIsComing` | 방 꾸미기 버튼 → 안내 |
+
+### 기존 테스트 실패와 수정
+
+처음에는 카드를 방 그림 비율(4:3)로 만들고 안내 문구를 카드 **아래**에 두었다. 그러자 카드가 예전 일러스트보다 약 60dp 커졌고, 전체 UI 테스트에서 **팀원 테스트 `MissionFlowTest.roomMissionTabShowsOnlyThatRoomsMissionsAndExpiredScope`가 실패**했다(127개 중 1개). 아래로 밀린 "마감" 버튼이 하단 메뉴 바 밑에 놓여 터치가 메뉴 바에 닿았기 때문이다. 같은 이유로 내 테스트 `loadFailureShowsRetryAndRetryLoads`의 "다시 시도" 터치도 반응이 없었다.
+
+팀원 테스트를 고치는 대신 **카드 크기를 예전 일러스트와 같게(358:252)** 하고 안내 문구를 카드 안쪽으로 옮겼다. 방 화면의 다른 부분 위치가 STEP 10 전과 같아진다. 그 뒤 두 테스트 모두 원래대로(화면 터치) 통과한다.
+
+"방 꾸미기" 버튼은 카드 바탕색과 같은 색(Soft)이면 버튼처럼 보이지 않아, 위쪽 "방 설정" 버튼과 같은 테두리 모양(Outline)으로 했다.
+
+화면 확인: 임시 테스트로 방 화면(가짜 서버, 빈 그림)을 찍어 카드 크기·안내 띠·버튼 위치를 확인했다(임시 테스트 파일은 지움). 실제 방 그림이 들어간 화면은 8단계(실서버)에서 확인한다.
+
+### 실제 화면 확인 (못 함)
+
+test02 계정으로 방 화면을 열어 보려 했지만, 이 계정은 성별이 없어서 로그인 직후 캐릭터 만들기 화면에서 멈췄다. 성별은 한 번 정하면 되돌릴 수 없어 여기서 멈추고 앱 데이터를 지웠다(서버의 test02 성별은 그대로 없음을 확인). 검증용 계정(STEP 9에서 만든 계정)은 방이 없다. 실서버 화면 확인은 8단계에서 한다.
+
+### 테스트 결과
+
+| 종류 | 결과 |
+| --- | --- |
+| 단위 테스트 | 503개 통과(기존 497 + 새 6) |
+| 새 UI 테스트 | `RoomDecorCardTest` 6개 통과 |
+| 방 화면 기존 UI 테스트(`RoomFlowTest`, `MissionFlowTest`) + `RoomViewTest` | 통과 |
+| 전체 UI 테스트 | 127개 통과(새 6개 포함, 카드 크기 수정 후), 강제 종료 0 |
+
+### 직접 확인하는 방법
+
+1. 앱에서 내가 멤버인 방에 들어간다 → 멤버 목록 아래에 실제 방(저장 안 했으면 빈 기본 방)과 "방 꾸미기" 버튼.
+2. 방을 한 번 탭 → "방 크게 보기"에서 두 손가락 확대·이동, 두 번 탭, 닫기.
+3. 공개방에 참여하지 않은 상태로 보면 기본 방과 "방에 참여하면…" 안내(서버 조회 없음).

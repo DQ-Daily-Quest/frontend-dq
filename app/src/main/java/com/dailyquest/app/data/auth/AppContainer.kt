@@ -6,6 +6,7 @@ import com.dailyquest.app.data.customization.CustomizationData
 import com.dailyquest.app.data.shop.InventoryRepository
 import com.dailyquest.app.data.avatar.MyAvatarRepository
 import com.dailyquest.app.data.decor.DecorRepository
+import com.dailyquest.app.ui.decor.DecorImageSource
 import com.dailyquest.app.data.shop.ShopRepository
 import com.dailyquest.app.data.remote.DqApi
 import com.dailyquest.app.data.mission.MissionRepository
@@ -32,6 +33,11 @@ class AppContainer(
      * "화면이 멈출 때까지 기다리는" Compose UI 테스트가 시간 초과로 실패하기 때문이다. false면 같은 자리에 빈 상자를 그린다.
      */
     val avatar3dEnabled: Boolean = true,
+    /**
+     * 방·가구 그림을 가져오는 곳 (STEP 10). null이면 S3에서 받아 기기에 저장하는 기본 캐시를 쓴다.
+     * UI 테스트는 인터넷 없이 돌도록 빈 그림을 주는 가짜를 넣는다.
+     */
+    val decorImages: DecorImageSource? = null,
 ) {
     val tokens = SessionTokens(tokenStore)
     val session = SessionManager(

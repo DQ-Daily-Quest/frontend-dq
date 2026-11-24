@@ -37,6 +37,8 @@ import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.dailyquest.app.data.decor.PlacedFurniture
@@ -96,6 +98,8 @@ fun RoomView(
     images: DecorImageSource = DecorImages.source(LocalContext.current),
     /** 그림 받기가 한 차례 끝날 때마다(일부 실패 포함) 호출된다. 실패한 그림 수를 넘긴다. */
     onImagesSettled: (failedCount: Int) -> Unit = {},
+    /** 한 번 탭 (예: 방 화면에서 크게 보기). [zoomable]과 관계없이 동작한다. */
+    onTap: (() -> Unit)? = null,
 ) {
     val drawList = remember(room, furniture) {
         val grid = furniture.map { it.placement }
@@ -123,19 +127,21 @@ fun RoomView(
     }
     val loading = urls.any { it !in loaded && it !in failed }
 
-    val gestures = if (zoomable) {
-        Modifier
-            .pointerInput(state) { detectTapGestures(onDoubleTap = { state.reset() }) }
-            .pointerInput(state) { detectZoomAndPan(state) }
-    } else {
-        Modifier
+    val tap by rememberUpdatedState(onTap)
+    val taps = when {
+        zoomable -> Modifier.pointerInput(state) { detectTapGestures(onTap = { tap?.invoke() }, onDoubleTap = { state.reset() }) }
+        onTap != null -> Modifier.pointerInput(state) { detectTapGestures(onTap = { tap?.invoke() }) }
+        else -> Modifier
     }
+    val gestures = if (zoomable) taps.pointerInput(state) { detectZoomAndPan(state) } else taps
 
     Box(
         modifier
             .clipToBounds()
             .onSizeChanged { state.onSize(it.width.toFloat(), it.height.toFloat(), room) }
             .then(gestures)
+            // 화면 읽기 프로그램과 UI 테스트가 무엇이 그려졌는지 알 수 있게 한다.
+            .semantics { contentDescription = "방, 가구 ${furniture.size}개" }
             .testTag("roomView"),
     ) {
         Canvas(Modifier.matchParentSize()) {

@@ -106,6 +106,13 @@ class DecorRepository(private val api: DqApi) {
     companion object {
         const val DEFAULT_ROOM_CODE = "room_16x16"
 
+        /**
+         * 기본 방 그림. 파일 주소는 `items/furniture/{code}/{code}.png` 규칙이다(연동 규칙 11-2).
+         * 한 번도 저장하지 않은 방(배경 null)과, 꾸미기 API를 부를 수 없는 비멤버 화면에서 쓴다.
+         */
+        const val DEFAULT_ROOM_IMAGE_URL =
+            "https://dq-uploads-prod.s3.ap-northeast-2.amazonaws.com/items/furniture/$DEFAULT_ROOM_CODE/$DEFAULT_ROOM_CODE.png"
+
         fun buildSaveRequest(decor: RoomDecor, catalog: RoomCatalog, defaultBackground: DecorItem?): SaveDecorationsRequest {
             val room = catalog.room
             val grid = decor.furniture.map { it.placement }

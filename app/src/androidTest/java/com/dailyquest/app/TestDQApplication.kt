@@ -61,6 +61,7 @@ import com.dailyquest.app.data.remote.dto.DecorationsDto
 import com.dailyquest.app.data.remote.dto.PlacementDto
 import com.dailyquest.app.data.remote.dto.SaveDecorationsRequest
 import com.dailyquest.app.navigation.Routes
+import com.dailyquest.app.ui.decor.DecorImageSource
 
 /** 기존 Mock UI 테스트용: 가짜 토큰과 가짜 API로 로그인된 상태에서 시작하고 개발용 Catalog로 진입한다. */
 class TestDQApplication : DQApplication() {
@@ -70,6 +71,8 @@ class TestDQApplication : DQApplication() {
         startAfterAuth = Routes.CATALOG,
         // 3D 아바타는 매 프레임 그려서 기존 UI 테스트의 idle 대기가 끝나지 않는다. 테스트에서는 빈 상자로 대신한다(STEP 9-7).
         avatar3dEnabled = false,
+        // 방·가구 그림은 S3 대신 빈 그림을 준다. 인터넷 없이 돌게 하기 위해서다(STEP 10-5). 실제 그림은 debug.RoomExampleRenderTest가 확인한다.
+        decorImages = DecorImageSource { Result.success(BLANK_DECOR_IMAGE) },
     )
 
     private object FakeApi : DqApi {
@@ -399,6 +402,9 @@ class TestDQApplication : DQApplication() {
  * STEP 10 방 꾸미기 가짜 서버 상태. 기본은 "한 번도 저장하지 않은 빈 방"과 기본 방만 가진 배치 가능 목록이다.
  * 저장하면 받은 요청을 기록하고, 배치 가능 목록에 있는 아이템으로 응답을 만들어 다음 조회에 돌려준다.
  */
+private val BLANK_DECOR_IMAGE: androidx.compose.ui.graphics.ImageBitmap =
+    androidx.compose.ui.graphics.ImageBitmap(4, 4)
+
 object TestDecorCalls {
     val defaultRoom = DecorItemDto(9001, "기본 방", "FLOOR", "https://example.invalid/room_16x16.png", null, "room_16x16")
 
@@ -407,9 +413,18 @@ object TestDecorCalls {
     val saveRequests: MutableList<Pair<Long, SaveDecorationsRequest>> = java.util.Collections.synchronizedList(mutableListOf())
     @Volatile var failure: Throwable? = null
 
+    /** 조회한 방 ID (요청 순서대로). 비멤버 방은 조회하지 않아야 한다. */
+    val getRequests: MutableList<Long> = java.util.Collections.synchronizedList(mutableListOf())
+
     fun get(roomId: Long): DecorationsDto {
+        getRequests += roomId
         failure?.let { throw it }
         return saved[roomId] ?: DecorationsDto(roomId)
+    }
+
+    /** 이미 저장된 방처럼 꾸민다 (테스트 준비용). */
+    fun seed(roomId: Long, decorations: DecorationsDto) {
+        saved[roomId] = decorations
     }
 
     fun available(roomId: Long): List<AvailableItemDto> {
@@ -438,6 +453,7 @@ object TestDecorCalls {
         availableItems = listOf(AvailableItemDto(defaultRoom, ownerCount = 1))
         saved.clear()
         saveRequests.clear()
+        getRequests.clear()
         failure = null
     }
 }
