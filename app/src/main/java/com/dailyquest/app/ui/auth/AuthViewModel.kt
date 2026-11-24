@@ -75,7 +75,7 @@ class AuthViewModel(private val container: AppContainer) : ViewModel() {
         if (password.isEmpty()) return fail("비밀번호를 입력해 주세요.")
         if (!beginRequest()) return
         viewModelScope.launch {
-            when (val r = repo.login(email.trim(), password)) {
+            when (val r = repo.login(AuthValidator.normalizeEmail(email), password)) {
                 is ApiResult.Success -> _ui.update { it.copy(loading = false) }
                 is ApiResult.Failure -> _ui.update { it.copy(loading = false, error = AuthErrorMessages.forApi(r.error)) }
             }
@@ -106,9 +106,9 @@ class AuthViewModel(private val container: AppContainer) : ViewModel() {
         AuthValidator.nickname(nickname)?.let { return fail(it) }
         if (!beginRequest()) return
         viewModelScope.launch {
-            when (val r = repo.signup(email.trim(), password, nickname.trim())) {
+            when (val r = repo.signup(AuthValidator.normalizeEmail(email), password, nickname.trim())) {
                 is ApiResult.Failure -> _ui.update { it.copy(loading = false, error = AuthErrorMessages.forApi(r.error)) }
-                is ApiResult.Success -> when (repo.login(email.trim(), password)) {
+                is ApiResult.Success -> when (repo.login(AuthValidator.normalizeEmail(email), password)) {
                     is ApiResult.Success -> _ui.update { it.copy(loading = false, signupOutcome = SignupOutcome.LOGGED_IN) }
                     is ApiResult.Failure -> _ui.update {
                         it.copy(

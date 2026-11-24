@@ -47,13 +47,13 @@ class PasswordResetRepository(private val api: DqApi) {
     }
 }
 
-/** 서버 계약에 맞춘 입력 검증. 이메일은 서버가 trim만 하고 대소문자는 바꾸지 않으므로 같은 방식으로만 정규화한다. */
+/** 서버 계약에 맞춘 입력 검증. 이메일은 서버가 trim 후 소문자로 정규화하므로 같은 방식으로 보낸다. */
 object PasswordResetValidator {
     const val CODE_LENGTH = 6
     const val PASSWORD_MIN = 8
     const val PASSWORD_MAX = 64
 
-    fun normalizeEmail(value: String): String = value.trim()
+    fun normalizeEmail(value: String): String = AuthValidator.normalizeEmail(value)
 
     fun email(value: String): String? = AuthValidator.email(value)
 
@@ -64,7 +64,7 @@ object PasswordResetValidator {
         if (value.length == CODE_LENGTH && value.all { it in '0'..'9' }) null else "인증 코드 6자리를 입력해 주세요."
 
     fun newPassword(password: String, confirm: String): String? = when {
-        password.length !in PASSWORD_MIN..PASSWORD_MAX -> "비밀번호는 ${PASSWORD_MIN}~${PASSWORD_MAX}자로 입력해 주세요."
+        AuthValidator.passwordError(password) != null -> AuthValidator.passwordError(password)
         password != confirm -> "새 비밀번호가 일치하지 않아요."
         else -> null
     }
@@ -91,7 +91,7 @@ object PasswordResetMessages {
     }
 
     fun forConfirm(e: ApiException): String = when {
-        e is ApiException.Http && e.code == ApiErrorCode.VALIDATION_ERROR -> "비밀번호는 ${PasswordResetValidator.PASSWORD_MIN}~${PasswordResetValidator.PASSWORD_MAX}자로 입력해 주세요."
+        e is ApiException.Http && e.code == ApiErrorCode.VALIDATION_ERROR -> "비밀번호는 ${PasswordResetValidator.PASSWORD_MIN}~${PasswordResetValidator.PASSWORD_MAX}자(한글은 24자까지)로 입력해 주세요."
         else -> AuthErrorMessages.forApi(e)
     }
 

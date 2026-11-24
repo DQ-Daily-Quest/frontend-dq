@@ -198,9 +198,11 @@ Notifications and push: the FCM token is registered with `PUT /users/me/fcm-toke
 
 Latest recorded results:
 
-- 584 unit tests passed
+- 597 unit tests passed (includes 429 / account-input rules)
 - 164 instrumented tests passed (run with `adb shell am instrument` so app data is kept)
 - Debug build successful
+
+Backend rate limit (HTTP 429 `TOO_MANY_REQUESTS`, `Retry-After` seconds) is shown as a Korean message with the wait time and is never retried automatically. Emails are trimmed and lowercased; passwords are 8~64 characters and at most 72 UTF-8 bytes (Korean up to 24); nicknames are trimmed, 2~12 characters, and must not start with "탈퇴회원".
 
 The password-reset flow is verified only against a fake API; it has not been exercised against the real server by automated tests.
 
