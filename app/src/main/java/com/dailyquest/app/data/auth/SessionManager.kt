@@ -19,13 +19,15 @@ data class UserProfile(
     val createdAt: String? = null,
     /** null은 서버가 알려 주지 않은 상태이며 true/false로 추정하지 않는다. */
     val hasPassword: Boolean? = null,
+    /** 아바타 체형 MALE | FEMALE. null이면 캐릭터를 아직 만들지 않은 계정이라 로그인 후 캐릭터 만들기로 보낸다(STEP 9-9). */
+    val gender: String? = null,
 )
 
 fun UserMeResponse.toProfile() = UserProfile(
     userId = userId, email = email, nickname = nickname, coins = coins,
     streakCurrent = streak.current, streakLongest = streak.longest,
     roomCount = stats.roomCount, completedMissionCount = stats.completedMissionCount,
-    createdAt = createdAt, hasPassword = hasPassword,
+    createdAt = createdAt, hasPassword = hasPassword, gender = gender,
 )
 
 /** [PASSWORD_CHANGED]: 서버가 Refresh Token을 모두 폐기했다. [WITHDRAWN]: 회원 탈퇴가 확정됐다. */

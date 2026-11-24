@@ -21,4 +21,8 @@ data class MyItemDto(
     val acquiredAt: String? = null,
     val acquiredBy: String? = null,
     val equipped: Boolean = false,
+    /** 에셋 코드(= GLB 파일 이름). 가구는 null (backend v0.4, STEP 9-9 피부 고르기에 쓴다) */
+    val code: String? = null,
+    /** 착용 가능한 체형 MALE | FEMALE, null이면 공용 (backend v0.4) */
+    val gender: String? = null,
 )

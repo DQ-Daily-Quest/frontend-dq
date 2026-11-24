@@ -4,6 +4,7 @@ import com.dailyquest.app.data.auth.social.SocialAuthClient
 import com.dailyquest.app.data.auth.social.SocialProvider
 import com.dailyquest.app.data.customization.CustomizationData
 import com.dailyquest.app.data.shop.InventoryRepository
+import com.dailyquest.app.data.avatar.MyAvatarRepository
 import com.dailyquest.app.data.shop.ShopRepository
 import com.dailyquest.app.data.remote.DqApi
 import com.dailyquest.app.data.mission.MissionRepository
@@ -32,6 +33,11 @@ class AppContainer(
     val startAfterAuth: String = Routes.HOME,
     val socialClients: Map<SocialProvider, SocialAuthClient> = emptyMap(),
     pushTokenSource: PushTokenSource = NoPushTokenSource,
+    /**
+     * 아바타를 3D로 그릴지 (STEP 9). UI 테스트만 false로 둔다. 3D 화면은 매 프레임 계속 그려서
+     * "화면이 멈출 때까지 기다리는" Compose UI 테스트가 시간 초과로 실패하기 때문이다. false면 같은 자리에 빈 상자를 그린다.
+     */
+    val avatar3dEnabled: Boolean = true,
 ) {
     val tokens = SessionTokens(tokenStore)
     val session = SessionManager(
@@ -51,6 +57,7 @@ class AppContainer(
     val shopRepository = ShopRepository(api)
     val inventoryRepository = InventoryRepository(api)
     val notificationRepository = NotificationRepository(api)
+    val myAvatarRepository = MyAvatarRepository(api, session)
 
     /** 화면 수명과 무관하게 이어져야 하는 갱신(코인 잔액 등)을 위한 앱 범위. */
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
