@@ -109,6 +109,12 @@ class TestDQApplication : DQApplication() {
             TestProfileCalls.withdrawFailure?.let { throw it }
         }
         override suspend fun me() = meResponse()
+        // 프로필 얼굴 7단계: 다른 사람 공개 프로필. 아바타는 방 멤버와 같은 값을 쓴다.
+        override suspend fun getUser(userId: Long): com.dailyquest.app.data.remote.dto.PublicUserDto {
+            TestRoomCalls.usersRequested.add(userId)
+            if (userId == 1L) return com.dailyquest.app.data.remote.dto.PublicUserDto(1, TestProfileCalls.nickname, TestAvatarCalls.gender, TestAvatarCalls.avatarDto())
+            return com.dailyquest.app.data.remote.dto.PublicUserDto(userId, "user$userId", avatar = TestRoomCalls.memberAvatars[userId] ?: com.dailyquest.app.data.remote.dto.AvatarDto())
+        }
         override suspend fun requestPasswordReset(body: com.dailyquest.app.data.remote.dto.PasswordResetRequest) {
             TestResetCalls.requests += body.email
             TestResetCalls.requestFailure?.let { throw it }
@@ -695,12 +701,14 @@ object TestRoomCalls {
         created.clear(); createCalls = 0; createFailure = null; forbiddenRoomId = null; membersRequested.clear()
         calls.clear(); joined.clear(); left.clear(); gone.clear(); kicked.clear(); transferred.clear()
         renamed.clear(); describedAs.clear(); maxOverride.clear(); publicOverride.clear(); inviteOverride.clear()
-        mutationFailure = null; lastUpdate = null; memberAvatars.clear(); extraMembers.clear()
+        mutationFailure = null; lastUpdate = null; memberAvatars.clear(); extraMembers.clear(); usersRequested.clear()
         TestMissionCalls.reset(); TestProofCalls.reset(); TestShopCalls.reset(); TestProfileCalls.reset(); TestNotificationCalls.reset()
     }
     /** 프로필 얼굴: 멤버별 착용 아바타(userId → 아이템 ID)와 기본 두 명 뒤에 붙일 멤버. */
     val memberAvatars: MutableMap<Long, com.dailyquest.app.data.remote.dto.AvatarDto> = java.util.concurrent.ConcurrentHashMap()
     val extraMembers: MutableList<RoomMemberDto> = java.util.Collections.synchronizedList(mutableListOf())
+    /** GET /users/{id} 요청 기록(프로필 얼굴 7단계). */
+    val usersRequested: MutableList<Long> = java.util.Collections.synchronizedList(mutableListOf())
     /** 방 참여·관리 FakeApi 상태. 서버 응답을 흉내 내는 상태이며 테스트 후 reset()으로 비운다. */
     val calls: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
     val joined: MutableSet<Long> = java.util.Collections.synchronizedSet(linkedSetOf())

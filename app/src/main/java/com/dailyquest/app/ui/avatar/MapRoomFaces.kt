@@ -39,11 +39,21 @@ import com.dailyquest.app.ui.theme.DQColors
  */
 @Composable
 fun rememberMapFaces(rooms: List<Room>): Map<Long, MapFaces> {
-    val container = LocalAppContainer.current
-    val repo = container.roomMemberFaceRepository
-    val session by container.session.state.collectAsStateWithLifecycle()
-    val me = (session as? SessionState.Authenticated)?.profile
-    val roomIds = rooms.map { it.roomId }
+    val me = rememberMyProfile()
+    val members = rememberRoomMembers(rooms.map { it.roomId })
+    return rooms.mapNotNull { room ->
+        val list: List<RoomMemberDto> = members[room.roomId] ?: return@mapNotNull null
+        room.roomId to pickMapFaces(list, room.memberCount, me?.userId, me?.avatar)
+    }.toMap()
+}
+
+/**
+ * [roomIds] 방들의 멤버 목록. 기억해 둔 목록으로 바로 돌려주고, 화면에 들어올 때 새로 받는다.
+ * 아직 한 번도 못 받은 방은 빠진다. 멤버만 볼 수 있으므로 **내가 참여한 방만** 넘긴다.
+ */
+@Composable
+fun rememberRoomMembers(roomIds: List<Long>): Map<Long, List<RoomMemberDto>> {
+    val repo = LocalAppContainer.current.roomMemberFaceRepository
     var members by remember(roomIds) {
         mutableStateOf(roomIds.mapNotNull { id -> repo.cached(id)?.let { id to it } }.toMap())
     }
@@ -52,10 +62,34 @@ fun rememberMapFaces(rooms: List<Room>): Map<Long, MapFaces> {
         val fresh = repo.refresh(roomIds)
         if (fresh.isNotEmpty()) members = members + fresh
     }
-    return rooms.mapNotNull { room ->
-        val list: List<RoomMemberDto> = members[room.roomId] ?: return@mapNotNull null
-        room.roomId to pickMapFaces(list, room.memberCount, me?.userId, me?.avatar)
-    }.toMap()
+    return members
+}
+
+/**
+ * 공개방 카드의 방장 얼굴 (프로필 얼굴 7단계). **내가 참여한 방만** 멤버 목록에서 방장을 찾아 얼굴 재료를 만든다.
+ * 참여하지 않은 방은 서버가 멤버를 주지 않으므로 결과에 없다(카드에 얼굴을 띄우지 않는다, 사용자 결정 2026-11-24).
+ * 참여한 방이지만 아직 받는 중이면 값이 null(사람 아이콘).
+ */
+@Composable
+fun rememberRoomOwnerFaces(rooms: List<Room>): Map<Long, PersonFace?> {
+    val me = rememberMyProfile()
+    val joined = rooms.filter { it.joined }.map { it.roomId }
+    val members = rememberRoomMembers(joined)
+    val owners = joined.map { id ->
+        val owner = members[id]?.firstOrNull { it.role == ROLE_OWNER }
+        if (owner != null && owner.userId == me?.userId && me.avatar != null) me.avatar else owner?.avatar
+    }
+    val faces = rememberPersonFaces(owners)
+    return joined.mapIndexed { i, id -> id to (if (owners[i] == null) null else faces.getOrNull(i)) }.toMap()
+}
+
+private const val ROLE_OWNER = "OWNER"
+
+/** 세션의 내 정보(내 얼굴은 서버 목록 대신 지금 착용을 쓴다). */
+@Composable
+internal fun rememberMyProfile(): com.dailyquest.app.data.auth.UserProfile? {
+    val session by LocalAppContainer.current.session.state.collectAsStateWithLifecycle()
+    return (session as? SessionState.Authenticated)?.profile
 }
 
 /** 지도 핀 첫 얼굴의 분홍 테두리 (기존 핀 그림 `img_avatar_story_*`과 같은 색·두께). */

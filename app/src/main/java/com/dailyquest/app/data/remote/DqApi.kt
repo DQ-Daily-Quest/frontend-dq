@@ -42,6 +42,7 @@ import com.dailyquest.app.data.remote.dto.ChangePasswordRequest
 import com.dailyquest.app.data.remote.dto.SetGenderRequest
 import com.dailyquest.app.data.remote.dto.UpdateAvatarRequest
 import com.dailyquest.app.data.remote.dto.UpdateMeRequest
+import com.dailyquest.app.data.remote.dto.PublicUserDto
 import com.dailyquest.app.data.remote.dto.UserMeResponse
 import com.dailyquest.app.data.remote.dto.WithdrawRequest
 import com.dailyquest.app.data.remote.dto.AvailableItemDto
@@ -102,6 +103,10 @@ interface DqApi {
 
     @GET("users/me")
     suspend fun me(): UserMeResponse
+
+    /** 다른 사용자 공개 프로필 (api.md 3.3). 이메일·코인은 없다. 다른 사람의 아바타 얼굴을 그릴 때 쓴다(프로필 얼굴). */
+    @GET("users/{userId}")
+    suspend fun getUser(@Path("userId") userId: Long): PublicUserDto
 
     /** 닉네임 수정. 멱등하지만 응답 유실 시 결과를 재조회로 확인하므로 자동 재전송은 끈다. */
     @Headers("X-DQ-No-Retry: true")
