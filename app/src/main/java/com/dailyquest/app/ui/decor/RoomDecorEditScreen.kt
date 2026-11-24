@@ -217,7 +217,7 @@ private fun EditBody(
         val furniture = ui.choices?.furniture.orEmpty()
         if (furniture.isEmpty()) {
             Txt(
-                "방 멤버가 가진 가구가 없어요. 상점의 \"우리 집\"에서 가구를 사 보세요.",
+                "방 멤버가 가진 가구가 없어요. 상점의 \"가구\"에서 가구를 사 보세요.",
                 size = 12.5f, color = DQColors.Muted,
                 modifier = Modifier.padding(horizontal = 16.dp).testTag("decorTrayEmpty"),
             )

@@ -45,13 +45,13 @@ class ShopTryOnTest {
     private fun exists(tag: String) = compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
 
     private fun openShop() {
-        compose.onNode(hasText("쇼핑 (아바타 · 우리 집)") and hasClickAction()).performScrollTo().performClick()
+        compose.onNode(hasText("쇼핑 (아바타 · 가구)") and hasClickAction()).performScrollTo().performClick()
         waitTag("shopGrid")
     }
 
     /**
      * 상점 목록은 앱이 켜질 때 이미 받아 둔다. 테스트에서 보유 아이템을 바꾼 뒤에는
-     * "우리 집 → 아바타"로 탭을 오가 목록을 새로 받게 하고, [ownedId]가 보유로 보일 때까지 기다린다.
+     * "가구 → 아바타"로 탭을 오가 목록을 새로 받게 하고, [ownedId]가 보유로 보일 때까지 기다린다.
      */
     private fun reloadCatalog(ownedId: Long) {
         compose.onNodeWithTag("shopType_FURNITURE").performClick()

@@ -7,7 +7,7 @@ import com.dailyquest.app.data.remote.dto.MyItemDto
 
 /** 서버 ItemType. 알 수 없는 값은 UNKNOWN으로 두고 목록의 '전체'에서만 보여 준다. */
 enum class ItemType(val label: String) {
-    AVATAR("아바타"), FURNITURE("우리 집"), UNKNOWN("기타");
+    AVATAR("아바타"), FURNITURE("가구"), UNKNOWN("기타");
 
     companion object { fun parse(v: String?) = entries.firstOrNull { it != UNKNOWN && it.name == v } ?: UNKNOWN }
 }

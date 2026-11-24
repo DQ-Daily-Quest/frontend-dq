@@ -49,7 +49,7 @@ class CharacterCreateTest {
         compose.onNodeWithTag("characterStart").assertIsEnabled().performClick()
 
         // 테스트 앱의 로그인 후 첫 화면(개발용 Catalog)으로 넘어간다
-        waitText("쇼핑 (아바타 · 우리 집)")
+        waitText("쇼핑 (아바타 · 가구)")
         assertEquals(listOf("FEMALE"), TestAvatarCalls.genderRequests.toList())
         assertEquals("FEMALE", TestAvatarCalls.gender)
     }
@@ -58,7 +58,7 @@ class CharacterCreateTest {
         waitTag("characterStart")
         compose.onNodeWithTag("characterStart").performClick()
 
-        waitText("쇼핑 (아바타 · 우리 집)")
+        waitText("쇼핑 (아바타 · 가구)")
         assertEquals(listOf("MALE"), TestAvatarCalls.genderRequests.toList())
     }
 
@@ -71,7 +71,7 @@ class CharacterCreateTest {
         compose.onNodeWithTag("characterStart").assertIsEnabled()
         // 다시 누르면 성공해서 넘어간다
         compose.onNodeWithTag("characterStart").performClick()
-        waitText("쇼핑 (아바타 · 우리 집)")
+        waitText("쇼핑 (아바타 · 가구)")
         assertEquals(2, TestAvatarCalls.genderRequests.size)
     }
 }

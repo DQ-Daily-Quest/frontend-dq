@@ -40,7 +40,7 @@ private val GROUPS = listOf(
         Triple("05", "미션 인증하기", Routes.MISSION_VERIFY),
         Triple("06", "인증 확인 (팀원 투표)", Routes.VERIFY_CHECK),
         Triple("07", "미션 보내기", Routes.SEND_MISSION),
-        Triple("08", "쇼핑 (아바타 · 우리 집)", Routes.SHOP),
+        Triple("08", "쇼핑 (아바타 · 가구)", Routes.SHOP),
     ),
     "B · 로그인 · 회원가입 (09–11)" to listOf(
         Triple("09", "A1 로그인", Routes.LOGIN),

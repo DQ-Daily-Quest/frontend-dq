@@ -82,10 +82,10 @@ class ShopGenderReloadTest {
 
         session.value = signedIn(1, gender = "FEMALE")
         advanceUntilIdle()
-        assertEquals("보던 탭(우리 집)을 그대로 다시 받는다", ItemType.FURNITURE, vm.ui.value.type)
+        assertEquals("보던 탭(가구)을 그대로 다시 받는다", ItemType.FURNITURE, vm.ui.value.type)
         assertEquals(listOf("나무 책상"), vm.ui.value.items.map { it.name })
         assertEquals("FURNITURE", api.calls.last())
-        assertEquals("처음(아바타) → 우리 집 → 성별이 정해져 우리 집 다시", listOf("AVATAR", "FURNITURE", "FURNITURE"), api.calls)
+        assertEquals("처음(아바타) → 가구 → 성별이 정해져 가구 다시", listOf("AVATAR", "FURNITURE", "FURNITURE"), api.calls)
     }
 
     @Test fun coinChangeAloneDoesNotReload() = runTest {

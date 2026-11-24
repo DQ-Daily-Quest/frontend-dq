@@ -27,7 +27,7 @@ class ShopFlowTest {
     private fun waitTag(tag: String) = compose.waitUntil(5_000) { compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() }
     private fun waitText(text: String) = compose.waitUntil(5_000) { compose.onAllNodesWithText(text, substring = true).fetchSemanticsNodes().isNotEmpty() }
     private fun openShop() {
-        compose.onNode(hasText("쇼핑 (아바타 · 우리 집)") and hasClickAction()).performScrollTo().performClick()
+        compose.onNode(hasText("쇼핑 (아바타 · 가구)") and hasClickAction()).performScrollTo().performClick()
         waitTag("shopGrid")
     }
     /** 아바타 상품은 카드를 누르면 입어보기가 되고, 아래 구매 버튼으로 상세·구매 창을 연다(STEP 9-7). */

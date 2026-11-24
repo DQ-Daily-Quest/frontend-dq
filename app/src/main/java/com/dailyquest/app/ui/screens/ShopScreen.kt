@@ -63,7 +63,7 @@ private val ITEMS = listOf(
     ShopItem(Color(0xFFF4B183), -1),
 )
 
-/** 08 · 쇼핑 (아바타 · 우리 집) */
+/** 08 · 쇼핑 (아바타 · 가구) */
 @Composable
 fun ShopScreen(startOwned: Boolean = false) = AvatarShopContent(startOwned)
 
@@ -93,7 +93,7 @@ private fun ShopContent(variantB: Boolean) {
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
                 if (!variantB) {
                     Row(Modifier.padding(top = 4.dp).fillMaxWidth().height(42.dp).background(DQColors.Soft, RoundedCornerShape(21.dp)).padding(4.dp)) {
-                        listOf("아바타", "우리 집").forEach { s ->
+                        listOf("아바타", "가구").forEach { s ->
                             val on = s == segment
                             val shape = RoundedCornerShape(17.dp)
                             Box(
