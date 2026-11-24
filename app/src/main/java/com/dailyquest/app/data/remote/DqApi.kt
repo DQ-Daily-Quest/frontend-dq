@@ -56,7 +56,6 @@ import retrofit2.http.PATCH
 import retrofit2.http.PUT
 import retrofit2.http.POST
 import retrofit2.http.Path
-import retrofit2.http.PUT
 import retrofit2.http.Query
 
 /** 경로는 Base URL 뒤에 붙으므로 앞에 '/'를 쓰지 않는다. */
