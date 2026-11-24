@@ -31,7 +31,7 @@
 | 1 | 얼굴 찍기 실험 | 디버그 "얼굴 테스트" 화면에서 얼굴 카메라로 찍어 PNG로 만들 수 있는지, 남·여·모자 조합이 잘 나오는지, 한 장에 몇 초인지 확인 | 디버그 화면 + UI 테스트 | 완료 |
 | 2 | 얼굴 사진 공장 | 보이지 않는 3D 화면 하나 + 대기열(한 번에 하나씩), 착용 조합 키, 디스크·메모리 캐시 | 단위: 키·캐시·대기열 / UI: 실제로 PNG가 생기는지 | 완료 |
 | 3 | 사람 → 착용 파츠 | 아바타(아이템 ID) → `/shop/items/batch` → 3D 주소. 아이템 정보는 한 번 받으면 재사용 | 단위: MockWebServer | 완료 |
-| 4 | `ProfileFace` 공용 부품 | 얼굴 사진, 없으면 성별별 기본 그림, 성별 모르면 사람 아이콘 | UI | 대기 |
+| 4 | `ProfileFace` 공용 부품 | 얼굴 사진, 없으면 성별별 기본 그림, 성별 모르면 사람 아이콘 | UI | 완료 |
 | 5 | 적용 ① 내 얼굴·방 멤버 | 마이페이지 내 프로필, 방 화면 멤버 목록("임시 이미지예요" 문구 제거). 내가 착용을 바꾸면 바로 갱신 | UI + 실서버 | 대기 |
 | 6 | 적용 ② 홈 지도 | 방 옆 얼굴을 실제 멤버로(최대 3명 + 나머지 "+N"). 방마다 멤버 목록 조회 | UI + 실서버 | 대기 |
 | 7 | 적용 ③ 나머지 | 피드 작성자, 미션 보내기 받는 사람, 홈 "친구가 보낸 미션" — 서버 정보가 있는 곳부터 | UI | 대기 |
@@ -41,6 +41,7 @@
 
 | 파일 | 담당 | 단계 | 변경 |
 | --- | --- | --- | --- |
+| `MainActivity.kt` | 공용 | 4 | 맨 아래 층에 얼굴 공장 + 화면 전체를 덮는 배경(색은 창 배경과 같음) |
 | `AccountScreen.kt` | 홈·방(마이) | 5 | 프로필 카드의 얼굴 자리 |
 | `RoomScreen.kt`, `RoomParts.kt` | 홈·방 | 5 | 멤버 목록 얼굴 |
 | `HomeScreen.kt` | 홈·방 | 6 | 지도 방 옆 얼굴 |
@@ -242,3 +243,64 @@ adb shell am start -n com.dailyquest.app/.debug.FaceStudioTestActivity
 
 화면에는 아직 붙이지 않았다(4~5단계).
 
+---
+
+## 4단계. `ProfileFace` 공용 부품
+
+### 무엇을 만들었나
+
+| 파일 | 내용 |
+| --- | --- |
+| `ui/avatar/ProfileFace.kt` (새 파일) | 얼굴 동그라미 `ProfileFace(face: PersonFace?, size)`, 서버 아바타로 그리는 `ProfileFace(avatar: AvatarDto?, size)`, `rememberPersonFace(avatar)` |
+| `data/avatar/AvatarFaceRepository.kt` | 결과를 `PersonFace(gender, parts)`로 바꿈(3단계는 파츠만 돌려줬다). 이름도 `face`·`faces`·`cachedFace`로. 내 아바타용 `MyAvatar.toPersonFace()` |
+| `data/remote/dto/ShopDtos.kt` | `ItemDto.gender` 추가 (서버가 이미 주는 값, 기본값 null) |
+| `MainActivity.kt` | 얼굴 공장(`FaceStudioHost`)을 화면 맨 아래 층에 두고, 그 위를 `DQColors.Bg` 배경 상자로 덮은 뒤 그 안에 기존 화면(`DQNavGraph`)을 둔다. 배경색은 창 배경(`#F6FAF4`)과 같아 보이는 것은 바뀌지 않는다. UI 테스트 환경(3D 끔)에서는 공장을 두지 않는다 |
+| `debug/FaceStudioTestActivity.kt` | 얼굴 동그라미를 `ProfileFace`로 바꿈(실제 모양 확인용) |
+| `androidTest/.../TestDQApplication.kt` | 가짜 상점 아이템에 3D 주소·성별, batch 요청 횟수·실패 흉내 |
+
+### 보여주는 순서
+
+1. 그 사람 착용 조합의 **얼굴 사진** — 기기에 있으면 바로, 없으면 얼굴 공장에 찍기를 부탁하고 찍히면 바뀐다.
+2. 사진이 아직 없으면 **성별별 기본 그림**(남자아이·여자아이, 지금 쓰는 그림 그대로).
+3. 성별을 모르면(아바타 없음·아이템 정보 못 받음·서버 오류) **사람 아이콘**(지금 방 멤버 목록에 쓰는 아이콘).
+
+모양은 기존 `DqAvatar`와 같다(동그라미, 흰 테두리 2dp). 사진 배경은 기본 그림과 비슷한 `DQColors.Cream`.
+
+### 성별은 어디서 아나
+
+방 멤버·피드 작성자 정보에는 성별이 없다. 대신 batch로 받는 아이템에 체형(`gender`: MALE/FEMALE)이 있어서, **피부(몸) 아이템의 체형**으로 정한다(피부에 없으면 다른 얼굴 아이템). 새 서버 요청은 없다(3단계의 같은 batch 한 번).
+
+### 확인 (에뮬레이터, 디버그 "얼굴 공장 테스트" 화면)
+
+- "얼굴 보여주기"를 누르면 먼저 성별별 기본 그림 4개(남 2, 여 2)가 바로 보이고, 공장이 찍는 대로 하나씩 실제 아바타 얼굴로 바뀐다. 노란 레인 모자도 동그라미 안에 들어온다. 64dp·32dp 모두 또렷하다.
+- 이번에는 4장 다 뜨기까지 약 44초 걸렸다. UI 테스트를 돌리며 앱을 다시 설치해 3D 파일을 새로 내려받았기 때문이다(2단계: 파일이 있으면 한 장에 1~1.4초).
+- 앱을 평소처럼 열면 화면은 그대로다(아직 `ProfileFace`를 쓰는 화면이 없어 공장도 시작하지 않는다).
+
+### 테스트가 확인하는 것
+
+`AvatarFaceRepositoryTest` (단위) — 3단계 9개를 새 이름으로 바꾸고 2개 추가
+| 테스트 | 확인 내용 |
+| --- | --- |
+| `성별은 착용 아이템의 체형으로 정한다 - 피부 먼저, 모르면 null` | 남·여, 피부에 체형이 없으면 머리로, 아무것도 모르면 null, 아바타 없음 |
+| `내 아바타는 이미 아는 주소에서 얼굴 슬롯만 남긴다` | `MyAvatar.toPersonFace()`: 신발·주소 없는 모자는 빠짐 |
+
+`ProfileFaceTest` (UI)
+| 테스트 | 확인 내용 |
+| --- | --- |
+| `withoutPhotoShowsGenderPictureOrPersonIcon` | 사진 없음 → 남자아이/여자아이/사람 아이콘, 얼굴 공장에 찍기 부탁이 들어감 |
+| `storedPhotoIsShownAndSizeIsKept` | 저장된 사진이 있으면 사진, 크기 40dp 그대로, 설명 글 |
+| `serverAvatarIsResolvedOnceAndUsesItemGender` | 서버 아바타 → 여자아이 그림, 얼굴 두 개여도 batch 1번, 하의만 다른 같은 얼굴은 저장된 사진으로·다시 묻지 않음 |
+| `unknownItemsOrServerErrorShowPersonIcon` | 서버 오류·아바타 없음·서버에 없는 아이템 → 사람 아이콘 |
+
+
+### 테스트 결과
+
+| 종류 | 결과 |
+| --- | --- |
+| 단위 테스트 | 601개 통과(기존 599 + 새 2) |
+| 새 UI 테스트 | `ProfileFaceTest` 4개 통과 |
+| 전체 UI 테스트 | 171개 중 168개 통과, STEP 9 `Avatar3dTestScreenTest` 3개 실패 → 다시 돌려 8개 모두 통과 |
+
+STEP 9 테스트 3개는 실제 S3에서 3D 파일을 받다가 "다운로드 0개"로 실패했다. 그때 에뮬레이터 인터넷 응답이 약 300ms로 느렸고, 이번에 바꾼 코드(`MainActivity`·`ProfileFace`)는 그 디버그 화면에 쓰이지 않는다. 이전에도 같은 일이 있었고 다시 돌리면 통과했다.
+
+실제 화면에는 아직 붙이지 않았다(5단계부터).

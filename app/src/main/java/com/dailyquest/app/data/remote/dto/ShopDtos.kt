@@ -23,6 +23,8 @@ data class ItemDto(
     val owned: Boolean = false,
     /** 상점·목록용 512×512 썸네일 (백엔드 11/24 추가). 없으면 null → [imageUrl]로 대신한다. 방에 그릴 때는 쓰지 않는다. */
     val thumbnailUrl: String? = null,
+    /** 아바타 아이템의 체형 MALE | FEMALE (가구는 null). 다른 사람의 성별을 착용 아이템으로 알아낼 때 쓴다(프로필 얼굴). */
+    val gender: String? = null,
 )
 
 /** POST /shop/items/{itemId}/purchase. remainingCoins는 차감 후 서버 잔액이다. */

@@ -559,7 +559,7 @@ object TestProfileCalls {
 
 /** 상점·인벤토리·코인 내역을 흉내 내는 가짜 서버. 서버처럼 소유·잔액·거래를 직접 갱신하며 테스트 후 reset()으로 비운다. */
 object TestShopCalls {
-    class Stock(val itemId: Long, val name: String, val type: String, val category: String, val price: Int, val imageUrl: String? = null, val isDefault: Boolean = false)
+    class Stock(val itemId: Long, val name: String, val type: String, val category: String, val price: Int, val imageUrl: String? = null, val isDefault: Boolean = false, val modelUrl: String? = null, val gender: String? = null)
 
     @Volatile var coins = 0
     val stock: MutableList<Stock> = java.util.Collections.synchronizedList(mutableListOf())
@@ -575,7 +575,7 @@ object TestShopCalls {
 
     fun reset() {
         coins = 0; stock.clear(); owned.clear(); txs.clear(); purchaseCalls.clear(); listCalls.clear()
-        purchaseFailure = null; applyBeforeFailure = false; listFailure = null; purchaseDelayMs = 0
+        purchaseFailure = null; applyBeforeFailure = false; listFailure = null; purchaseDelayMs = 0; batchCalls.set(0); batchFailure = null
     }
 
     fun seedDefaults() {
@@ -586,7 +586,11 @@ object TestShopCalls {
         owned += 1
     }
 
-    private fun dto(s: Stock) = ItemDto(s.itemId, s.name, s.type, s.category, s.price, s.imageUrl, null, s.isDefault, s.itemId in owned)
+    private fun dto(s: Stock) = ItemDto(s.itemId, s.name, s.type, s.category, s.price, s.imageUrl, s.modelUrl, s.isDefault, s.itemId in owned, gender = s.gender)
+
+    /** batch 요청 횟수 (프로필 얼굴 테스트). */
+    val batchCalls = java.util.concurrent.atomic.AtomicInteger()
+    @Volatile var batchFailure: Throwable? = null
 
     fun list(type: String?, category: String?, page: Int, size: Int): PageDto<ItemDto> {
         listCalls.add("$type:$category:$page")
@@ -598,6 +602,8 @@ object TestShopCalls {
     fun item(id: Long): ItemDto = dto(stock.firstOrNull { it.itemId == id } ?: throw http(404, "ITEM_NOT_FOUND"))
 
     fun batch(ids: String): List<ItemDto> {
+        batchCalls.incrementAndGet()
+        batchFailure?.let { throw it }
         val wanted = ids.split(',').mapNotNull { it.trim().toLongOrNull() }.toSet()
         return stock.filter { it.itemId in wanted }.sortedBy { it.itemId }.map(::dto)
     }

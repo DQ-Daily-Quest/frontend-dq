@@ -5,7 +5,6 @@ import android.os.SystemClock
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,9 +12,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -30,12 +27,14 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import com.dailyquest.app.data.avatar.AvatarGender
+import com.dailyquest.app.data.avatar.PersonFace
 import com.dailyquest.app.ui.avatar.FaceStudioHost
 import com.dailyquest.app.ui.avatar.FaceStudios
+import com.dailyquest.app.ui.avatar.ProfileFace
 import com.dailyquest.app.ui.avatar.clearAvatarFaceMemory
 import com.dailyquest.app.ui.avatar.rememberAvatarFace
 import com.dailyquest.app.ui.theme.DQColors
@@ -107,13 +106,11 @@ private fun FaceStudioTestScreen() {
                         val parts = remember(o) { o.codes.mapValues { (_, code) -> modelUrl(o.body, code) } }
                         val face = rememberAvatarFace(parts, studio)
                         if (face != null) shown++
+                        // 실제 화면과 같은 얼굴 동그라미(사진이 없으면 성별별 기본 그림).
+                        val person = remember(o) { PersonFace(if (o.body == TestBody.GIRL) AvatarGender.FEMALE else AvatarGender.MALE, parts) }
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Box(Modifier.size(64.dp).clip(CircleShape).background(DQColors.Soft)) {
-                                face?.let { Image(it, o.label, Modifier.fillMaxSize()) }
-                            }
-                            Box(Modifier.padding(top = 4.dp).size(32.dp).clip(CircleShape).background(DQColors.Soft)) {
-                                face?.let { Image(it, null, Modifier.fillMaxSize()) }
-                            }
+                            ProfileFace(person, 64.dp, contentDescription = o.label)
+                            ProfileFace(person, 32.dp, Modifier.padding(top = 4.dp))
                             Text(o.label, style = MaterialTheme.typography.labelSmall)
                         }
                     }
