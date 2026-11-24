@@ -82,23 +82,45 @@ fun ProfileFace(face: PersonFace?, size: Dp, modifier: Modifier = Modifier, cont
 }
 
 /**
- * 서버 아바타(착용 아이템 ID)로 그리는 얼굴. 방 멤버·피드 작성자처럼 다른 사람 얼굴에 쓴다.
- * 아이템 정보를 아직 모르면 받아 오는 동안 사람 아이콘을, 받아 오기에 실패해도 사람 아이콘을 보여준다.
+ * 서버 아바타(착용 아이템 ID)로 그리는 얼굴. 방 멤버·피드 작성자처럼 다른 사람 얼굴, 또는 세션의 내 얼굴에 쓴다.
+ * 아이템 정보를 아직 모르면 받아 오는 동안, 받아 오기에 실패해도 [genderHint]가 있으면 성별 그림, 없으면 사람 아이콘을 보여준다.
  */
 @Composable
-fun ProfileFace(avatar: AvatarDto?, size: Dp, modifier: Modifier = Modifier, contentDescription: String? = null) {
-    ProfileFace(rememberPersonFace(avatar), size, modifier, contentDescription)
+fun ProfileFace(
+    avatar: AvatarDto?,
+    size: Dp,
+    modifier: Modifier = Modifier,
+    contentDescription: String? = null,
+    genderHint: AvatarGender? = null,
+) {
+    val face = rememberPersonFace(avatar)
+    ProfileFace(face.withGenderHint(genderHint), size, modifier, contentDescription)
+}
+
+/** 아이템으로 성별을 못 정했으면 [hint]로 채운다(내 얼굴은 세션의 성별을 안다). */
+internal fun PersonFace?.withGenderHint(hint: AvatarGender?): PersonFace? = when {
+    hint == null -> this
+    this == null -> PersonFace(hint, emptyMap())
+    gender == null -> copy(gender = hint)
+    else -> this
 }
 
 /** [avatar] → 얼굴 재료. 이미 아는 아이템이면 바로, 아니면 서버에서 받아 온 뒤. 모르는 동안·실패하면 null. */
 @Composable
-fun rememberPersonFace(avatar: AvatarDto?): PersonFace? {
+fun rememberPersonFace(avatar: AvatarDto?): PersonFace? = rememberPersonFaces(listOf(avatar)).single()
+
+/**
+ * 여러 사람의 얼굴 재료를 같은 순서로. 모르는 아이템을 **한 번에 모아** 받는다(방 멤버 목록처럼 여럿을 그릴 때).
+ * 아직 모르는 사람·실패하면 그 자리는 null.
+ */
+@Composable
+fun rememberPersonFaces(avatars: List<AvatarDto?>): List<PersonFace?> {
     val repo = LocalAppContainer.current.avatarFaceRepository
-    var face by remember(avatar) { mutableStateOf(repo.cachedFace(avatar)) }
-    LaunchedEffect(avatar) {
-        if (face != null) return@LaunchedEffect
-        val r = repo.face(avatar)
-        if (r is ApiResult.Success) face = r.value
+    var faces by remember(avatars) { mutableStateOf(avatars.map { repo.cachedFace(it) }) }
+    LaunchedEffect(avatars) {
+        if (faces.all { it != null }) return@LaunchedEffect
+        val r = repo.faces(avatars)
+        if (r is ApiResult.Success) faces = r.value
     }
-    return face
+    return faces
 }

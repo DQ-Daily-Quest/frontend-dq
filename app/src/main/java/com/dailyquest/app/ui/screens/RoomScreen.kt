@@ -36,6 +36,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dailyquest.app.R
+import com.dailyquest.app.data.auth.SessionState
+import com.dailyquest.app.ui.auth.LocalAuth
+import com.dailyquest.app.ui.avatar.rememberPersonFaces
 import com.dailyquest.app.navigation.LocalNav
 import com.dailyquest.app.navigation.Routes
 import com.dailyquest.app.navigation.backOrHome
@@ -69,6 +72,7 @@ fun RoomScreen(roomId: Long, viewModel: RoomDetailViewModel, manage: RoomManageV
     var notice by remember(roomId) { mutableStateOf<String?>(null) }
     val manageUi by manage.ui.collectAsStateWithLifecycle()
     val detail = ui.detail
+    val session by LocalAuth.current.session.collectAsStateWithLifecycle()
 
     // 관리 요청 결과는 한 번만 처리한다. 나가기·삭제는 홈으로, 그 외는 서버에서 상세·멤버를 다시 조회한다.
     LaunchedEffect(manageUi.event) {
@@ -186,13 +190,14 @@ fun RoomScreen(roomId: Long, viewModel: RoomDetailViewModel, manage: RoomManageV
                             modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp),
                         )
                         else -> {
-                            Txt(
-                                "멤버 아바타는 임시 이미지예요.", size = 11f, color = DQColors.Muted,
-                                modifier = Modifier.padding(horizontal = 18.dp, vertical = 4.dp),
-                            )
+                            // 멤버마다 실제 아바타 얼굴(프로필 얼굴 5단계). 모르는 아이템은 멤버 전원 것을 한 번에 받는다.
+                            // 내 얼굴은 세션의 착용(방금 바꾼 옷)을 쓴다. 다른 사람은 방에 다시 들어오면 새 착용으로 바뀐다.
+                            val me = (session as? SessionState.Authenticated)?.profile
+                            val avatars = ui.members.map { m -> if (m.userId == me?.userId && me.avatar != null) me.avatar else m.avatar }
+                            val faces = rememberPersonFaces(avatars)
                             MemberRow(
-                                members = ui.members.map {
-                                    Member(it.nickname, avatar = R.drawable.ic_users_lg, badge = if (it.role == ROLE_OWNER) "방장" else null)
+                                members = ui.members.mapIndexed { i, it ->
+                                    Member(it.nickname, badge = if (it.role == ROLE_OWNER) "방장" else null, face = faces[i], showsFace = true)
                                 },
                                 size = 52.dp,
                                 inviteSize = 44.dp,

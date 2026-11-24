@@ -1,5 +1,7 @@
 package com.dailyquest.app.ui.components
 
+import com.dailyquest.app.data.avatar.PersonFace
+import com.dailyquest.app.ui.avatar.ProfileFace
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -23,8 +25,18 @@ import androidx.compose.ui.unit.dp
 import com.dailyquest.app.R
 import com.dailyquest.app.ui.theme.DQColors
 
-/** 멤버: story 가 있으면 핑크 링(새 인증) 아바타 */
-data class Member(val name: String, @DrawableRes val story: Int? = null, @DrawableRes val avatar: Int? = null, val badge: String? = null)
+/**
+ * 멤버: story 가 있으면 핑크 링(새 인증) 아바타.
+ * [showsFace]면 고정 그림([avatar]) 대신 그 사람의 아바타 얼굴([face], 프로필 얼굴)을 그린다. 아직 모르면 null.
+ */
+data class Member(
+    val name: String,
+    @DrawableRes val story: Int? = null,
+    @DrawableRes val avatar: Int? = null,
+    val badge: String? = null,
+    val face: PersonFace? = null,
+    val showsFace: Boolean = false,
+)
 
 /** 방 멤버 줄 (03 · 13) — 멤버 + 초대 버튼 */
 @Composable
@@ -34,6 +46,8 @@ fun MemberRow(members: List<Member>, size: Dp, inviteSize: Dp, showInviteLabel: 
             Column(Modifier.width(size), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 if (m.story != null) {
                     DqImage(m.story, Modifier.size(size).clip(CircleShape).clickable(onClick = onStory))
+                } else if (m.showsFace) {
+                    ProfileFace(m.face, size, contentDescription = "${m.name} 아바타")
                 } else {
                     DqAvatar(m.avatar!!, size)
                 }

@@ -220,10 +220,11 @@ class TestDQApplication : DQApplication() {
             if (TestRoomCalls.created.any { it.roomId == roomId }) {
                 return listOf(RoomMemberDto(userId = 1, nickname = "uitest", role = "OWNER"))
             }
-            return listOf(
+            return (listOf(
                 RoomMemberDto(userId = 7, nickname = "서버방장", role = "OWNER"),
                 RoomMemberDto(userId = 8, nickname = "서버멤버", role = "MEMBER"),
-            ).filter { it.userId !in TestRoomCalls.kicked }
+            ) + TestRoomCalls.extraMembers).filter { it.userId !in TestRoomCalls.kicked }
+                .map { m -> TestRoomCalls.memberAvatars[m.userId]?.let { m.copy(avatar = it) } ?: m }
         }
         override suspend fun createRoom(body: CreateRoomRequest): CreateRoomResponse {
             TestRoomCalls.createCalls++
@@ -694,9 +695,12 @@ object TestRoomCalls {
         created.clear(); createCalls = 0; createFailure = null; forbiddenRoomId = null; membersRequested.clear()
         calls.clear(); joined.clear(); left.clear(); gone.clear(); kicked.clear(); transferred.clear()
         renamed.clear(); describedAs.clear(); maxOverride.clear(); publicOverride.clear(); inviteOverride.clear()
-        mutationFailure = null; lastUpdate = null
+        mutationFailure = null; lastUpdate = null; memberAvatars.clear(); extraMembers.clear()
         TestMissionCalls.reset(); TestProofCalls.reset(); TestShopCalls.reset(); TestProfileCalls.reset(); TestNotificationCalls.reset()
     }
+    /** 프로필 얼굴: 멤버별 착용 아바타(userId → 아이템 ID)와 기본 두 명 뒤에 붙일 멤버. */
+    val memberAvatars: MutableMap<Long, com.dailyquest.app.data.remote.dto.AvatarDto> = java.util.concurrent.ConcurrentHashMap()
+    val extraMembers: MutableList<RoomMemberDto> = java.util.Collections.synchronizedList(mutableListOf())
     /** 방 참여·관리 FakeApi 상태. 서버 응답을 흉내 내는 상태이며 테스트 후 reset()으로 비운다. */
     val calls: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
     val joined: MutableSet<Long> = java.util.Collections.synchronizedSet(linkedSetOf())

@@ -1,5 +1,6 @@
 package com.dailyquest.app.data.auth
 
+import com.dailyquest.app.data.remote.dto.AvatarDto
 import com.dailyquest.app.data.remote.dto.UserMeResponse
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -21,13 +22,15 @@ data class UserProfile(
     val hasPassword: Boolean? = null,
     /** 아바타 체형 MALE | FEMALE. null이면 캐릭터를 아직 만들지 않은 계정이라 로그인 후 캐릭터 만들기로 보낸다(STEP 9-9). */
     val gender: String? = null,
+    /** 지금 착용 중인 아바타 아이템 ID(슬롯별). 프로필 얼굴에 쓴다. 착용을 바꾸면 서버 응답으로 세션이 갱신되어 얼굴도 바로 바뀐다. */
+    val avatar: AvatarDto? = null,
 )
 
 fun UserMeResponse.toProfile() = UserProfile(
     userId = userId, email = email, nickname = nickname, coins = coins,
     streakCurrent = streak.current, streakLongest = streak.longest,
     roomCount = stats.roomCount, completedMissionCount = stats.completedMissionCount,
-    createdAt = createdAt, hasPassword = hasPassword, gender = gender,
+    createdAt = createdAt, hasPassword = hasPassword, gender = gender, avatar = avatar,
 )
 
 /** [PASSWORD_CHANGED]: 서버가 Refresh Token을 모두 폐기했다. [WITHDRAWN]: 회원 탈퇴가 확정됐다. */
