@@ -30,7 +30,12 @@ class ShopFlowTest {
         compose.onNode(hasText("쇼핑 (아바타 · 우리 집)") and hasClickAction()).performScrollTo().performClick()
         waitTag("shopGrid")
     }
-    private fun openItem(id: Long) { compose.onNodeWithTag("shopItem_$id").performClick(); waitTag("shopDetail") }
+    /** 아바타 상품은 카드를 누르면 입어보기가 되고, 아래 구매 버튼으로 상세·구매 창을 연다(STEP 9-7). */
+    private fun openItem(id: Long) {
+        compose.onNodeWithTag("shopItem_$id").performClick()
+        compose.onNodeWithTag("shopTryOnAction").performClick()
+        waitTag("shopDetail")
+    }
     private fun state(id: Long) = compose.onNodeWithTag("shopItemState_$id", useUnmergedTree = true)
 
     @Test fun catalogShowsServerItemsWithOwnedStateAndNoSampleBanner() {

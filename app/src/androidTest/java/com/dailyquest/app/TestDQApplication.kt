@@ -6,6 +6,8 @@ import com.dailyquest.app.data.auth.TokenPair
 import com.dailyquest.app.data.remote.DqApi
 import com.dailyquest.app.data.remote.dto.ApprovalDto
 import com.dailyquest.app.data.remote.dto.ChangePasswordRequest
+import com.dailyquest.app.data.remote.dto.SetGenderRequest
+import com.dailyquest.app.data.remote.dto.UpdateAvatarRequest
 import com.dailyquest.app.data.remote.dto.UpdateMeRequest
 import com.dailyquest.app.data.remote.dto.WithdrawRequest
 import com.dailyquest.app.data.remote.dto.CoinTransactionDto
@@ -60,6 +62,8 @@ class TestDQApplication : DQApplication() {
         tokenStore = InMemoryTokenStore(TokenPair("test-access", "test-refresh")),
         apiFactory = { _, _ -> FakeApi },
         startAfterAuth = Routes.CATALOG,
+        // 3D 아바타는 매 프레임 그려서 기존 UI 테스트의 idle 대기가 끝나지 않는다. 테스트에서는 빈 상자로 대신한다(STEP 9-7).
+        avatar3dEnabled = false,
     )
 
     private object FakeApi : DqApi {
@@ -73,6 +77,9 @@ class TestDQApplication : DQApplication() {
             streak = com.dailyquest.app.data.remote.dto.StreakDto(current = 3, longest = 8),
             stats = com.dailyquest.app.data.remote.dto.UserStatsDto(roomCount = 2, completedMissionCount = 11),
             createdAt = "2025-03-04T01:02:03Z",
+            // STEP 9: 기본은 성별 MALE·착용 없음. 성별이 없으면 로그인 후 캐릭터 만들기로 가므로(9-9) 기존 테스트가 Catalog에서 시작하도록 MALE을 둔다.
+            gender = TestAvatarCalls.gender,
+            avatar = TestAvatarCalls.avatarDto(),
         )
         override suspend fun updateMe(body: UpdateMeRequest): UserMeResponse {
             TestProfileCalls.updates += body.nickname
@@ -100,6 +107,24 @@ class TestDQApplication : DQApplication() {
         override suspend fun confirmPasswordReset(body: com.dailyquest.app.data.remote.dto.PasswordResetConfirmRequest) {
             TestResetCalls.confirms += Triple(body.email, body.code, body.newPassword)
             TestResetCalls.confirmFailure?.let { throw it }
+        }
+
+        // STEP 9-9 성별 확정: 이미 있으면 GENDER_ALREADY_SET(409), 없으면 정하고 내 정보를 돌려준다.
+        override suspend fun setGender(body: SetGenderRequest): UserMeResponse {
+            TestAvatarCalls.genderRequests += body.gender
+            TestAvatarCalls.genderFailure?.let { TestAvatarCalls.genderFailure = null; throw it }
+            if (TestAvatarCalls.gender != null) throw http(409, "GENDER_ALREADY_SET")
+            TestAvatarCalls.gender = body.gender
+            return meResponse()
+        }
+
+        // STEP 9 아바타 착용 변경: 보유하지 않은 아이템이면 ITEM_NOT_OWNED, 아니면 착용을 기억하고 내 정보를 돌려준다.
+        override suspend fun updateAvatar(body: UpdateAvatarRequest): UserMeResponse {
+            TestAvatarCalls.requests += body.avatar
+            TestAvatarCalls.failure?.let { TestAvatarCalls.failure = null; throw it }
+            body.avatar.values.filterNotNull().firstOrNull { it !in TestShopCalls.owned }?.let { throw http(403, "ITEM_NOT_OWNED") }
+            TestAvatarCalls.equipped.putAll(body.avatar)
+            return meResponse()
         }
 
         // 방 API는 아직 화면에서 사용하지 않는다(Mock UI 유지). 호출되면 테스트가 실패하도록 한다.
@@ -361,6 +386,30 @@ class TestDQApplication : DQApplication() {
 }
 
 /** 프로필·계정 관리 FakeApi 상태. 실제 서버에는 어떤 변경 요청도 보내지 않는다. */
+/**
+ * STEP 9 아바타 테스트용 가짜 서버 상태.
+ * 기본 성별은 MALE이다. 성별이 없으면 로그인 직후 캐릭터 만들기 화면으로 가므로(9-9), 기존 테스트가 그대로 Catalog에서 시작하게 한다.
+ */
+object TestAvatarCalls {
+    @Volatile var gender: String? = "MALE"
+    val genderRequests: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
+    /** 슬롯 이름(소문자) → 아이템 ID */
+    val equipped: MutableMap<String, Long?> = java.util.Collections.synchronizedMap(mutableMapOf())
+    val requests: MutableList<Map<String, Long?>> = java.util.Collections.synchronizedList(mutableListOf())
+    @Volatile var failure: Throwable? = null
+    /** 성별 확정 요청을 한 번 실패시킨다 (STEP 9-9) */
+    @Volatile var genderFailure: Throwable? = null
+
+    fun avatarDto() = com.dailyquest.app.data.remote.dto.AvatarDto(
+        hair = equipped["hair"], eyes = equipped["eyes"], skin = equipped["skin"], top = equipped["top"],
+        bottom = equipped["bottom"], shoes = equipped["shoes"], hat = equipped["hat"],
+    )
+
+    fun reset() {
+        gender = "MALE"; equipped.clear(); requests.clear(); genderRequests.clear(); failure = null; genderFailure = null
+    }
+}
+
 object TestProfileCalls {
     const val TAKEN = "사용중닉"
     @Volatile var nickname = "uitest"
