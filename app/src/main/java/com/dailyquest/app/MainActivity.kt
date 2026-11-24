@@ -39,6 +39,7 @@ class MainActivity : ComponentActivity() {
         lifecycle.addObserver(object : DefaultLifecycleObserver {
             private var resumedOnce = false
             override fun onResume(owner: LifecycleOwner) {
+                container.unreadTracker.refresh()
                 if (resumedOnce) container.proofSync.notifyChanged() else resumedOnce = true
             }
         })

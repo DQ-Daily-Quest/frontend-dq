@@ -7,6 +7,8 @@ import com.dailyquest.app.data.shop.InventoryRepository
 import com.dailyquest.app.data.shop.ShopRepository
 import com.dailyquest.app.data.remote.DqApi
 import com.dailyquest.app.data.mission.MissionRepository
+import com.dailyquest.app.data.notification.NotificationRepository
+import com.dailyquest.app.data.notification.UnreadCountTracker
 import com.dailyquest.app.data.profile.ProfileRepository
 import com.dailyquest.app.data.proof.ProofRepository
 import com.dailyquest.app.data.proof.ProofSync
@@ -43,9 +45,11 @@ class AppContainer(
     val uploadRepository = UploadRepository(api)
     val shopRepository = ShopRepository(api)
     val inventoryRepository = InventoryRepository(api)
+    val notificationRepository = NotificationRepository(api)
 
     /** 화면 수명과 무관하게 이어져야 하는 갱신(코인 잔액 등)을 위한 앱 범위. */
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    val unreadTracker = UnreadCountTracker(notificationRepository, session.state, appScope)
     val proofSync = ProofSync(appScope) {
         if (session.state.value is SessionState.Authenticated) authRepository.refreshProfile()
     }

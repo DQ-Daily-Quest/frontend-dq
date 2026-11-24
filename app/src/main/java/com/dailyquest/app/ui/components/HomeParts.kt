@@ -4,9 +4,14 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.ui.platform.testTag
+import com.dailyquest.app.ui.room.LocalAppContainer
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
@@ -48,6 +53,8 @@ fun HomeHeader(scope: Scope, variantB: Boolean = false) {
         }
         nav.switchTo(target)
     }
+    val unread by LocalAppContainer.current.unreadTracker.count.collectAsStateWithLifecycle()
+    val openNotifications = { nav.navigate(Routes.NOTIFICATIONS) { launchSingleTop = true }; Unit }
     Column(Modifier.fillMaxWidth().statusBarsPadding()) {
         Row(
             Modifier.fillMaxWidth().padding(start = 18.dp, end = 16.dp, top = 10.dp),
@@ -60,17 +67,14 @@ fun HomeHeader(scope: Scope, variantB: Boolean = false) {
             }
             Box(Modifier.weight(1f))
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 2.dp)) {
-                if (scope == Scope.Public && !variantB) {
+                Box(Modifier.size(38.dp)) {
                     Box(
-                        Modifier.size(38.dp).shadow(3.dp, CircleShape, spotColor = Color.Black.copy(alpha = 0.12f))
-                            .background(DQColors.White, CircleShape).clip(CircleShape).clickable { },
+                        Modifier.fillMaxSize().shadow(3.dp, CircleShape, spotColor = Color.Black.copy(alpha = 0.12f))
+                            .background(DQColors.White, CircleShape).clip(CircleShape).clickable { openNotifications() }.testTag("homeBell"),
                         contentAlignment = Alignment.Center,
                     ) { DqIcon(R.drawable.ic_bell_plain, 20.dp) }
-                } else {
-                    // 빨간 점이 있는 알림 아이콘 (그림자 포함 에셋 54x54)
-                    Box(Modifier.size(38.dp).clickable { }) {
-                        DqIcon(R.drawable.ic_bell, 54.dp, Modifier.offset((-8).dp, (-6).dp))
-                    }
+                    // 배지는 서버 미확인 개수가 있을 때만 보인다.
+                    UnreadBadge(unread)
                 }
                 // 실제 서버 코인. 쇼핑(Mock)의 가짜 잔액과 섞지 않는다.
                 SessionCoinPill("homeCoin")
@@ -123,4 +127,15 @@ fun ScopeToggle(scope: Scope, wide: Boolean, onScope: (Scope) -> Unit, modifier:
             }
         }
     }
+}
+
+/** 서버 미확인 알림 수 배지. 0이면 그리지 않는다. */
+@Composable
+private fun BoxScope.UnreadBadge(count: Int) {
+    if (count <= 0) return
+    Box(
+        Modifier.align(Alignment.TopEnd).offset(x = 2.dp, y = (-2).dp).defaultMinSize(minWidth = 16.dp, minHeight = 16.dp)
+            .background(DQColors.Orange, CircleShape).testTag("notificationBadge"),
+        contentAlignment = Alignment.Center,
+    ) { Txt(if (count > 99) "99+" else count.toString(), size = 9.5f, weight = Bold, color = DQColors.White, modifier = Modifier.padding(horizontal = 3.dp)) }
 }

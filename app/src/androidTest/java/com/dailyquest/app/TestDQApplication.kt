@@ -285,6 +285,33 @@ class TestDQApplication : DQApplication() {
             TestProofCalls.deleteFailure?.let { throw it }
             TestProofCalls.proofs.remove(proofId) ?: throw http(404, "PROOF_NOT_FOUND")
         }
+        override suspend fun listNotifications(unreadOnly: Boolean, page: Int, size: Int): PageDto<com.dailyquest.app.data.remote.dto.NotificationDto> {
+            TestNotificationCalls.calls.add("list:$unreadOnly")
+            TestNotificationCalls.listFailure?.let { throw it }
+            val all = TestNotificationCalls.items.sortedByDescending { it.notificationId }.filter { !unreadOnly || !it.isRead }
+            return PageDto(content = all, page = 0, size = size, totalElements = all.size.toLong(), totalPages = 1)
+        }
+
+        override suspend fun getUnreadCount(): com.dailyquest.app.data.remote.dto.UnreadCountDto =
+            com.dailyquest.app.data.remote.dto.UnreadCountDto(TestNotificationCalls.items.count { !it.isRead }.toLong())
+
+        override suspend fun markNotificationRead(notificationId: Long) {
+            TestNotificationCalls.calls.add("read:$notificationId")
+            TestNotificationCalls.readFailure?.let { throw it }
+            val i = TestNotificationCalls.items.indexOfFirst { it.notificationId == notificationId }
+            if (i < 0) throw http(404, "NOTIFICATION_NOT_FOUND")
+            TestNotificationCalls.items[i] = TestNotificationCalls.items[i].copy(isRead = true)
+        }
+
+        override suspend fun markAllNotificationsRead() {
+            TestNotificationCalls.calls.add("readAll")
+            TestNotificationCalls.items.replaceAll { it.copy(isRead = true) }
+        }
+
+        override suspend fun updateFcmToken(body: com.dailyquest.app.data.remote.dto.FcmTokenRequest) {
+            TestNotificationCalls.fcmTokens.add(body.token)
+        }
+
         override suspend fun listFeed(roomId: Long, page: Int, size: Int): PageDto<PendingProofDto> {
             TestProofCalls.calls.add("feed:$roomId")
             TestProofCalls.feedFailure?.let { throw it }
@@ -532,7 +559,7 @@ object TestRoomCalls {
         calls.clear(); joined.clear(); left.clear(); gone.clear(); kicked.clear(); transferred.clear()
         renamed.clear(); describedAs.clear(); maxOverride.clear(); publicOverride.clear(); inviteOverride.clear()
         mutationFailure = null; lastUpdate = null
-        TestMissionCalls.reset(); TestProofCalls.reset(); TestShopCalls.reset(); TestProfileCalls.reset()
+        TestMissionCalls.reset(); TestProofCalls.reset(); TestShopCalls.reset(); TestProfileCalls.reset(); TestNotificationCalls.reset()
     }
     /** 방 참여·관리 FakeApi 상태. 서버 응답을 흉내 내는 상태이며 테스트 후 reset()으로 비운다. */
     val calls: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
@@ -565,5 +592,18 @@ object TestResetCalls {
 
     fun reset() {
         requests.clear(); verifies.clear(); confirms.clear(); requestFailure = null; confirmFailure = null
+    }
+}
+
+/** 알림함·FCM 토큰 등록을 흉내 내는 가짜 서버 상태. */
+object TestNotificationCalls {
+    val calls: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
+    val fcmTokens: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
+    val items: MutableList<com.dailyquest.app.data.remote.dto.NotificationDto> = java.util.Collections.synchronizedList(mutableListOf())
+    @Volatile var listFailure: Throwable? = null
+    @Volatile var readFailure: Throwable? = null
+
+    fun reset() {
+        calls.clear(); fcmTokens.clear(); items.clear(); listFailure = null; readFailure = null
     }
 }

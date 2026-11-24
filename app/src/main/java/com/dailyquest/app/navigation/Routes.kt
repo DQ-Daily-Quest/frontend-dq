@@ -50,6 +50,7 @@ object Routes {
     // 미션 인증(STEP 5): 실제 missionId·proofId·roomId만 받는다.
     const val PROOF_SUBMIT = "mission/{missionId}/proof?roomId={roomId}"
     const val PROOF_DETAIL = "proof/{proofId}?roomId={roomId}"
+    const val NOTIFICATIONS = "notifications"
     const val FEED = "room/{roomId}/feed"
     const val PENDING_PROOFS = "room/{roomId}/proofs/pending"
 
