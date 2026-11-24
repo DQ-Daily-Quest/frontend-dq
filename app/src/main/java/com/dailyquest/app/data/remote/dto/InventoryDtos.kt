@@ -25,4 +25,6 @@ data class MyItemDto(
     val code: String? = null,
     /** 착용 가능한 체형 MALE | FEMALE, null이면 공용 (backend v0.4) */
     val gender: String? = null,
+    /** 상점·목록용 512×512 썸네일 (백엔드 11/24 추가). 없으면 null → [imageUrl]로 대신한다. 방에 그릴 때는 쓰지 않는다. */
+    val thumbnailUrl: String? = null,
 )

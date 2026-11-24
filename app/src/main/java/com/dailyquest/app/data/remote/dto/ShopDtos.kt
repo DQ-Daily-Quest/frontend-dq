@@ -21,6 +21,8 @@ data class ItemDto(
     val modelUrl: String? = null,
     @SerialName("isDefault") @JsonNames("default") val isDefault: Boolean = false,
     val owned: Boolean = false,
+    /** 상점·목록용 512×512 썸네일 (백엔드 11/24 추가). 없으면 null → [imageUrl]로 대신한다. 방에 그릴 때는 쓰지 않는다. */
+    val thumbnailUrl: String? = null,
 )
 
 /** POST /shop/items/{itemId}/purchase. remainingCoins는 차감 후 서버 잔액이다. */

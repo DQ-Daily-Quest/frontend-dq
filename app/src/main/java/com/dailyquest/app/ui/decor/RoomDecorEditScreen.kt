@@ -252,7 +252,7 @@ private fun TrayCard(f: AvailableFurniture, remaining: Int, images: DecorImageSo
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        DecorThumb(f.item.imageUrl, images, Modifier.size(64.dp))
+        DecorThumb(f.item.listImageUrl, images, Modifier.size(64.dp))
         Txt(f.item.name, size = 11.5f, maxLines = 1, align = TextAlign.Center)
         Txt(
             when {

@@ -14,6 +14,8 @@ data class DecorItemDto(
     val imageUrl: String? = null,
     val modelUrl: String? = null,
     val code: String? = null,
+    /** 상점·목록용 512×512 썸네일 (백엔드 11/24 추가). 없으면 null → [imageUrl]로 대신한다. 방에 그릴 때는 쓰지 않는다. */
+    val thumbnailUrl: String? = null,
 )
 
 @Serializable

@@ -24,16 +24,24 @@ private val imageClient: OkHttpClient by lazy { OkHttpClient() }
 
 private const val MAX_EDGE = 1280
 
-/** 인증 사진/썸네일 표시. 이미지 라이브러리를 추가하지 않고 인증 헤더 없이 공개 URL을 받아 축소 디코딩한다. */
+/**
+ * 인증 사진/썸네일 표시. 이미지 라이브러리를 추가하지 않고 인증 헤더 없이 공개 URL을 받아 축소 디코딩한다.
+ * [contentScale] 기본은 칸을 꽉 채우고 넘치는 부분을 자른다(Crop). 상점 가구 그림처럼 잘리면 안 되는 그림은 Fit을 넘긴다(STEP 10-8).
+ */
 @Composable
-fun RemoteImage(url: String?, modifier: Modifier = Modifier, placeholder: String = "미리보기를 불러올 수 없어요") {
+fun RemoteImage(
+    url: String?,
+    modifier: Modifier = Modifier,
+    placeholder: String = "미리보기를 불러올 수 없어요",
+    contentScale: ContentScale = ContentScale.Crop,
+) {
     val cache = LocalContext.current.cacheDir
     val bitmap by produceState<Bitmap?>(null, url) {
         value = if (url.isNullOrBlank()) null else withContext(Dispatchers.IO) { runCatching { download(url, cache) }.getOrNull() }
     }
     Box(modifier, contentAlignment = Alignment.Center) {
         val b = bitmap
-        if (b != null) Image(b.asImageBitmap(), null, Modifier.matchParentSize(), contentScale = ContentScale.Crop)
+        if (b != null) Image(b.asImageBitmap(), null, Modifier.matchParentSize(), contentScale = contentScale)
         else Txt(placeholder, size = 12f, color = DQColors.Muted)
     }
 }

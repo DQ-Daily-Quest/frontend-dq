@@ -19,6 +19,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -57,8 +58,16 @@ private data class ShopCardData(
     val modelUrl: String? = null,
 )
 
-private fun ShopItem.toCard(owned: Boolean) = ShopCardData(itemId, name, imageUrl, owned, isDefault, price, this, category, modelUrl)
-private fun InventoryItem.toCard() = ShopCardData(itemId, name, imageUrl, true, isDefault, price, null, category, modelUrl)
+/**
+ * 썸네일 맞춤 방식 (STEP 10-8). 아바타 썸네일은 512×512 정사각형이라 꽉 채워도 잘리지 않는다.
+ * 가구는 512×512 상점용 썸네일(thumbnailUrl)이 있으면 그것을 쓰고, 없으면 방에 놓는 그림(28~120px 직사각형)을 쓴다.
+ * 그 그림을 꽉 채우면 위아래·양옆이 잘리고 많이 늘어나므로, 가구는 칸 안에 다 보이게 맞춘다(썸네일이어도 결과는 같다).
+ */
+private fun thumbScale(type: ItemType): ContentScale = if (type == ItemType.FURNITURE) ContentScale.Fit else ContentScale.Crop
+
+// 카드에는 상점용 썸네일(있으면)을 쓴다. 3D 입어보기는 modelUrl만 쓰므로 영향이 없다.
+private fun ShopItem.toCard(owned: Boolean) = ShopCardData(itemId, name, cardImageUrl, owned, isDefault, price, this, category, modelUrl)
+private fun InventoryItem.toCard() = ShopCardData(itemId, name, cardImageUrl, true, isDefault, price, null, category, modelUrl)
 
 /** 아바타 카드면 입어볼 아이템으로 바꾼다. 아바타 슬롯이 아닌 카테고리면 null. */
 private fun ShopCardData.toTryOn(): TryOnItem? =
@@ -278,7 +287,10 @@ private fun ProductCard(c: ShopCardData, selected: Boolean, modifier: Modifier, 
             .clickable(onClick = onClick).padding(8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        RemoteImage(c.imageUrl, Modifier.size(72.dp).background(DQColors.Soft, RoundedCornerShape(12.dp)), placeholder = "이미지 없음")
+        RemoteImage(
+            c.imageUrl, Modifier.size(72.dp).background(DQColors.Soft, RoundedCornerShape(12.dp)).testTag("shopThumb_${c.id}"),
+            placeholder = "이미지 없음", contentScale = thumbScale(c.category.type),
+        )
         Txt(c.name, size = 11f, maxLines = 2, modifier = Modifier.padding(top = 6.dp))
         Txt(
             if (c.isDefault && c.owned) "기본 제공" else if (c.owned) "보유 중" else "${c.price} 코인",
@@ -301,7 +313,10 @@ private fun ShopDetailDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 if (!confirming || owned) {
-                    RemoteImage(item.imageUrl, Modifier.fillMaxWidth().height(140.dp).background(DQColors.Soft, RoundedCornerShape(12.dp)), placeholder = "이미지 없음")
+                    RemoteImage(
+                        item.cardImageUrl, Modifier.fillMaxWidth().height(140.dp).background(DQColors.Soft, RoundedCornerShape(12.dp)),
+                        placeholder = "이미지 없음", contentScale = thumbScale(item.type),
+                    )
                     Text("${item.type.label} · ${item.category.label}")
                     Text(if (item.isDefault && owned) "기본 제공 아이템" else if (owned) "보유 중" else "${item.price} 코인")
                     if (loading) Text("상세 정보를 확인하는 중이에요.")

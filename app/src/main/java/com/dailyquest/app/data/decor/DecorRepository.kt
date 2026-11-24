@@ -20,8 +20,14 @@ data class DecorItem(
     val name: String,
     val category: String,
     val code: String?,
+    /** 방에 그리는 0° 그림. 방향별 그림 주소도 여기서 만든다. */
     val imageUrl: String?,
+    /** 가구 고르기 목록용 512×512 썸네일. 없으면 null → [imageUrl] (STEP 10-8). 방에 그릴 때는 쓰지 않는다. */
+    val thumbnailUrl: String? = null,
 ) {
+    /** 가구 고르기 목록에 보여 줄 그림. */
+    val listImageUrl: String? get() = thumbnailUrl ?: imageUrl
+
     /** 배경(방 자체)으로 쓰는 아이템. 가구 목록에서는 뺀다(연동 규칙 11-7). */
     val isBackground: Boolean get() = category in BACKGROUND_CATEGORIES
 
@@ -146,7 +152,7 @@ private fun <T, R> ApiResult<T>.map(transform: (T) -> R): ApiResult<R> = when (t
     is ApiResult.Failure -> this
 }
 
-internal fun DecorItemDto.toItem() = DecorItem(itemId, name, category, code, imageUrl)
+internal fun DecorItemDto.toItem() = DecorItem(itemId, name, category, code, imageUrl, thumbnailUrl)
 
 internal fun DecorUserDto.toUser() = DecorUser(userId, nickname)
 
