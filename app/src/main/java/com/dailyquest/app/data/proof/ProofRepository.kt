@@ -30,6 +30,12 @@ class ProofRepository(private val api: DqApi) {
         PendingPage(r.content.map { it.toPending() }, r.page, r.totalPages, r.totalElements)
     }
 
+    /** 방의 최근 24시간 인증 피드(서버 기본 기간). 멤버가 아니면 403. */
+    suspend fun feed(roomId: Long, page: Int = 0, size: Int = DEFAULT_PAGE_SIZE): ApiResult<PendingPage> = apiCall {
+        val r = api.listFeed(roomId, page, size)
+        PendingPage(r.content.map { it.toPending() }, r.page, r.totalPages, r.totalElements)
+    }
+
     suspend fun vote(proofId: Long, choice: VoteChoice): ApiResult<VoteResult> = apiCall {
         when (choice) {
             VoteChoice.APPROVE -> api.approveProof(proofId)

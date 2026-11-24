@@ -42,6 +42,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.dailyquest.app.data.proof.AndroidProofMediaPreparer
+import com.dailyquest.app.ui.feed.FeedScreen
+import com.dailyquest.app.ui.feed.FeedViewModel
 import com.dailyquest.app.ui.proof.PendingProofsScreen
 import com.dailyquest.app.ui.proof.PendingProofsViewModel
 import com.dailyquest.app.ui.proof.ProofDetailScreen
@@ -57,7 +59,7 @@ private val PUBLIC_ROUTES = setOf(Routes.SPLASH, Routes.LOGIN, Routes.SIGNUP_INF
 private val SERVER_BACKED_ROUTES = PUBLIC_ROUTES + setOf(
     Routes.SIGNUP_AVATAR, Routes.MY, Routes.JOIN_ROOM, Routes.CREATE_ROOM_ROUTE,
     Routes.MISSIONS, Routes.MISSION_DETAIL, Routes.SEND_ROOM_MISSION,
-    Routes.PROOF_SUBMIT, Routes.PROOF_DETAIL, Routes.PENDING_PROOFS,
+    Routes.PROOF_SUBMIT, Routes.PROOF_DETAIL, Routes.PENDING_PROOFS, Routes.FEED,
     Routes.SHOP, Routes.COIN_HISTORY, Routes.INVENTORY,
     Routes.PROFILE_EDIT, Routes.PASSWORD_CHANGE, Routes.WITHDRAW,
 )
@@ -250,6 +252,18 @@ fun DQNavGraph() {
                     factory = PendingProofsViewModel.Factory(roomId, LocalAppContainer.current),
                 )
                 PendingProofsScreen(roomId, vm)
+            }
+
+            composable(
+                route = Routes.FEED,
+                arguments = listOf(navArgument("roomId") { type = NavType.LongType })
+            ) { backStackEntry ->
+                val roomId = requireNotNull(backStackEntry.arguments).getLong("roomId")
+                val vm: FeedViewModel = viewModel(
+                    key = "feed-$roomId",
+                    factory = FeedViewModel.Factory(roomId, LocalAppContainer.current),
+                )
+                FeedScreen(roomId, vm)
             }
 
             composable(

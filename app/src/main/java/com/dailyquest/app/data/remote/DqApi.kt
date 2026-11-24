@@ -224,6 +224,14 @@ interface DqApi {
         @Query("size") size: Int = 20,
     ): PageDto<PendingProofDto>
 
+    /** 최근 24시간(기본)의 방 인증 피드. 항목 형태는 승인 대기 목록과 같고 mediaUrl·리액션은 상세에서만 온다. */
+    @GET("rooms/{roomId}/feed")
+    suspend fun listFeed(
+        @Path("roomId") roomId: Long,
+        @Query("page") page: Int = 0,
+        @Query("size") size: Int = 20,
+    ): PageDto<PendingProofDto>
+
     @Headers("X-DQ-No-Retry: true")
     @POST("proofs/{proofId}/approve")
     suspend fun approveProof(@Path("proofId") proofId: Long): VoteDto

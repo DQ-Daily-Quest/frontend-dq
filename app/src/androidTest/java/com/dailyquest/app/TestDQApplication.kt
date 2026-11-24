@@ -265,6 +265,14 @@ class TestDQApplication : DQApplication() {
             TestProofCalls.calls.add("detail:$proofId")
             return TestProofCalls.proofs[proofId] ?: throw http(404, "PROOF_NOT_FOUND")
         }
+        override suspend fun listFeed(roomId: Long, page: Int, size: Int): PageDto<PendingProofDto> {
+            TestProofCalls.calls.add("feed:$roomId")
+            TestProofCalls.feedFailure?.let { throw it }
+            if (!isMyRoom(roomId)) throw http(403, "FORBIDDEN")
+            val items = TestProofCalls.proofs.values.filter { it.room.roomId == roomId }.sortedByDescending { it.proofId }
+                .map { PendingProofDto(it.proofId, it.user, PendingMissionBriefDto(it.mission.missionId, it.mission.content), it.mediaType, it.thumbnailUrl, it.status, false, it.createdAt) }
+            return PageDto(content = items, page = 0, size = size, totalElements = items.size.toLong(), totalPages = 1)
+        }
         override suspend fun listPendingProofs(roomId: Long, page: Int, size: Int): PageDto<PendingProofDto> {
             TestProofCalls.calls.add("pending:$roomId")
             if (!isMyRoom(roomId)) throw http(403, "FORBIDDEN")
@@ -452,7 +460,9 @@ object TestProofCalls {
     @Volatile var uploadFailure: Throwable? = null
     @Volatile var submitFailure: Throwable? = null
     @Volatile var voteFailure: Throwable? = null
+    @Volatile var feedFailure: Throwable? = null
     fun reset() {
+        feedFailure = null
         calls.clear(); submitRequests.clear(); proofs.clear(); uploadFailure = null; submitFailure = null; voteFailure = null
     }
     /** 방 [roomId]의 APP 미션 [missionId]에 다른 멤버가 낸 승인 대기 인증을 시드한다. */
