@@ -44,6 +44,12 @@ The following features are implemented and connected to the real backend API.
 - Coin transaction history
 - A single session-backed coin balance shown on the Home, Mission, Shop and My pages
 
+**Social and notifications**
+- Room proof feed covering the last 24 hours (newest first, pagination, refresh), with a story-style preview strip built from the same feed data
+- Proof reactions (five emojis: ❤️ 🔥 👏 😂 😮; several per proof, add and remove) and deletion of your own pending proofs
+- In-app notification inbox with unread filter, per-item and bulk read, and a server-synced unread badge on the Home bell
+- FCM push notifications with Android 13+ permission handling; tapping a notification opens the related mission, proof or room using the same routing as the inbox
+
 **Profile and account management**
 - Profile page with streak and mission statistics
 - Nickname editing
@@ -75,6 +81,7 @@ Add images under docs/screenshots/ and reference them, for example:
 | Networking | Retrofit, OkHttp | 3.0.0, 4.12.0 |
 | Serialization | Kotlin Serialization (JSON) | 1.9.0 |
 | Concurrency | Kotlin Coroutines, StateFlow | 1.10.2 |
+| Push | Firebase Cloud Messaging (Firebase BoM) | 34.5.0 |
 | Secure storage | Android Keystore (AES-256/GCM) | platform |
 | Media | Media3 ExoPlayer and UI | 1.4.1 |
 | Social login | AndroidX Credentials + Google ID, Kakao SDK (`v2-user`) | 1.6.0, 1.1.1, 2.26.0 |
@@ -163,6 +170,8 @@ dq.kakaoNativeAppKey=<your-kakao-native-app-key>
 
 Environment variable alternatives: `DQ_GOOGLE_SERVER_CLIENT_ID`, `DQ_KAKAO_NATIVE_APP_KEY`. Values are provided by the backend team. Rebuild after changing them. The server base URL is defined in `ApiConfig.kt`.
 
+Push notifications need a Firebase `app/google-services.json` for package `com.dailyquest.app`. The file is git-ignored; obtain it from the Firebase project owner. Without it the app still builds and runs, but push is disabled.
+
 For Google and Kakao, your debug signing key must also be registered with the respective console. See [docs/social-login-setup.md](docs/social-login-setup.md) (written in Korean) for details and emulator troubleshooting.
 
 ### Build and run
@@ -183,12 +192,14 @@ See [Testing](#9-testing).
 - **Lost responses:** when the outcome of a state-changing request is unknown, the app re-queries server state (for example inventory and balance after a purchase) instead of retrying blindly. If a withdrawal result cannot be confirmed, the app reports it as unconfirmed rather than successful.
 - **Error handling:** server error codes are parsed into `ApiException` and mapped to Korean messages per feature.
 
+Notifications and push: the FCM token is registered with `PUT /users/me/fcm-token` after login and whenever it changes (idempotent; the server keeps one token per user and has no delete endpoint, so it is not cleared on logout). Inbox items and push payloads (`type`, `roomId`, `missionId`, `proofId`, all strings and optional) share one router, and IDs are parsed as untrusted input.
+
 ## 9. Testing
 
 Latest recorded results:
 
-- 363 unit tests passed
-- 84 instrumented tests passed
+- 411 unit tests passed
+- 103 instrumented tests passed
 - Debug build successful
 
 The password-reset flow is verified only against a fake API; it has not been exercised against the real server by automated tests.
@@ -220,13 +231,14 @@ Unit tests use JUnit, coroutine test utilities and MockWebServer. Instrumented t
 - Shop and inventory
 - Profile and account management
 - Password recovery
+- Room proof feed, reactions and notification inbox
+- FCM push notifications
 
 **In progress / planned**
 - 3D avatar integration (modeling and app integration are handled by a separate team member)
 - Room decoration and furniture placement
-- Stories and feeds
-- Rankings
-- Notifications and FCM
+- Rankings (the backend has no ranking API yet)
+- Expiring 24-hour stories (the backend has no story API; the current story strip is a preview of the room feed)
 - Final integration and physical device testing
 
 ## 11. Team

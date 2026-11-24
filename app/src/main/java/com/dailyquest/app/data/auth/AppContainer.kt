@@ -10,6 +10,8 @@ import com.dailyquest.app.ui.decor.DecorImageSource
 import com.dailyquest.app.data.shop.ShopRepository
 import com.dailyquest.app.data.remote.DqApi
 import com.dailyquest.app.data.mission.MissionRepository
+import com.dailyquest.app.data.notification.NotificationRepository
+import com.dailyquest.app.data.notification.UnreadCountTracker
 import com.dailyquest.app.data.profile.ProfileRepository
 import com.dailyquest.app.data.proof.ProofRepository
 import com.dailyquest.app.data.proof.ProofSync
@@ -18,6 +20,10 @@ import com.dailyquest.app.data.room.RoomRepository
 import com.dailyquest.app.data.remote.NetworkModule
 import com.dailyquest.app.navigation.Routes
 import kotlinx.coroutines.CoroutineScope
+import com.dailyquest.app.data.push.NoPushTokenSource
+import com.dailyquest.app.data.push.PendingPushTarget
+import com.dailyquest.app.data.push.PushTokenRegistrar
+import com.dailyquest.app.data.push.PushTokenSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 
@@ -28,6 +34,7 @@ class AppContainer(
     /** 로그인 직후 진입 화면. 기본은 홈이며 계측 테스트만 개발용 Catalog로 바꾼다. */
     val startAfterAuth: String = Routes.HOME,
     val socialClients: Map<SocialProvider, SocialAuthClient> = emptyMap(),
+    pushTokenSource: PushTokenSource = NoPushTokenSource,
     /**
      * 아바타를 3D로 그릴지 (STEP 9). UI 테스트만 false로 둔다. 3D 화면은 매 프레임 계속 그려서
      * "화면이 멈출 때까지 기다리는" Compose UI 테스트가 시간 초과로 실패하기 때문이다. false면 같은 자리에 빈 상자를 그린다.
@@ -56,11 +63,15 @@ class AppContainer(
     val uploadRepository = UploadRepository(api)
     val shopRepository = ShopRepository(api)
     val inventoryRepository = InventoryRepository(api)
+    val notificationRepository = NotificationRepository(api)
     val myAvatarRepository = MyAvatarRepository(api, session)
     val decorRepository = DecorRepository(api)
 
     /** 화면 수명과 무관하게 이어져야 하는 갱신(코인 잔액 등)을 위한 앱 범위. */
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    val unreadTracker = UnreadCountTracker(notificationRepository, session.state, appScope)
+    val pushRegistrar = PushTokenRegistrar(notificationRepository, session.state, pushTokenSource, appScope)
+    val pendingPushTarget = PendingPushTarget()
     val proofSync = ProofSync(appScope) {
         if (session.state.value is SessionState.Authenticated) authRepository.refreshProfile()
     }

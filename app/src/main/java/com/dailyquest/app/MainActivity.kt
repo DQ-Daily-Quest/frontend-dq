@@ -1,6 +1,18 @@
 package com.dailyquest.app
 
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
+import com.dailyquest.app.data.auth.AppContainer
+import com.dailyquest.app.data.auth.SessionState
+import com.dailyquest.app.data.push.PushIntents
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -29,6 +41,9 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         val container = (application as DQApplication).container
+        // 화면 회전 등으로 다시 만들어질 때는 이미 처리한 실행 Intent를 다시 열지 않는다.
+        if (savedInstanceState == null) postPushTarget(intent)
+        if ((application as DQApplication).promptsNotificationPermission) requestNotificationPermissionOnce(container)
         val authViewModel = ViewModelProvider(this, AuthViewModel.Factory(container))[AuthViewModel::class.java]
         val publicRooms = ViewModelProvider(this, PublicRoomsViewModel.Factory(container))[PublicRoomsViewModel::class.java]
         val myRooms = ViewModelProvider(this, MyRoomsViewModel.Factory(container))[MyRoomsViewModel::class.java]
@@ -39,6 +54,8 @@ class MainActivity : ComponentActivity() {
         lifecycle.addObserver(object : DefaultLifecycleObserver {
             private var resumedOnce = false
             override fun onResume(owner: LifecycleOwner) {
+                container.unreadTracker.refresh()
+                container.pushRegistrar.sync()
                 if (resumedOnce) container.proofSync.notifyChanged() else resumedOnce = true
             }
         })
@@ -48,6 +65,35 @@ class MainActivity : ComponentActivity() {
                     DQNavGraph()
                 }
             }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        postPushTarget(intent)
+    }
+
+    private fun postPushTarget(intent: Intent?) {
+        val route = PushIntents.routeFrom(intent) ?: return
+        PushIntents.clear(intent)
+        val container = (application as DQApplication).container
+        val owner = (container.session.state.value as? SessionState.Authenticated)?.profile?.userId
+        container.pendingPushTarget.post(route, owner)
+    }
+
+    private val permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+
+    // 로그인 후 한 번만 묻는다. 거부해도 앱 기능은 그대로 쓰고, 알림만 표시되지 않는다.
+    private fun requestNotificationPermissionOnce(container: AppContainer) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        val prefs = getSharedPreferences("dq_push", MODE_PRIVATE)
+        if (prefs.getBoolean("permission_asked", false)) return
+        lifecycleScope.launch {
+            container.session.state.first { it is SessionState.Authenticated }
+            if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) return@launch
+            prefs.edit().putBoolean("permission_asked", true).apply()
+            permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
     }
 }

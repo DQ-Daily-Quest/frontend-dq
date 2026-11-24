@@ -18,6 +18,8 @@ lifecycleCompose = "2.10.0"
 credentials = "1.6.0"
 googleId = "1.1.1"
 kakaoSdk = "2.26.0"
+firebaseBom = "34.5.0"
+googleServices = "4.4.4"
 # 4.19.0부터 Kotlin 2.4 stdlib을 요구한다. 프로젝트 Kotlin(2.2.x)이 읽을 수 있는 마지막 버전(Kotlin 2.3.21)으로 고정.
 sceneview = "4.18.0"
 
@@ -53,6 +55,8 @@ kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-cor
 androidx-credentials = { group = "androidx.credentials", name = "credentials", version.ref = "credentials" }
 androidx-credentials-play-services-auth = { group = "androidx.credentials", name = "credentials-play-services-auth", version.ref = "credentials" }
 google-id = { group = "com.google.android.libraries.identity.googleid", name = "googleid", version.ref = "googleId" }
+firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
+firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging" }
 kakao-sdk-user = { group = "com.kakao.sdk", name = "v2-user", version.ref = "kakaoSdk" }
 sceneview = { group = "io.github.sceneview", name = "sceneview", version.ref = "sceneview" }
 
@@ -60,3 +64,4 @@ sceneview = { group = "io.github.sceneview", name = "sceneview", version.ref = "
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+google-services = { id = "com.google.gms.google-services", version.ref = "googleServices" }

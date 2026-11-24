@@ -43,7 +43,8 @@ import kotlinx.coroutines.launch
 import java.util.Locale
 
 /**
- * STEP 10 디버그 전용 방 테스트 화면. debug 빌드에만 들어가고 런처에 "DQ 방 테스트" 아이콘으로 따로 보인다.
+ * STEP 10 디버그 전용 방 테스트 화면. debug 빌드에만 들어간다. 런처 아이콘은 없고(3D 테스트 화면과 같음)
+ * `adb shell am start -n com.dailyquest.app/.debug.RoomDecorTestActivity` 또는 Run 설정의 Specified Activity로 연다.
  * - 10-4: 에셋 팩 배치 예시 54개를 실제 S3 그림으로 그린다. 두 손가락 확대·이동, 두 번 탭 되돌리기를 손으로 확인한다.
  * 앱 Navigation(Routes.kt, NavGraph.kt)은 건드리지 않는다.
  */

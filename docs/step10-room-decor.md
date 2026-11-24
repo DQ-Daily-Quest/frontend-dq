@@ -329,7 +329,7 @@ test02 계정의 방 9·10번을 조회했다. 서버 데이터는 바꾸지 않
 **STEP 9 파일 변경 (내 파일, 기본 동작 그대로)**
 - `HttpAvatarModelFetcher`, `CachingAvatarModelFetcher`에 "받은 파일 검사" 옵션 추가. 기본값은 지금처럼 GLB라 아바타 동작은 같다(기존 STEP 9 테스트 그대로 통과). `PngFormat` 추가.
 
-**디버그 전용 "DQ 방 테스트" 화면** (`app/src/debug`, 런처 아이콘 따로)
+**디버그 전용 "DQ 방 테스트" 화면** (`app/src/debug`. 처음에는 런처 아이콘을 따로 두었으나, main을 합칠 때 팀원이 3D 테스트 화면 아이콘을 없앤 것에 맞춰 이것도 없앴다 — 아래 "main 합치기" 참고)
 - 에셋 팩 배치 예시 54개를 실제 S3 그림으로 그린다. 예시 54개 / 빈 방 / 원래 크기 / 캐시 비우기.
 - 상태 줄: 확대 배율, 가구 수, 기기 캐시 파일 수·크기, 다 그릴 때까지 걸린 시간.
 - 배치 예시 파일은 `app/src/debug/assets/decor/example_layout.json`으로 옮겼다(단위 테스트 `RoomLayoutTest`와 같은 파일을 쓴다).
@@ -346,7 +346,7 @@ S3의 방 1장 + 가구 200장을 내려받아 에셋 팩 파일과 비교했다
 | `app/src/main/java/com/dailyquest/app/ui/decor/DecorImages.kt` | 새 파일 |
 | `app/src/main/java/com/dailyquest/app/data/avatar/AvatarModelFetcher.kt` | 파일 검사 옵션, `PngFormat` 추가 (기본값 GLB 그대로) |
 | `app/src/main/java/com/dailyquest/app/data/avatar/CachingAvatarModelFetcher.kt` | 파일 검사 옵션 추가 (기본값 GLB 그대로) |
-| `app/src/debug/AndroidManifest.xml` | "DQ 방 테스트" 런처 추가 |
+| `app/src/debug/AndroidManifest.xml` | "DQ 방 테스트" 화면 등록 |
 | `app/src/debug/java/com/dailyquest/app/debug/RoomDecorTestActivity.kt` | 새 파일 |
 | `app/src/debug/java/com/dailyquest/app/debug/ExampleRoomLayout.kt` | 새 파일 |
 | `app/src/debug/assets/decor/example_layout.json` | `app/src/test/resources/decor/`에서 옮김 |
@@ -410,7 +410,7 @@ S3의 방 1장 + 가구 200장을 내려받아 에셋 팩 파일과 비교했다
 
 ### 직접 확인하는 방법
 
-1. 디버그 빌드 설치 → 런처의 **"DQ 방 테스트"** 아이콘
+1. 디버그 빌드 설치 → `adb shell am start -n com.dailyquest.app/.debug.RoomDecorTestActivity` (또는 Android Studio Run 설정의 Launch를 "Specified Activity"로 바꾸고 `com.dailyquest.app.debug.RoomDecorTestActivity` 지정)
 2. 방과 가구 54개가 에셋 팩 미리보기와 같은 모습인지 본다.
 3. 두 손가락으로 벌려 확대(3배까지), 확대한 상태에서 한 손가락으로 끌어 이동, 두 번 탭해 원래 크기.
 4. "캐시 비우기" 후 상태 줄의 시간(인터넷)과, 앱을 다시 켰을 때의 시간(기기 캐시)을 비교한다.
@@ -859,3 +859,23 @@ test02 계정으로 방 화면을 열어 보려 했지만, 이 계정은 성별�
 마지막 테스트 결과: 단위 533개, UI 145개 모두 통과. 실서버에서 전체 흐름 확인.
 
 PR을 올릴 때 다른 팀원 파일 변경은 각 단계의 "다른 팀원 파일" 표에 있다: `RoomScreen.kt`(홈·방), `Routes.kt`·`NavGraph.kt`(팀원 B), `ShopViewModel.kt`·`RemoteImage.kt`·`AvatarShopContent.kt`(상점), `DqApi.kt`·`ApiError.kt`·`AppContainer.kt`·DTO(공용, 추가만), `TestDQApplication.kt`(테스트 공용).
+
+---
+
+## main 합치기 (PR 올리기 전)
+
+팀원이 `main`에 방 피드·리액션·알림함·FCM 푸시(PR #11, `81e4e52`)를 올려, PR 전에 `feat/room-decor`에 합쳤다(`git merge origin/main`).
+
+| 항목 | 내용 |
+| --- | --- |
+| 충돌 | `NavGraph.kt` 한 곳. 같은 자리에 내 "방 꾸미기 편집" 화면과 팀원 "알림·피드" 화면이 각각 추가됨 → **둘 다 남김**. `SERVER_BACKED_ROUTES`에도 둘 다 들어 있음 |
+| 자동 합침 | `DqApi`, `ApiError`, `AppContainer`, `Routes`, `RoomScreen`, `TestDQApplication`, debug 매니페스트 등 |
+| 맞춘 것 | 팀원이 "DQ 3D 테스트" 런처 아이콘을 없앤 것(`9ce7541`)에 맞춰 **"DQ 방 테스트" 런처 아이콘도 없앰**. 디버그 앱을 설치해도 앱 목록에는 Daily Quest 하나만 보인다. 방 테스트 화면은 `adb shell am start -n com.dailyquest.app/.debug.RoomDecorTestActivity` 또는 Run 설정의 Specified Activity로 연다. 테스트(`RoomDecorTestScreenTest`)는 아이콘 없이도 그대로 돈다 |
+
+합친 뒤 테스트
+
+| 종류 | 결과 |
+| --- | --- |
+| 빌드, UI 테스트 컴파일 | 성공 |
+| 단위 테스트 | **581개 통과**(내 533 + 팀원 새 테스트) |
+| 전체 UI 테스트 | **164개 통과**(내 145 + 팀원 새 테스트), 강제 종료 0 |

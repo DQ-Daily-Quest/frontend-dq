@@ -18,6 +18,8 @@ import com.dailyquest.app.data.remote.dto.CreateMissionRequest
 import com.dailyquest.app.data.remote.dto.PendingMissionBriefDto
 import com.dailyquest.app.data.remote.dto.PendingProofDto
 import com.dailyquest.app.data.remote.dto.ProofDetailDto
+import com.dailyquest.app.data.remote.dto.ReactionRequest
+import com.dailyquest.app.data.remote.dto.ReactionSummaryDto
 import com.dailyquest.app.data.remote.dto.ProofDto
 import com.dailyquest.app.data.remote.dto.ProofMissionBriefDto
 import com.dailyquest.app.data.remote.dto.ProofRoomRefDto
@@ -65,6 +67,8 @@ import com.dailyquest.app.ui.decor.DecorImageSource
 
 /** 기존 Mock UI 테스트용: 가짜 토큰과 가짜 API로 로그인된 상태에서 시작하고 개발용 Catalog로 진입한다. */
 class TestDQApplication : DQApplication() {
+    override val promptsNotificationPermission = false
+
     override fun createContainer() = AppContainer(
         tokenStore = InMemoryTokenStore(TokenPair("test-access", "test-refresh")),
         apiFactory = { _, _ -> FakeApi },
@@ -298,6 +302,59 @@ class TestDQApplication : DQApplication() {
         override suspend fun getProof(proofId: Long): ProofDetailDto {
             TestProofCalls.calls.add("detail:$proofId")
             return TestProofCalls.proofs[proofId] ?: throw http(404, "PROOF_NOT_FOUND")
+        }
+        override suspend fun addReaction(proofId: Long, body: ReactionRequest): List<ReactionSummaryDto> = reaction(proofId, body.emoji, true)
+        override suspend fun removeReaction(proofId: Long, body: ReactionRequest): List<ReactionSummaryDto> = reaction(proofId, body.emoji, false)
+        private fun reaction(proofId: Long, emoji: String, add: Boolean): List<ReactionSummaryDto> {
+            TestProofCalls.calls.add("${if (add) "react" else "unreact"}:$proofId:$emoji")
+            TestProofCalls.reactionFailure?.let { throw it }
+            val d = TestProofCalls.proofs[proofId] ?: throw http(404, "PROOF_NOT_FOUND")
+            val rest = d.reactions.filter { it.emoji != emoji }
+            val cur = d.reactions.firstOrNull { it.emoji == emoji }
+            val next = if (add) rest + ReactionSummaryDto(emoji, (cur?.count ?: 0) + if (cur?.reacted == true) 0 else 1, true)
+            else if (cur != null && cur.count > 1) rest + ReactionSummaryDto(emoji, cur.count - 1, false) else rest
+            TestProofCalls.proofs[proofId] = d.copy(reactions = next)
+            return next
+        }
+        override suspend fun deleteProof(proofId: Long) {
+            TestProofCalls.calls.add("delete:$proofId")
+            TestProofCalls.deleteFailure?.let { throw it }
+            TestProofCalls.proofs.remove(proofId) ?: throw http(404, "PROOF_NOT_FOUND")
+        }
+        override suspend fun listNotifications(unreadOnly: Boolean, page: Int, size: Int): PageDto<com.dailyquest.app.data.remote.dto.NotificationDto> {
+            TestNotificationCalls.calls.add("list:$unreadOnly")
+            TestNotificationCalls.listFailure?.let { throw it }
+            val all = TestNotificationCalls.items.sortedByDescending { it.notificationId }.filter { !unreadOnly || !it.isRead }
+            return PageDto(content = all, page = 0, size = size, totalElements = all.size.toLong(), totalPages = 1)
+        }
+
+        override suspend fun getUnreadCount(): com.dailyquest.app.data.remote.dto.UnreadCountDto =
+            com.dailyquest.app.data.remote.dto.UnreadCountDto(TestNotificationCalls.items.count { !it.isRead }.toLong())
+
+        override suspend fun markNotificationRead(notificationId: Long) {
+            TestNotificationCalls.calls.add("read:$notificationId")
+            TestNotificationCalls.readFailure?.let { throw it }
+            val i = TestNotificationCalls.items.indexOfFirst { it.notificationId == notificationId }
+            if (i < 0) throw http(404, "NOTIFICATION_NOT_FOUND")
+            TestNotificationCalls.items[i] = TestNotificationCalls.items[i].copy(isRead = true)
+        }
+
+        override suspend fun markAllNotificationsRead() {
+            TestNotificationCalls.calls.add("readAll")
+            TestNotificationCalls.items.replaceAll { it.copy(isRead = true) }
+        }
+
+        override suspend fun updateFcmToken(body: com.dailyquest.app.data.remote.dto.FcmTokenRequest) {
+            TestNotificationCalls.fcmTokens.add(body.token)
+        }
+
+        override suspend fun listFeed(roomId: Long, page: Int, size: Int): PageDto<PendingProofDto> {
+            TestProofCalls.calls.add("feed:$roomId")
+            TestProofCalls.feedFailure?.let { throw it }
+            if (!isMyRoom(roomId)) throw http(403, "FORBIDDEN")
+            val items = TestProofCalls.proofs.values.filter { it.room.roomId == roomId }.sortedByDescending { it.proofId }
+                .map { PendingProofDto(it.proofId, it.user, PendingMissionBriefDto(it.mission.missionId, it.mission.content), it.mediaType, it.thumbnailUrl, it.status, false, it.createdAt) }
+            return PageDto(content = items, page = 0, size = size, totalElements = items.size.toLong(), totalPages = 1)
         }
         override suspend fun listPendingProofs(roomId: Long, page: Int, size: Int): PageDto<PendingProofDto> {
             TestProofCalls.calls.add("pending:$roomId")
@@ -574,7 +631,11 @@ object TestProofCalls {
     @Volatile var uploadFailure: Throwable? = null
     @Volatile var submitFailure: Throwable? = null
     @Volatile var voteFailure: Throwable? = null
+    @Volatile var feedFailure: Throwable? = null
+    @Volatile var reactionFailure: Throwable? = null
+    @Volatile var deleteFailure: Throwable? = null
     fun reset() {
+        feedFailure = null; reactionFailure = null; deleteFailure = null
         calls.clear(); submitRequests.clear(); proofs.clear(); uploadFailure = null; submitFailure = null; voteFailure = null
     }
     /** 방 [roomId]의 APP 미션 [missionId]에 다른 멤버가 낸 승인 대기 인증을 시드한다. */
@@ -622,7 +683,7 @@ object TestRoomCalls {
         calls.clear(); joined.clear(); left.clear(); gone.clear(); kicked.clear(); transferred.clear()
         renamed.clear(); describedAs.clear(); maxOverride.clear(); publicOverride.clear(); inviteOverride.clear()
         mutationFailure = null; lastUpdate = null
-        TestMissionCalls.reset(); TestProofCalls.reset(); TestShopCalls.reset(); TestProfileCalls.reset()
+        TestMissionCalls.reset(); TestProofCalls.reset(); TestShopCalls.reset(); TestProfileCalls.reset(); TestNotificationCalls.reset()
     }
     /** 방 참여·관리 FakeApi 상태. 서버 응답을 흉내 내는 상태이며 테스트 후 reset()으로 비운다. */
     val calls: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
@@ -655,5 +716,18 @@ object TestResetCalls {
 
     fun reset() {
         requests.clear(); verifies.clear(); confirms.clear(); requestFailure = null; confirmFailure = null
+    }
+}
+
+/** 알림함·FCM 토큰 등록을 흉내 내는 가짜 서버 상태. */
+object TestNotificationCalls {
+    val calls: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
+    val fcmTokens: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
+    val items: MutableList<com.dailyquest.app.data.remote.dto.NotificationDto> = java.util.Collections.synchronizedList(mutableListOf())
+    @Volatile var listFailure: Throwable? = null
+    @Volatile var readFailure: Throwable? = null
+
+    fun reset() {
+        calls.clear(); fcmTokens.clear(); items.clear(); listFailure = null; readFailure = null
     }
 }
