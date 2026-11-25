@@ -249,10 +249,16 @@ class TestDQApplication : DQApplication() {
                     missionDto(8001, "APP", "서버 앱 미션 9101"),
                     missionDto(8002, "MEMBER", "서버 친구 미션", creator = friend, assignee = RoomOwnerDto(1, "uitest")),
                 )
-                9102L -> listOf(missionDto(8003, "APP", "서버 앱 미션 9102", proof = MyProofDto(1, "PENDING")))
+                9102L -> listOf(missionDto(8003, "APP", "서버 앱 미션 9102", proof = MyProofDto(1, "PENDING"))) +
+                    if (TestMissionCalls.manageSeed) listOf(
+                        missionDto(8004, "MEMBER", "친구 미션 9102", creator = friend, assignee = RoomOwnerDto(1, "uitest")),
+                        missionDto(8005, "MEMBER", "내 미션 9102", creator = RoomOwnerDto(1, "uitest")),
+                    ) else emptyList()
                 else -> emptyList()
             }
             return (base + TestMissionCalls.created.filter { it.first == roomId }.map { it.second })
+                .filter { it.missionId !in TestMissionCalls.deleted }
+                .map { TestMissionCalls.edited[it.missionId]?.let { c -> it.copy(content = c) } ?: it }
                 .map { if (it.missionId in TestMissionCalls.rejectedMissionIds) it.copy(proofCount = 1) else it }
         }
         private fun isMyRoom(roomId: Long) = roomId in 9101L..9105L && roomId !in TestRoomCalls.gone && roomId !in TestRoomCalls.left
@@ -287,6 +293,17 @@ class TestDQApplication : DQApplication() {
                 .copy(reward = MissionRewardDto("COIN", body.rewardCoins, 0))
             TestMissionCalls.created.add(roomId to dto)
             return dto
+        }
+        override suspend fun updateMission(missionId: Long, body: com.dailyquest.app.data.remote.dto.UpdateMissionRequest): MissionDto {
+            TestMissionCalls.updateRequests.add(missionId to body)
+            TestMissionCalls.manageFailure?.let { throw it }
+            body.content?.let { TestMissionCalls.edited[missionId] = it }
+            return (9101L..9105L).flatMap { missionsOf(it) }.first { it.missionId == missionId }
+        }
+        override suspend fun deleteMission(missionId: Long) {
+            TestMissionCalls.deleteRequests.add(missionId)
+            TestMissionCalls.manageFailure?.let { throw it }
+            TestMissionCalls.deleted.add(missionId)
         }
         override suspend fun upload(file: okhttp3.MultipartBody.Part, purpose: String?): UploadDto {
             TestProofCalls.calls.add("upload:$purpose")
@@ -662,7 +679,15 @@ object TestMissionCalls {
     val rejectedMissionIds: MutableSet<Long> = java.util.concurrent.ConcurrentHashMap.newKeySet()
     @Volatile var createFailure: Throwable? = null
     @Volatile var listFailure: Throwable? = null
+    /** 수정·삭제 테스트용 시드(9102에 친구 미션 8004, 내 미션 8005). */
+    @Volatile var manageSeed = false
+    @Volatile var manageFailure: Throwable? = null
+    val updateRequests: MutableList<Pair<Long, com.dailyquest.app.data.remote.dto.UpdateMissionRequest>> = java.util.Collections.synchronizedList(mutableListOf())
+    val deleteRequests: MutableList<Long> = java.util.Collections.synchronizedList(mutableListOf())
+    val deleted: MutableSet<Long> = java.util.concurrent.ConcurrentHashMap.newKeySet()
+    val edited: MutableMap<Long, String> = java.util.concurrent.ConcurrentHashMap()
     fun reset() {
+        manageSeed = false; manageFailure = null; updateRequests.clear(); deleteRequests.clear(); deleted.clear(); edited.clear()
         created.clear(); createRequests.clear(); roomCalls.clear(); rejectedMissionIds.clear(); mineCalls = 0
         noRooms = false; seeded = false; createFailure = null; listFailure = null
     }
