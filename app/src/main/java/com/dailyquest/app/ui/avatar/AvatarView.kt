@@ -34,8 +34,6 @@ import io.github.sceneview.model.ModelInstance
 import io.github.sceneview.model.model
 import io.github.sceneview.rememberCameraManipulator
 import io.github.sceneview.rememberCameraNode
-import io.github.sceneview.rememberEngine
-import io.github.sceneview.rememberModelLoader
 import android.os.SystemClock
 import io.github.sceneview.loaders.ModelLoader
 import kotlinx.coroutines.Dispatchers
@@ -119,23 +117,26 @@ private fun AvatarScene(
     onFrame: ((frameTimeNanos: Long) -> Unit)?,
     reloadKey: Int,
 ) {
-    val engine = rememberEngine()
-    val modelLoader = rememberModelLoader(engine)
-    // 화면을 떠나면 modelLoader가 모델을 모두 지운다. 그 뒤에 남은 지우기 작업이 다시 지우지 않게 막는다.
-    val lifecycle = remember { ViewLifecycle() }
-    DisposableEffect(Unit) { onDispose { lifecycle.disposed = true } }
+    // 앱 전체가 함께 쓰는 엔진·로더·환경 조명(아바타 속도 2단계). 화면을 떠나도 지우지 않는다.
+    val context = LocalContext.current
+    val shared = remember { AvatarEngine.get(context) }
+    val engine = shared.engine
+    val modelLoader = shared.modelLoader
+    // 모델 로더를 함께 쓰므로 이 화면이 만든 모델은 이 화면이 지운다. 화면을 떠나면 남은 모델을 모두 지운다.
+    val models = remember { SceneModels(modelLoader) }
+    DisposableEffect(Unit) { onDispose { models.disposeAll() } }
 
     val loader = remember(modelLoader, fetcher) {
         AvatarPartsLoader<ModelInstance>(
             fetcher = fetcher,
             // Filament 모델 생성·삭제는 반드시 메인 스레드에서 한다. 다른 스레드면 네이티브 코드가 앱을 강제 종료한다(STEP 9-2).
-            createModel = { bytes -> withContext(Dispatchers.Main) { createModelSafely(modelLoader, bytes, lifecycle) } },
+            createModel = { bytes -> withContext(Dispatchers.Main) { createModelSafely(modelLoader, bytes, models) } },
             releaseModel = { instance ->
                 withContext(Dispatchers.Main) {
                     // 화면에서 노드가 빠진 다음 프레임 이후에 지운다. 그리는 중인 모델을 지우면 안 된다.
                     withFrameNanos { }
                     withFrameNanos { }
-                    if (!lifecycle.disposed) modelLoader.destroyModel(instance.model)
+                    models.release(instance)
                 }
             },
         )
@@ -173,6 +174,9 @@ private fun AvatarScene(
             surfaceType = SurfaceType.TextureSurface,
             engine = engine,
             modelLoader = modelLoader,
+            materialLoader = shared.materialLoader,
+            environmentLoader = shared.environmentLoader,
+            environment = shared.environment,
             isOpaque = false,
             // 파츠는 모두 원점을 공유하므로 위치를 옮기지 않고 그대로 겹친다.
             autoCenterContent = false,
@@ -201,33 +205,64 @@ private fun AvatarScene(
  * (`PreconditionPanic in setImage: Texture is not created yet. It may be in the process of asynchronous loading`, STEP 9-6에서 발생).
  * 원본 데이터를 텍스처가 끝날 때까지 들고 있으면 주소가 겹치지 않는다. 모델도 하나씩 차례로 만들게 된다.
  *
- * 화면이 사라지면 modelLoader도 함께 지워진다. 그 뒤에 만들거나 만지면 네이티브 코드가 앱을 강제 종료하므로
- * (`SIGSEGV in AssetLoader::createAsset`), 만들기 전과 기다린 뒤마다 화면이 살아 있는지 확인한다.
- * 화면 제거와 이 함수는 모두 메인 스레드에서 돌아서 확인과 사용 사이에 화면이 사라지지 않는다.
+ * 화면이 사라지면 새로 만들지 않는다. 텍스처를 만드는 중에 화면이 사라지면 **텍스처가 다 만들어진 뒤에** 지운다.
+ * 모델 로더를 여러 화면이 함께 쓰므로(아바타 속도 2단계) 로더의 진행 중인 작업을 통째로 취소할 수 없고,
+ * 텍스처를 만드는 중인 모델을 지우면 로더가 지워진 모델의 텍스처를 계속 만들다 앱이 강제 종료될 수 있다.
+ * 이 함수는 [AvatarPartsLoader]의 취소되지 않는 구간에서 불려 화면이 사라져도 끝까지 돈다. 모두 메인 스레드에서 돈다.
  */
-private suspend fun createModelSafely(modelLoader: ModelLoader, bytes: ByteArray, lifecycle: ViewLifecycle): ModelInstance {
-    lifecycle.ensureAlive()
+private suspend fun createModelSafely(modelLoader: ModelLoader, bytes: ByteArray, models: SceneModels): ModelInstance {
+    models.ensureAlive()
     val model = modelLoader.createModel(ByteBuffer.wrap(bytes), releaseSourceData = false)
     val deadline = SystemClock.uptimeMillis() + TEXTURE_LOAD_TIMEOUT_MS
-    // 진행률은 렌더 루프가 매 프레임 갱신하지만, 화면이 아직 안 그려지는 중일 수도 있어 직접도 갱신한다.
+    // 진행률은 렌더 루프가 매 프레임 갱신하지만, 화면이 아직 안 그려지는 중이거나 이미 사라졌을 수 있어 직접도 갱신한다.
     while (modelLoader.progress < 1f && SystemClock.uptimeMillis() < deadline) {
         modelLoader.updateLoad()
         delay(TEXTURE_POLL_MS)
-        lifecycle.ensureAlive()
     }
     model.releaseSourceData()
+    // 기다리는 사이 화면이 사라졌으면 지금 지운다. 아니면 이 화면의 모델로 등록한다.
+    models.track(model.instance)
+    models.ensureAlive()
     return model.instance
 }
 
 private const val TEXTURE_LOAD_TIMEOUT_MS = 5_000L
 private const val TEXTURE_POLL_MS = 16L
 
-private class ViewLifecycle {
-    @Volatile var disposed = false
+/**
+ * 한 3D 화면이 만든 모델 목록 (아바타 속도 2단계). 모델 로더를 여러 화면이 함께 쓰므로, 로더 대신 화면이 자기 모델을 지운다.
+ * - 다 만든 모델을 [track]으로 등록하고(화면이 이미 사라졌으면 바로 지움), 바꿔 입어 빠진 모델은 [release]로,
+ *   화면을 떠나면 [disposeAll]로 남은 것을 모두 지운다.
+ * - 한 모델을 두 번 지우면 네이티브 코드가 앱을 강제 종료하므로, 목록에 있는 것만 한 번 지운다.
+ * - 모두 메인 스레드에서 부른다.
+ */
+private class SceneModels(private val modelLoader: ModelLoader) {
+    private val owned = LinkedHashSet<ModelInstance>()
+    var disposed = false
+        private set
 
     /** 화면이 이미 사라졌으면 모델 만들기를 멈춘다. 이 실패는 [AvatarPartsLoader]가 "못 불러옴"으로 처리한다. */
     fun ensureAlive() {
         check(!disposed) { "AvatarView가 이미 화면에서 사라졌습니다" }
+    }
+
+    fun track(instance: ModelInstance) {
+        if (disposed) destroy(instance) else owned += instance
+    }
+
+    /** 바꿔 입어 빠진 모델을 지운다. 화면을 떠난 뒤라면 이미 [disposeAll]이 지웠다. */
+    fun release(instance: ModelInstance) {
+        if (owned.remove(instance)) destroy(instance)
+    }
+
+    fun disposeAll() {
+        disposed = true
+        owned.toList().forEach(::destroy)
+        owned.clear()
+    }
+
+    private fun destroy(instance: ModelInstance) {
+        runCatching { modelLoader.destroyModel(instance.model) }
     }
 }
 
