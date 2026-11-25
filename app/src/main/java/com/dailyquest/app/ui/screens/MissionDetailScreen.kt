@@ -11,7 +11,18 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.semantics.Role
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,10 +57,40 @@ fun MissionDetailScreen(roomId: Long, viewModel: MissionDetailViewModel) {
     val ui by viewModel.ui.collectAsStateWithLifecycle()
     val detail = ui.detail
     val now = rememberNowMs(detail)
+    var menuOpen by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf(false) }
+
+    // 삭제 성공 이벤트는 한 번만 처리한다. 이동 후 비우고 이 화면은 back stack에서 제거된다.
+    LaunchedEffect(ui.deleted) {
+        if (!ui.deleted) return@LaunchedEffect
+        viewModel.consumeDeleted()
+        nav.backOrHome()
+    }
 
     DqScreen {
         Column(Modifier.fillMaxSize().testTag("missionDetail")) {
-            NavHeader("미션 상세", divider = true)
+            NavHeader("미션 상세", divider = true, right = if (ui.showMenu) {
+                {
+                    Box {
+                        Txt(
+                            "⋯", size = 24f, weight = Bold,
+                            modifier = Modifier.clickable(role = Role.Button) { menuOpen = true }.padding(horizontal = 8.dp).testTag("missionMenu"),
+                        )
+                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                            if (ui.canEdit) DropdownMenuItem(
+                                text = { Text("수정") },
+                                onClick = { menuOpen = false; nav.navigate(Routes.missionEdit(ui.missionId, roomId)) },
+                                modifier = Modifier.testTag("missionMenuEdit"),
+                            )
+                            if (ui.canDelete) DropdownMenuItem(
+                                text = { Text("삭제") },
+                                onClick = { menuOpen = false; confirmDelete = true },
+                                modifier = Modifier.testTag("missionMenuDelete"),
+                            )
+                        }
+                    }
+                }
+            } else null)
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
                 when {
                     detail == null && ui.error == null -> Txt("미션을 불러오는 중이에요.", size = 13f, color = DQColors.Muted)
@@ -60,8 +101,23 @@ fun MissionDetailScreen(roomId: Long, viewModel: MissionDetailViewModel) {
                     }
                     else -> DetailBody(detail, roomId, ui.userId, now, ui.error)
                 }
+                ui.actionError?.let {
+                    Txt(it, size = 12f, color = DQColors.Orange, modifier = Modifier.padding(top = 10.dp).testTag("missionActionError"))
+                }
             }
         }
+    }
+
+    if (confirmDelete) {
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            title = { Text("이 미션을 삭제할까요?") },
+            text = { Text("삭제하면 되돌릴 수 없어요. 인증이 제출됐거나 승인된 미션은 삭제할 수 없어요.") },
+            confirmButton = {
+                TextButton(onClick = { confirmDelete = false; viewModel.delete() }, enabled = !ui.deleting, modifier = Modifier.testTag("missionDeleteConfirm")) { Text("삭제") }
+            },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("취소") } },
+        )
     }
 }
 
