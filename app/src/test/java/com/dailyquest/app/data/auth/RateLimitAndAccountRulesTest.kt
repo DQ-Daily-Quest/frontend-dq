@@ -79,6 +79,20 @@ class RateLimitAndAccountRulesTest {
         assertEquals("$msg (5초 후)", com.dailyquest.app.data.auth.PasswordResetMessages.forConfirm(e))
     }
 
+    @Test fun resetRateLimitIsDistinctFromInvalidCode() = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(400).setHeader("Content-Type", "application/json").setBody("""{"code":"INVALID_RESET_CODE","message":"m"}"""))
+        val invalid = (apiCall { api.verifyPasswordReset(com.dailyquest.app.data.remote.dto.PasswordResetVerifyRequest("a@b.c", "123456")) } as ApiResult.Failure).error as ApiException.Http
+        assertTrue(PasswordResetMessages.isInvalidCode(invalid))
+        assertTrue(!invalid.isRateLimited)
+        server.enqueue(tooMany("900"))
+        val limited = (apiCall { api.verifyPasswordReset(com.dailyquest.app.data.remote.dto.PasswordResetVerifyRequest("a@b.c", "123456")) } as ApiResult.Failure).error as ApiException.Http
+        assertTrue(!PasswordResetMessages.isInvalidCode(limited))
+        assertEquals(900L, limited.retryAfterSeconds)
+        assertEquals("$msg (약 15분 후)", PasswordResetMessages.forRequest(limited))
+        assertEquals(2, server.requestCount)
+        assertTrue(PasswordResetMessages.CODE_HINT.contains("15분"))
+    }
+
     @Test fun rateLimitedIsNotTreatedAsSessionExpiry() = runBlocking {
         server.enqueue(tooMany("1"))
         val r = apiCall { api.login(LoginRequest("a@b.c", "password1")) }

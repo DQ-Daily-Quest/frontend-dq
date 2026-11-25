@@ -73,8 +73,8 @@ object PasswordResetValidator {
 object PasswordResetMessages {
     const val SENT = "가입된 이메일이라면 인증 코드를 보냈어요."
     const val RESENT = "가입된 이메일이라면 새 인증 코드를 보냈어요. 이전 코드는 사용할 수 없어요."
-    const val CODE_INVALID = "인증 코드가 올바르지 않거나 만료되었어요."
-    const val CODE_HINT = "인증 코드는 10분 동안 유효하고, 5회 틀리면 폐기되어 다시 받아야 해요."
+    const val CODE_INVALID = "인증 코드가 올바르지 않거나 만료되었어요. 여러 번 틀렸다면 코드가 잠겼을 수 있어요."
+    const val CODE_HINT = "인증 코드는 10분 동안 유효하고, 5번 틀리면 잠겨요. 잠기면 코드를 보낸 때부터 15분 뒤에 새 코드를 받을 수 있어요. 새 코드는 한 시간에 최대 5개까지 받을 수 있어요."
     const val SPAM_HINT = "메일이 오지 않으면 스팸함을 확인해 주세요."
     const val DONE = "비밀번호가 변경됐어요. 새 비밀번호로 로그인해 주세요."
     const val SEND_UNCONFIRMED = "인증 코드 요청 결과를 확인하지 못했어요. 메일함과 스팸함을 확인하고, 오지 않으면 잠시 후 다시 요청해 주세요."
