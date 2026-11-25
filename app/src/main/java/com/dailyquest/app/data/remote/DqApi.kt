@@ -13,6 +13,7 @@ import com.dailyquest.app.data.remote.dto.LoginRequest
 import com.dailyquest.app.data.remote.dto.MissionDetailDto
 import com.dailyquest.app.data.remote.dto.MissionDto
 import com.dailyquest.app.data.remote.dto.MyRoomMissionsDto
+import com.dailyquest.app.data.remote.dto.UpdateMissionRequest
 import com.dailyquest.app.data.remote.dto.OAuthLoginRequest
 import com.dailyquest.app.data.remote.dto.PageDto
 import com.dailyquest.app.data.remote.dto.PendingProofDto
@@ -219,6 +220,16 @@ interface DqApi {
     @Headers("X-DQ-No-Retry: true")
     @POST("rooms/{roomId}/missions")
     suspend fun createMission(@Path("roomId") roomId: Long, @Body body: CreateMissionRequest): MissionDto
+
+    /** 200. 작성자만 가능. 응답을 잃어도 서버에 반영됐을 수 있어 연결 재시도를 끈다. */
+    @Headers("X-DQ-No-Retry: true")
+    @PATCH("missions/{missionId}")
+    suspend fun updateMission(@Path("missionId") missionId: Long, @Body body: UpdateMissionRequest): MissionDto
+
+    /** 204. 작성자 또는 방장. 자동 재시도하지 않는다. */
+    @Headers("X-DQ-No-Retry: true")
+    @DELETE("missions/{missionId}")
+    suspend fun deleteMission(@Path("missionId") missionId: Long)
 
     // ---- 인증 ----
 

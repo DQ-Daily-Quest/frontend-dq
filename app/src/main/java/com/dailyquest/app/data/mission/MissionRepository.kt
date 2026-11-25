@@ -4,6 +4,7 @@ import com.dailyquest.app.data.remote.ApiResult
 import com.dailyquest.app.data.remote.DqApi
 import com.dailyquest.app.data.remote.apiCall
 import com.dailyquest.app.data.remote.dto.CreateMissionRequest
+import com.dailyquest.app.data.remote.dto.UpdateMissionRequest
 
 /** 서버가 조회하는 미션 범위. ACTIVE는 마감 전, EXPIRED는 마감 후. */
 enum class MissionScope(val param: String) { ACTIVE("ACTIVE"), EXPIRED("EXPIRED"), ALL("ALL") }
@@ -47,6 +48,23 @@ class MissionRepository(private val api: DqApi) {
             roomId,
             CreateMissionRequest(content.trim(), rewardCoins, dueAtMs?.let { MissionTime.toIso(it) }, assigneeUserId),
         ).toMission(roomId)
+    }
+
+    /**
+     * 멤버 미션 수정(PATCH). 서버는 content·dueAt만 받고 null은 바꾸지 않는다. 서버 규칙: 작성자만, APP 미션 불가,
+     * 대기·승인 인증이 있으면 409 MISSION_HAS_PROOFS. 자동 재시도하지 않는다.
+     */
+    suspend fun updateMission(missionId: Long, roomId: Long, content: String?, dueAtMs: Long?): ApiResult<Mission> = apiCall {
+        api.updateMission(missionId, UpdateMissionRequest(content?.trim(), dueAtMs?.let { MissionTime.toIso(it) })).toMission(roomId)
+    }
+
+    /** 멤버 미션 삭제(DELETE, 204). 서버 규칙: 작성자 또는 방장, APP 미션 불가, 대기·승인 인증이 있으면 409. 자동 재시도하지 않는다. */
+    suspend fun deleteMission(missionId: Long): ApiResult<Unit> = apiCall { api.deleteMission(missionId) }
+
+    /** 방장 여부(GET /rooms/{id}의 myRole). 확인하지 못하면 null이며 방장 권한을 주지 않는다. */
+    suspend fun isRoomOwner(roomId: Long): Boolean? {
+        if (roomId <= 0) return null
+        return (apiCall { api.getRoom(roomId) } as? ApiResult.Success)?.value?.myRole?.equals("OWNER", ignoreCase = true)
     }
 
     companion object {

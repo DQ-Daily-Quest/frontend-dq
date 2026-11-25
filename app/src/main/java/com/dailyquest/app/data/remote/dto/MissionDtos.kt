@@ -64,6 +64,13 @@ data class MissionDetailDto(
     val proofs: List<MissionProofItemDto> = emptyList(),
 )
 
+/** PATCH /missions/{id}. 서버가 받는 필드는 content·dueAt뿐이며 null(생략)이면 바꾸지 않는다. */
+@Serializable
+data class UpdateMissionRequest(
+    val content: String? = null,
+    val dueAt: String? = null,
+)
+
 /** null 필드(dueAt, assigneeUserId)는 JSON에서 생략한다(encodeDefaults=false). null이면 서버 기본값(7일 뒤·방 전체)을 쓴다. */
 @Serializable
 data class CreateMissionRequest(

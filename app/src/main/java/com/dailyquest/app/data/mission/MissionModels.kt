@@ -35,6 +35,13 @@ data class Mission(
     /** 내가 만든 MEMBER 미션 여부(만든 사람은 수행할 수 없다). */
     fun isCreatedBy(userId: Long?): Boolean = userId != null && createdBy?.userId == userId
 
+    /** 서버 규칙(MissionService.update): APP 불가, 작성자(createdBy)만. 방장도 수정은 못 한다. */
+    fun canEdit(userId: Long?): Boolean = type == MissionType.MEMBER && isCreatedBy(userId)
+
+    /** 서버 규칙(MissionService.delete): APP 불가, 작성자 또는 방장. 인증 상태(MISSION_HAS_PROOFS)는 서버가 판단한다. */
+    fun canDelete(userId: Long?, isRoomOwner: Boolean): Boolean =
+        type == MissionType.MEMBER && (isCreatedBy(userId) || (userId != null && isRoomOwner))
+
     /** 다른 멤버가 보낸 미션(APP 제외). */
     fun isFromFriend(userId: Long?): Boolean = type == MissionType.MEMBER && createdBy != null && !isCreatedBy(userId)
 
