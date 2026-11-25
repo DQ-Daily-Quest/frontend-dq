@@ -56,6 +56,10 @@ import com.dailyquest.app.ui.room.RoomDetailFailure
 import com.dailyquest.app.ui.room.RoomDetailViewModel
 import com.dailyquest.app.ui.room.RoomManageEvent
 import com.dailyquest.app.ui.room.RoomManageViewModel
+import com.dailyquest.app.ui.feed.FeedContent
+import com.dailyquest.app.ui.feed.FeedViewModel
+import com.dailyquest.app.ui.room.LocalAppContainer
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.dailyquest.app.ui.theme.DQColors
 
 private val TABS = listOf("피드", "미션", "랭킹")
@@ -237,9 +241,13 @@ fun RoomScreen(roomId: Long, viewModel: RoomDetailViewModel, manage: RoomManageV
                 }
 
                 when (tab) {
-                    "피드" -> Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                        Txt("피드는 아직 서버와 연결되지 않았어요. 준비 중이에요.", size = 14f, color = DQColors.Muted)
-                    }
+                    "피드" ->
+                        if (ui.isMember) {
+                            val feedVm: FeedViewModel = viewModel(key = "room-feed-$roomId", factory = FeedViewModel.Factory(roomId, LocalAppContainer.current))
+                            Box(Modifier.fillMaxWidth().padding(16.dp)) { FeedContent(roomId, feedVm) }
+                        } else Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                            Txt("참여 후 방의 인증 피드를 볼 수 있어요.", size = 14f, color = DQColors.Muted)
+                        }
                     "미션" ->
                         if (ui.isMember) RoomMissionsTab(roomId, missions) { missionId ->
                             nav.navigate(Routes.missionDetail(missionId, roomId))

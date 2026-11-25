@@ -46,33 +46,41 @@ import com.dailyquest.app.ui.theme.DQColors
  */
 @Composable
 fun FeedScreen(roomId: Long, viewModel: FeedViewModel) {
-    val nav = LocalNav.current
-    val ui by viewModel.ui.collectAsStateWithLifecycle()
-    val open = { p: PendingProof -> nav.navigate(Routes.proofDetail(p.proofId, roomId)) }
     DqScreen {
         Column(Modifier.fillMaxSize().testTag("feed")) {
             NavHeader("인증 피드", divider = true)
-            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                when {
-                    ui.error != null -> {
-                        Txt(ui.error.orEmpty(), size = 13f, color = DQColors.Orange, modifier = Modifier.testTag("feedError"))
-                        if (!ui.gone) Btn("다시 시도", Modifier.width(140.dp).height(44.dp).testTag("feedRetry")) { if (ui.loaded) viewModel.refresh() else viewModel.retry() }
-                        else Btn("돌아가기", Modifier.width(140.dp).height(44.dp)) { nav.backOrHome() }
-                    }
-                    !ui.loaded -> Txt("인증 피드를 불러오는 중이에요.", size = 13f, color = DQColors.Muted, modifier = Modifier.testTag("feedLoading"))
-                    ui.items.isEmpty() -> Txt("최근 24시간 동안 올라온 인증이 없어요.", size = 13f, color = DQColors.Muted, modifier = Modifier.testTag("feedEmpty"))
-                }
-                if (ui.items.isNotEmpty()) {
-                    Txt("최근 24시간 인증", size = 12f, weight = Bold, color = DQColors.Muted)
-                    Row(Modifier.horizontalScroll(rememberScrollState()).testTag("feedStrip"), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        ui.items.forEach { p -> StripItem(p) { open(p) } }
-                    }
-                    ui.items.forEach { p -> FeedRow(p) { open(p) } }
-                }
-                if (ui.hasNext) Btn("더 보기", Modifier.fillMaxWidth().height(40.dp).testTag("feedMore"), size = 13f, enabled = !ui.loadingMore) { viewModel.loadMore() }
-                if (ui.loaded && !ui.gone) Btn("새로고침", Modifier.fillMaxWidth().height(40.dp).testTag("feedRefresh"), BtnStyle.Outline, size = 13f, enabled = !ui.loading) { viewModel.refresh() }
+            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
+                FeedContent(roomId, viewModel)
             }
         }
+    }
+}
+
+/** 피드 목록 본문(로딩·오류·빈 상태·더 보기·새로고침). 인증 피드 화면과 방 상세의 피드 탭이 함께 쓴다. */
+@Composable
+fun FeedContent(roomId: Long, viewModel: FeedViewModel) {
+    val nav = LocalNav.current
+    val ui by viewModel.ui.collectAsStateWithLifecycle()
+    val open = { p: PendingProof -> nav.navigate(Routes.proofDetail(p.proofId, roomId)) }
+    Column(Modifier.fillMaxWidth().testTag("feedContent"), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        when {
+            ui.error != null -> {
+                Txt(ui.error.orEmpty(), size = 13f, color = DQColors.Orange, modifier = Modifier.testTag("feedError"))
+                if (!ui.gone) Btn("다시 시도", Modifier.width(140.dp).height(44.dp).testTag("feedRetry")) { if (ui.loaded) viewModel.refresh() else viewModel.retry() }
+                else Btn("돌아가기", Modifier.width(140.dp).height(44.dp)) { nav.backOrHome() }
+            }
+            !ui.loaded -> Txt("인증 피드를 불러오는 중이에요.", size = 13f, color = DQColors.Muted, modifier = Modifier.testTag("feedLoading"))
+            ui.items.isEmpty() -> Txt("최근 24시간 동안 올라온 인증이 없어요.", size = 13f, color = DQColors.Muted, modifier = Modifier.testTag("feedEmpty"))
+        }
+        if (ui.items.isNotEmpty()) {
+            Txt("최근 24시간 인증", size = 12f, weight = Bold, color = DQColors.Muted)
+            Row(Modifier.horizontalScroll(rememberScrollState()).testTag("feedStrip"), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                ui.items.forEach { p -> StripItem(p) { open(p) } }
+            }
+            ui.items.forEach { p -> FeedRow(p) { open(p) } }
+        }
+        if (ui.hasNext) Btn("더 보기", Modifier.fillMaxWidth().height(40.dp).testTag("feedMore"), size = 13f, enabled = !ui.loadingMore) { viewModel.loadMore() }
+        if (ui.loaded && !ui.gone) Btn("새로고침", Modifier.fillMaxWidth().height(40.dp).testTag("feedRefresh"), BtnStyle.Outline, size = 13f, enabled = !ui.loading) { viewModel.refresh() }
     }
 }
 
