@@ -29,7 +29,8 @@ import com.dailyquest.app.navigation.switchTo
 import com.dailyquest.app.ui.components.Bold
 import com.dailyquest.app.ui.components.Btn
 import com.dailyquest.app.ui.components.BtnStyle
-import com.dailyquest.app.ui.components.DqAvatar
+import com.dailyquest.app.ui.avatar.ProfileFace
+import com.dailyquest.app.ui.avatar.rememberUserFaces
 import com.dailyquest.app.ui.components.DqCard
 import com.dailyquest.app.ui.components.DqIcon
 import com.dailyquest.app.ui.components.Txt
@@ -67,6 +68,8 @@ fun HomeMissionSection() {
     }
 
     val friends = ui.friendMissions
+    // 프로필 얼굴 7단계: 미션을 보낸 사람의 실제 아바타 얼굴(보낸 사람 정보에는 아바타가 없어 따로 받는다).
+    val senderFaces = rememberUserFaces(friends.take(HOME_FRIEND_LIMIT).mapNotNull { it.mission.createdBy?.userId })
     SheetHead(Modifier.padding(top = 14.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Txt("친구가 보낸 미션", size = 15f, weight = Bold)
@@ -101,7 +104,7 @@ fun HomeMissionSection() {
                         ).testTag("friendMission-${m.missionId}"),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    DqAvatar(R.drawable.ic_users_lg, 34.dp)
+                    ProfileFace(m.createdBy?.userId?.let { senderFaces[it] }, 34.dp, contentDescription = m.createdBy?.nickname?.let { "$it 아바타" })
                     Column(Modifier.weight(1f).padding(start = 8.dp)) {
                         Txt("${m.createdBy?.nickname ?: "멤버"}님이 보낸 미션 · ${rm.roomName}", size = 10f, color = DQColors.Muted, maxLines = 1)
                         Txt(m.content, size = 12.5f, weight = Bold, maxLines = 1)

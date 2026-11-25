@@ -21,6 +21,26 @@
             android:taskAffinity="com.dailyquest.app.debugroom"
             android:theme="@style/Theme.DailyQuest">
         </activity>
+
+        <!-- 프로필 얼굴 1단계 실험 화면. 런처 아이콘 없이 adb로 연다. -->
+        <activity
+            android:name="com.dailyquest.app.debug.AvatarFaceTestActivity"
+            android:exported="true"
+            android:label="DQ 얼굴 테스트"
+            android:screenOrientation="portrait"
+            android:taskAffinity="com.dailyquest.app.debugface"
+            android:theme="@style/Theme.DailyQuest">
+        </activity>
+
+        <!-- 프로필 얼굴 2단계 얼굴 공장 확인 화면. 런처 아이콘 없이 adb로 연다. -->
+        <activity
+            android:name="com.dailyquest.app.debug.FaceStudioTestActivity"
+            android:exported="true"
+            android:label="DQ 얼굴 공장 테스트"
+            android:screenOrientation="portrait"
+            android:taskAffinity="com.dailyquest.app.debugfacestudio"
+            android:theme="@style/Theme.DailyQuest">
+        </activity>
     </application>
 
 </manifest>

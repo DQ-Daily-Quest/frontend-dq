@@ -59,7 +59,9 @@ import com.dailyquest.app.ui.components.Black
 import com.dailyquest.app.ui.components.Btn
 import com.dailyquest.app.ui.components.Bold
 import com.dailyquest.app.ui.components.Chip
-import com.dailyquest.app.ui.components.DqAvatar
+import com.dailyquest.app.data.avatar.PersonFace
+import com.dailyquest.app.ui.avatar.ProfileFace
+import com.dailyquest.app.ui.avatar.rememberRoomOwnerFaces
 import com.dailyquest.app.ui.components.DqIcon
 import com.dailyquest.app.ui.components.DqImage
 import com.dailyquest.app.ui.components.DqScreen
@@ -92,18 +94,17 @@ private val RANKS = listOf(
 private data class PublicRoom(
     val room: Room,
     @DrawableRes val house: Int,
-    @DrawableRes val owner: Int,
-    val story: Boolean
 )
 
 private val HOUSES = listOf(
     R.drawable.img_house_1, R.drawable.img_house_2, R.drawable.img_house_3, R.drawable.img_house_4
 )
 
-// 서버가 집 이미지·방장 아바타를 내려주지 않으므로 roomId로 기본 집 이미지를 고른다.
+// 서버가 집 이미지를 내려주지 않으므로 roomId로 기본 집 이미지를 고른다.
+// 방장 얼굴은 내가 참여한 방만 보여준다(프로필 얼굴 7단계, rememberRoomOwnerFaces).
 private fun createPublicRooms(rooms: List<Room>): List<PublicRoom> =
     rooms.map { room ->
-        PublicRoom(room, HOUSES[Math.floorMod(room.roomId, HOUSES.size.toLong()).toInt()], R.drawable.img_avatar_boy, false)
+        PublicRoom(room, HOUSES[Math.floorMod(room.roomId, HOUSES.size.toLong()).toInt()])
     }
 
 /** 02 · 홈 · 공개 (다른 마을 구경) */
@@ -123,6 +124,8 @@ fun HomePublicScreen() {
     }
 
     val publicRooms = createPublicRooms(ui.rooms)
+    // 참여한 방의 방장 얼굴. 참여하지 않은 방은 서버가 멤버를 주지 않아 얼굴을 띄우지 않는다.
+    val ownerFaces = rememberRoomOwnerFaces(ui.rooms)
 
     DqScreen(statusBarPadding = false) {
 
@@ -370,7 +373,7 @@ fun HomePublicScreen() {
                                 ) {
                                     row.forEach { item ->
                                         // 방 상세·참여는 아직 서버 연동 전이므로 미리보기만 연다.
-                                        PublicRoomCard(item, Modifier.weight(1f)) {
+                                        PublicRoomCard(item, ownerFaces, Modifier.weight(1f)) {
                                             selectedRoom = item.room
                                         }
                                     }
@@ -486,6 +489,7 @@ private fun StatusText(text: String) {
 @Composable
 private fun PublicRoomCard(
     r: PublicRoom,
+    ownerFaces: Map<Long, PersonFace?>,
     modifier: Modifier,
     onClick: () -> Unit
 ) {
@@ -531,25 +535,13 @@ private fun PublicRoomCard(
                     .size(71.5.dp, 52.8.dp)
             )
 
-            Box(
-                Modifier
-                    .align(Alignment.TopStart)
-                    .padding(8.dp)
-            ) {
-                if (r.story) {
-
-                    DqImage(
-                        r.owner,
-                        Modifier.size(30.dp)
-                    )
-
-                } else {
-
-                    DqAvatar(
-                        r.owner,
-                        30.dp
-                    )
-                }
+            // 방장 얼굴: 내가 참여한 방만(목록에 있음). 참여하지 않은 방은 비워 둔다.
+            if (r.room.roomId in ownerFaces) {
+                ProfileFace(
+                    ownerFaces[r.room.roomId], 30.dp,
+                    Modifier.align(Alignment.TopStart).padding(8.dp).testTag("publicRoomOwner-${r.room.roomId}"),
+                    contentDescription = "방장 아바타",
+                )
             }
 
             // 인기방 표시

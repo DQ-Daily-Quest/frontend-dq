@@ -59,3 +59,12 @@ data class ChangePasswordRequest(val currentPassword: String, val newPassword: S
 /** DELETE /users/me 본문. 비밀번호가 있는 계정만 password가 필요하다. */
 @Serializable
 data class WithdrawRequest(val password: String? = null)
+
+/** GET /users/{userId} (api.md 3.3). 다른 사용자 공개 프로필: 이메일·코인 없음. */
+@Serializable
+data class PublicUserDto(
+    val userId: Long,
+    val nickname: String,
+    val gender: String? = null,
+    val avatar: AvatarDto = AvatarDto(),
+)

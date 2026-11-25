@@ -24,16 +24,13 @@ import com.dailyquest.app.ui.components.Tab
 import com.dailyquest.app.ui.components.TabBar
 import com.dailyquest.app.ui.components.Txt
 import com.dailyquest.app.ui.theme.DQColors
-import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.testTag
@@ -47,6 +44,8 @@ import com.dailyquest.app.ui.components.Medium
 import com.dailyquest.app.ui.components.SessionCoinPill
 import com.dailyquest.app.ui.profile.ProfileViewModel
 import com.dailyquest.app.ui.room.LocalAppContainer
+import com.dailyquest.app.data.avatar.AvatarGender
+import com.dailyquest.app.ui.avatar.ProfileFace
 
 /** 앱 시작 화면: 저장된 세션을 확인하는 동안 표시하고, 서버 확인에 실패하면 재시도를 안내한다. */
 @Composable
@@ -134,10 +133,14 @@ fun AccountScreen() {
 private fun ProfileCard(profile: UserProfile) {
     DqCard(Modifier.fillMaxWidth().padding(top = 8.dp)) {
         Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                Modifier.size(64.dp).background(DQColors.Soft, CircleShape).testTag("myAvatarPlaceholder"),
-                contentAlignment = Alignment.Center,
-            ) { Txt(profile.nickname.take(1), size = 26f, weight = Black, color = DQColors.InkGreen) }
+            // 내 아바타 얼굴. 착용을 바꾸면 세션의 내 정보가 갱신되어 바로 바뀐다(프로필 얼굴 5단계).
+            ProfileFace(
+                avatar = profile.avatar,
+                size = 64.dp,
+                modifier = Modifier.testTag("myProfileFace"),
+                contentDescription = "내 아바타 얼굴",
+                genderHint = AvatarGender.parse(profile.gender),
+            )
             Column(Modifier.padding(start = 16.dp).weight(1f)) {
                 Txt(profile.nickname, size = 20f, weight = Bold, maxLines = 1, modifier = Modifier.testTag("myNickname"))
                 Txt(profile.email ?: "등록된 이메일이 없어요", size = 13f, color = DQColors.Muted, maxLines = 1, modifier = Modifier.padding(top = 3.dp).testTag("myEmail"))

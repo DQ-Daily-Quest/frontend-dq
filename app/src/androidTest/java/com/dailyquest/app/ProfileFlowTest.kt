@@ -51,7 +51,7 @@ class ProfileFlowTest {
         compose.onNodeWithTag("myLongestStreak").assertTextContains("8일", substring = true)
         compose.onNodeWithTag("myRoomCount").assertTextContains("2개", substring = true)
         compose.onNodeWithTag("myCompleted").assertTextContains("11건", substring = true)
-        compose.onNodeWithTag("myAvatarPlaceholder").assertExists()
+        compose.onNodeWithTag("myProfileFace").assertExists() // 프로필 얼굴 5단계: 이니셜 동그라미 → 아바타 얼굴
     }
 
     @Test fun coinBalanceIsSameOnHomeMissionShopAndMy() {

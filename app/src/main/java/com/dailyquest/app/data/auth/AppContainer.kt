@@ -4,7 +4,10 @@ import com.dailyquest.app.data.auth.social.SocialAuthClient
 import com.dailyquest.app.data.auth.social.SocialProvider
 import com.dailyquest.app.data.customization.CustomizationData
 import com.dailyquest.app.data.shop.InventoryRepository
+import com.dailyquest.app.data.avatar.AvatarFaceRepository
 import com.dailyquest.app.data.avatar.MyAvatarRepository
+import com.dailyquest.app.data.avatar.RoomMemberFaceRepository
+import com.dailyquest.app.data.avatar.UserAvatarRepository
 import com.dailyquest.app.data.decor.DecorRepository
 import com.dailyquest.app.ui.decor.DecorImageSource
 import com.dailyquest.app.data.shop.ShopRepository
@@ -49,7 +52,8 @@ class AppContainer(
     val tokens = SessionTokens(tokenStore)
     val session = SessionManager(
         tokens,
-        cleaners = listOf({ CustomizationData.reset() }),
+        // 계정이 바뀌면 이전 계정의 방 멤버 목록(홈 지도 얼굴)을 비운다.
+        cleaners = listOf({ CustomizationData.reset() }, { roomMemberFaceRepository.clear() }, { userAvatarRepository.clear() }),
     )
     val api: DqApi = (apiFactory ?: { t, onExpired -> NetworkModule.createApi(t, onExpired) })(tokens) {
         session.expire(LogoutReason.EXPIRED)
@@ -66,6 +70,12 @@ class AppContainer(
     val notificationRepository = NotificationRepository(api)
     val myAvatarRepository = MyAvatarRepository(api, session)
     val decorRepository = DecorRepository(api)
+    /** 다른 사람 아바타(아이템 ID) → 얼굴용 3D 주소. 아이템 주소를 앱이 켜진 동안 기억한다(프로필 얼굴). */
+    val avatarFaceRepository = AvatarFaceRepository(api)
+    /** 홈 지도에 보이는 방들의 멤버 목록(프로필 얼굴 6단계). */
+    val roomMemberFaceRepository = RoomMemberFaceRepository(roomRepository)
+    /** 사람(userId) → 착용 아바타. 미션 보낸 사람처럼 아바타 정보가 없는 곳의 얼굴(프로필 얼굴 7단계). */
+    val userAvatarRepository = UserAvatarRepository(api)
 
     /** 화면 수명과 무관하게 이어져야 하는 갱신(코인 잔액 등)을 위한 앱 범위. */
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)

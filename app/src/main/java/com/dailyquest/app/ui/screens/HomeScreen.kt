@@ -1,7 +1,6 @@
 
 package com.dailyquest.app.ui.screens
 
-import androidx.annotation.DrawableRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -14,7 +13,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -33,6 +31,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.dailyquest.app.R
+import com.dailyquest.app.data.avatar.MapFaces
+import com.dailyquest.app.data.avatar.PersonFace
 import com.dailyquest.app.data.model.Room
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
@@ -42,13 +42,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.testTag
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dailyquest.app.ui.room.LocalMyRooms
-import com.dailyquest.app.ui.room.mapExtraAvatarCount
 import com.dailyquest.app.navigation.LocalNav
 import com.dailyquest.app.navigation.Routes
 import com.dailyquest.app.ui.components.Bold
 import com.dailyquest.app.ui.components.Btn
 import com.dailyquest.app.ui.components.BtnStyle
-import com.dailyquest.app.ui.components.DqAvatar
+import com.dailyquest.app.ui.avatar.MapRoomFaces
+import com.dailyquest.app.ui.avatar.rememberMapFaces
+import com.dailyquest.app.ui.avatar.rememberMapPersonFaces
 import com.dailyquest.app.ui.components.DqCard
 import com.dailyquest.app.ui.components.DqIcon
 import com.dailyquest.app.ui.components.DqImage
@@ -66,57 +67,28 @@ import com.dailyquest.app.ui.theme.DQColors
 // 마을 지도에서 사용할 방 데이터
 private data class MapRoom(
     val room: Room,
-    @DrawableRes val story: Int,
-    val avatars: List<Int>,
-    val pin: Pair<Float, Float>,
     val label: Pair<Float, Float>,
 )
 
 // 마을 지도 전용 이미지 및 배치 정보
 private data class MapRoomSlot(
-    @DrawableRes val story: Int,
-    val avatars: List<Int>,
-    val pin: Pair<Float, Float>,
     val label: Pair<Float, Float>,
 )
 
-// 기존 마을 지도 디자인 유지
+// 기존 마을 지도 디자인 유지. 방 이름표 자리(그 밑에 멤버 얼굴 줄이 붙는다).
+// 아래 두 자리는 이름표+얼굴(약 103dp)이 바텀시트(490)에 가리지 않게 원래보다 위로 올렸다(420→372, 430→380).
 private val MAP_ROOM_SLOTS = listOf(
     MapRoomSlot(
-        R.drawable.img_avatar_story_1,
-        listOf(
-            R.drawable.img_avatar_boy,
-            R.drawable.img_avatar_girl,
-            R.drawable.img_avatar_boy
-        ),
-        34f to 170f,
         33f to 240f
     ),
     MapRoomSlot(
-        R.drawable.img_avatar_story_2,
-        listOf(
-            R.drawable.img_avatar_boy,
-            R.drawable.img_avatar_girl
-        ),
-        240f to 182f,
         251f to 250f
     ),
     MapRoomSlot(
-        R.drawable.img_avatar_story_3,
-        listOf(
-            R.drawable.img_avatar_girl,
-            R.drawable.img_avatar_boy
-        ),
-        34f to 326f,
-        31.5f to 420f
+        31.5f to 372f
     ),
     MapRoomSlot(
-        R.drawable.img_avatar_story_4,
-        listOf(
-            R.drawable.img_avatar_boy
-        ),
-        240f to 336f,
-        245f to 430f
+        245f to 380f
     )
 )
 
@@ -125,10 +97,6 @@ private fun createMapRooms(rooms: List<Room>): List<MapRoom> {
     return rooms.zip(MAP_ROOM_SLOTS).map { (room, slot) ->
         MapRoom(
             room = room,
-            story = slot.story,
-            // 멤버 상세는 STEP 3-4 전이므로 임시 캐릭터만 쓴다. 스토리 이미지가 이미 캐릭터 1명이므로 추가분은 멤버 수-1까지만 그린다.
-            avatars = slot.avatars.take(mapExtraAvatarCount(room.memberCount, slot.avatars.size)),
-            pin = slot.pin,
             label = slot.label
         )
     }
@@ -145,6 +113,9 @@ fun HomeScreen() {
     val currentPage = ui.currentPage
     val pageCount = ui.pageCount
     val mapRooms = createMapRooms(ui.pageRooms)
+    // 프로필 얼굴 6단계: 핀에 실제 멤버 얼굴. 보이는 방들의 멤버를 받아 오고, 얼굴 정보는 한 번에 받는다.
+    val mapFaces = rememberMapFaces(ui.pageRooms)
+    val personFaces = rememberMapPersonFaces(mapFaces)
 
     // 방 상세·생성·참여는 서버 연동 전이므로 안내만 표시한다. 서버 roomId를 Mock 화면으로 넘기지 않는다.
     var notice by remember { mutableStateOf<String?>(null) }
@@ -161,7 +132,7 @@ fun HomeScreen() {
                 )
 
                 mapRooms.forEach { r ->
-                    MapRoomPin(r) {
+                    MapRoomPin(r, mapFaces[r.room.roomId], personFaces) {
                         nav.navigate(Routes.room(r.room.roomId))
                     }
                 }
@@ -291,80 +262,71 @@ fun HomeScreen() {
 @Composable
 private fun MapRoomPin(
     r: MapRoom,
+    faces: MapFaces?,
+    personFaces: Map<Long, PersonFace?>,
     onClick: () -> Unit
 ) {
-    Row(
-        Modifier
-            .at(r.pin.first, r.pin.second)
-            .clickable(onClick = onClick),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        DqImage(
-            r.story,
-            Modifier.size(44.dp)
-        )
-
-        r.avatars.forEachIndexed { i, a ->
-            DqAvatar(
-                a,
-                32.dp,
-                Modifier.offset(
-                    x = (if (i == 0) -2 else -2 - 5 * i).dp
-                )
-            )
-        }
-    }
-
     val wood = RoundedCornerShape(10.dp)
 
+    // 방 이름표와 그 바로 밑 멤버 얼굴 줄을 한 묶음으로, 가운데 맞춤(프로필 얼굴: 사용자 요청으로 이름표 밑으로 옮김).
     Column(
-        Modifier
-            .at(r.label.first, r.label.second)
-            .background(DQColors.Wood, wood)
-            .border(1.dp, DQColors.WoodLine, wood)
-            .clickable(onClick = onClick),
+        Modifier.at(r.label.first, r.label.second),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(3.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        val pill = RoundedCornerShape(14.dp)
-
-        Box(
+        Column(
             Modifier
-                .background(DQColors.WoodPill, pill)
-                .border(1.5.dp, DQColors.WoodPillLine, pill)
-                .padding(horizontal = 14.dp, vertical = 5.dp)
+                .background(DQColors.Wood, wood)
+                .border(1.dp, DQColors.WoodLine, wood)
+                .clickable(onClick = onClick),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(3.dp),
         ) {
-            Txt(
-                r.room.name,
-                size = 13f,
-                weight = Bold,
-                color = DQColors.InkGreen,
-                maxLines = 1
-            )
-        }
+            val pill = RoundedCornerShape(14.dp)
 
-        Row(
-            Modifier
-                .background(
-                    Color.White.copy(alpha = 0.9f),
-                    RoundedCornerShape(10.dp)
+            Box(
+                Modifier
+                    .background(DQColors.WoodPill, pill)
+                    .border(1.5.dp, DQColors.WoodPillLine, pill)
+                    .padding(horizontal = 14.dp, vertical = 5.dp)
+            ) {
+                Txt(
+                    r.room.name,
+                    size = 13f,
+                    weight = Bold,
+                    color = DQColors.InkGreen,
+                    maxLines = 1
                 )
-                .padding(horizontal = 8.dp, vertical = 2.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(3.dp),
-        ) {
-            DqIcon(
-                R.drawable.ic_users,
-                13.dp
-            )
+            }
 
-            Txt(
-                "${r.room.memberCount}명",
-                size = 11f,
-                weight = Bold,
-                color = DQColors.InkGreen
-            )
+            Row(
+                Modifier
+                    .background(
+                        Color.White.copy(alpha = 0.9f),
+                        RoundedCornerShape(10.dp)
+                    )
+                    .padding(horizontal = 8.dp, vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(3.dp),
+            ) {
+                DqIcon(
+                    R.drawable.ic_users,
+                    13.dp
+                )
+
+                Txt(
+                    "${r.room.memberCount}명",
+                    size = 11f,
+                    weight = Bold,
+                    color = DQColors.InkGreen
+                )
+            }
         }
+
+        MapRoomFaces(
+            r.room.roomId, r.room.memberCount, faces, personFaces,
+            Modifier.clickable(onClick = onClick),
+        )
     }
 }
 

@@ -36,7 +36,9 @@ import com.dailyquest.app.ui.components.Bold
 import com.dailyquest.app.ui.components.BottomCta
 import com.dailyquest.app.ui.components.Btn
 import com.dailyquest.app.ui.components.Chip
-import com.dailyquest.app.ui.components.DqAvatar
+import com.dailyquest.app.data.avatar.PersonFace
+import com.dailyquest.app.ui.avatar.ProfileFace
+import com.dailyquest.app.ui.avatar.rememberPersonFaces
 import com.dailyquest.app.ui.components.DqIcon
 import com.dailyquest.app.ui.components.DqScreen
 import com.dailyquest.app.ui.components.DqTextField
@@ -63,6 +65,8 @@ fun SendRoomMissionScreen(viewModel: CreateMissionViewModel, room: RoomDetailVie
     val ui by viewModel.ui.collectAsStateWithLifecycle()
     val roomUi by room.ui.collectAsStateWithLifecycle()
     val recipients = roomUi.members.filter { it.userId != ui.myUserId }
+    // 프로필 얼굴 7단계: 받는 사람마다 실제 아바타 얼굴. 얼굴 정보는 한 번에 받는다.
+    val recipientFaces = rememberPersonFaces(recipients.map { it.avatar })
 
     // 성공 이벤트는 한 번만 처리한다. 이동 후 비우고 이 화면은 back stack에서 제거된다.
     LaunchedEffect(ui.created) {
@@ -86,9 +90,9 @@ fun SendRoomMissionScreen(viewModel: CreateMissionViewModel, room: RoomDetailVie
                     }
                     !roomUi.membersLoaded -> Txt("멤버를 불러오는 중이에요…", size = 12f, color = DQColors.Muted)
                     else -> Row(Modifier.padding(start = 4.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-                        Recipient("전체", null, ui.assigneeUserId == null, Modifier.testTag("recipient-all")) { viewModel.onAssigneeChange(null) }
-                        recipients.forEach { m ->
-                            Recipient(m.nickname, R.drawable.ic_users_lg, ui.assigneeUserId == m.userId, Modifier.testTag("recipient-${m.userId}")) {
+                        Recipient("전체", null, everyone = true, on = ui.assigneeUserId == null, modifier = Modifier.testTag("recipient-all")) { viewModel.onAssigneeChange(null) }
+                        recipients.forEachIndexed { i, m ->
+                            Recipient(m.nickname, recipientFaces.getOrNull(i), on = ui.assigneeUserId == m.userId, modifier = Modifier.testTag("recipient-${m.userId}")) {
                                 viewModel.onAssigneeChange(m.userId)
                             }
                         }
@@ -153,14 +157,14 @@ private fun ErrorText(text: String, modifier: Modifier = Modifier) =
     Txt(text, size = 12f, color = DQColors.Orange, modifier = modifier.padding(start = 4.dp, top = 6.dp))
 
 @Composable
-private fun Recipient(name: String, avatar: Int?, on: Boolean, modifier: Modifier, onClick: () -> Unit) {
+private fun Recipient(name: String, face: PersonFace?, everyone: Boolean = false, on: Boolean, modifier: Modifier, onClick: () -> Unit) {
     Column(
         modifier.width(56.dp).clickable(onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Box(Modifier.size(56.dp), contentAlignment = Alignment.Center) {
-            if (avatar != null) DqAvatar(avatar, 56.dp)
+            if (!everyone) ProfileFace(face, 56.dp, contentDescription = "$name 아바타")
             else Box(Modifier.size(48.dp).background(DQColors.Soft, CircleShape).border(1.dp, DQColors.Line, CircleShape), contentAlignment = Alignment.Center) {
                 DqIcon(R.drawable.ic_users_lg, 24.dp)
             }

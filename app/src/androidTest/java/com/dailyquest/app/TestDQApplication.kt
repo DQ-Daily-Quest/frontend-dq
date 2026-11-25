@@ -109,6 +109,12 @@ class TestDQApplication : DQApplication() {
             TestProfileCalls.withdrawFailure?.let { throw it }
         }
         override suspend fun me() = meResponse()
+        // 프로필 얼굴 7단계: 다른 사람 공개 프로필. 아바타는 방 멤버와 같은 값을 쓴다.
+        override suspend fun getUser(userId: Long): com.dailyquest.app.data.remote.dto.PublicUserDto {
+            TestRoomCalls.usersRequested.add(userId)
+            if (userId == 1L) return com.dailyquest.app.data.remote.dto.PublicUserDto(1, TestProfileCalls.nickname, TestAvatarCalls.gender, TestAvatarCalls.avatarDto())
+            return com.dailyquest.app.data.remote.dto.PublicUserDto(userId, "user$userId", avatar = TestRoomCalls.memberAvatars[userId] ?: com.dailyquest.app.data.remote.dto.AvatarDto())
+        }
         override suspend fun requestPasswordReset(body: com.dailyquest.app.data.remote.dto.PasswordResetRequest) {
             TestResetCalls.requests += body.email
             TestResetCalls.requestFailure?.let { throw it }
@@ -220,10 +226,11 @@ class TestDQApplication : DQApplication() {
             if (TestRoomCalls.created.any { it.roomId == roomId }) {
                 return listOf(RoomMemberDto(userId = 1, nickname = "uitest", role = "OWNER"))
             }
-            return listOf(
+            return (listOf(
                 RoomMemberDto(userId = 7, nickname = "서버방장", role = "OWNER"),
                 RoomMemberDto(userId = 8, nickname = "서버멤버", role = "MEMBER"),
-            ).filter { it.userId !in TestRoomCalls.kicked }
+            ) + TestRoomCalls.extraMembers).filter { it.userId !in TestRoomCalls.kicked }
+                .map { m -> TestRoomCalls.memberAvatars[m.userId]?.let { m.copy(avatar = it) } ?: m }
         }
         override suspend fun createRoom(body: CreateRoomRequest): CreateRoomResponse {
             TestRoomCalls.createCalls++
@@ -462,6 +469,7 @@ class TestDQApplication : DQApplication() {
 
         override suspend fun listShopItems(type: String?, category: String?, page: Int, size: Int) = TestShopCalls.list(type, category, page, size)
         override suspend fun getShopItem(itemId: Long) = TestShopCalls.item(itemId)
+        override suspend fun getShopItemsBatch(ids: String) = TestShopCalls.batch(ids)
         override suspend fun purchaseItem(itemId: Long) = TestShopCalls.purchase(itemId)
         override suspend fun listMyItems(type: String?, category: String?) = TestShopCalls.mine(type, category)
         override suspend fun listCoinTransactions(page: Int, size: Int) = TestShopCalls.transactions(page)
@@ -575,7 +583,7 @@ object TestProfileCalls {
 
 /** 상점·인벤토리·코인 내역을 흉내 내는 가짜 서버. 서버처럼 소유·잔액·거래를 직접 갱신하며 테스트 후 reset()으로 비운다. */
 object TestShopCalls {
-    class Stock(val itemId: Long, val name: String, val type: String, val category: String, val price: Int, val imageUrl: String? = null, val isDefault: Boolean = false)
+    class Stock(val itemId: Long, val name: String, val type: String, val category: String, val price: Int, val imageUrl: String? = null, val isDefault: Boolean = false, val modelUrl: String? = null, val gender: String? = null)
 
     @Volatile var coins = 0
     val stock: MutableList<Stock> = java.util.Collections.synchronizedList(mutableListOf())
@@ -591,7 +599,7 @@ object TestShopCalls {
 
     fun reset() {
         coins = 0; stock.clear(); owned.clear(); txs.clear(); purchaseCalls.clear(); listCalls.clear()
-        purchaseFailure = null; applyBeforeFailure = false; listFailure = null; purchaseDelayMs = 0
+        purchaseFailure = null; applyBeforeFailure = false; listFailure = null; purchaseDelayMs = 0; batchCalls.set(0); batchFailure = null
     }
 
     fun seedDefaults() {
@@ -602,7 +610,11 @@ object TestShopCalls {
         owned += 1
     }
 
-    private fun dto(s: Stock) = ItemDto(s.itemId, s.name, s.type, s.category, s.price, s.imageUrl, null, s.isDefault, s.itemId in owned)
+    private fun dto(s: Stock) = ItemDto(s.itemId, s.name, s.type, s.category, s.price, s.imageUrl, s.modelUrl, s.isDefault, s.itemId in owned, gender = s.gender)
+
+    /** batch 요청 횟수 (프로필 얼굴 테스트). */
+    val batchCalls = java.util.concurrent.atomic.AtomicInteger()
+    @Volatile var batchFailure: Throwable? = null
 
     fun list(type: String?, category: String?, page: Int, size: Int): PageDto<ItemDto> {
         listCalls.add("$type:$category:$page")
@@ -612,6 +624,13 @@ object TestShopCalls {
     }
 
     fun item(id: Long): ItemDto = dto(stock.firstOrNull { it.itemId == id } ?: throw http(404, "ITEM_NOT_FOUND"))
+
+    fun batch(ids: String): List<ItemDto> {
+        batchCalls.incrementAndGet()
+        batchFailure?.let { throw it }
+        val wanted = ids.split(',').mapNotNull { it.trim().toLongOrNull() }.toSet()
+        return stock.filter { it.itemId in wanted }.sortedBy { it.itemId }.map(::dto)
+    }
 
     fun purchase(id: Long): PurchaseDto {
         purchaseCalls.add(id)
@@ -707,9 +726,14 @@ object TestRoomCalls {
         created.clear(); createCalls = 0; createFailure = null; forbiddenRoomId = null; membersRequested.clear()
         calls.clear(); joined.clear(); left.clear(); gone.clear(); kicked.clear(); transferred.clear()
         renamed.clear(); describedAs.clear(); maxOverride.clear(); publicOverride.clear(); inviteOverride.clear()
-        mutationFailure = null; lastUpdate = null
+        mutationFailure = null; lastUpdate = null; memberAvatars.clear(); extraMembers.clear(); usersRequested.clear()
         TestMissionCalls.reset(); TestProofCalls.reset(); TestShopCalls.reset(); TestProfileCalls.reset(); TestNotificationCalls.reset()
     }
+    /** 프로필 얼굴: 멤버별 착용 아바타(userId → 아이템 ID)와 기본 두 명 뒤에 붙일 멤버. */
+    val memberAvatars: MutableMap<Long, com.dailyquest.app.data.remote.dto.AvatarDto> = java.util.concurrent.ConcurrentHashMap()
+    val extraMembers: MutableList<RoomMemberDto> = java.util.Collections.synchronizedList(mutableListOf())
+    /** GET /users/{id} 요청 기록(프로필 얼굴 7단계). */
+    val usersRequested: MutableList<Long> = java.util.Collections.synchronizedList(mutableListOf())
     /** 방 참여·관리 FakeApi 상태. 서버 응답을 흉내 내는 상태이며 테스트 후 reset()으로 비운다. */
     val calls: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
     val joined: MutableSet<Long> = java.util.Collections.synchronizedSet(linkedSetOf())

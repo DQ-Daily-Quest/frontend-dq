@@ -16,11 +16,18 @@ import kotlinx.coroutines.launch
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ViewModelProvider
 import com.dailyquest.app.navigation.DQNavGraph
+import com.dailyquest.app.ui.avatar.FaceStudioHost
+import com.dailyquest.app.ui.avatar.FaceStudios
 import com.dailyquest.app.ui.auth.AuthViewModel
 import com.dailyquest.app.ui.auth.LocalAuth
 import com.dailyquest.app.ui.mission.LocalMyMissions
@@ -34,6 +41,7 @@ import com.dailyquest.app.ui.shop.InventoryViewModel
 import com.dailyquest.app.ui.shop.LocalInventory
 import com.dailyquest.app.ui.shop.LocalShop
 import com.dailyquest.app.ui.shop.ShopViewModel
+import com.dailyquest.app.ui.theme.DQColors
 import com.dailyquest.app.ui.theme.DailyQuestTheme
 
 class MainActivity : ComponentActivity() {
@@ -62,7 +70,12 @@ class MainActivity : ComponentActivity() {
         setContent {
             DailyQuestTheme {
                 CompositionLocalProvider(LocalAuth provides authViewModel, LocalPublicRooms provides publicRooms, LocalMyRooms provides myRooms, LocalMyMissions provides myMissions, LocalAppContainer provides container, LocalShop provides shop, LocalInventory provides inventory) {
-                    DQNavGraph()
+                    Box(Modifier.fillMaxSize()) {
+                        // 프로필 얼굴 공장: 맨 아래 층에 두고 위를 불투명한 배경이 덮는다(보이지 않게 아바타 얼굴을 찍는다).
+                        // UI 테스트 환경(3D 끔)에서는 두지 않는다. 얼굴 사진이 없으면 화면은 기본 그림을 보여준다.
+                        if (container.avatar3dEnabled) FaceStudioHost(FaceStudios.get(this@MainActivity), Modifier.align(Alignment.Center))
+                        Box(Modifier.fillMaxSize().background(DQColors.Bg)) { DQNavGraph() }
+                    }
                 }
             }
         }
