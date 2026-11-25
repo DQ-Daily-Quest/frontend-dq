@@ -57,6 +57,20 @@ class MissionTimeAndValidationTest {
         assertEquals(60, MissionValidation.stepReward(50, 10))
     }
 
+    @Test fun dueIsLimitedToThirtyDays() {
+        val day = 86_400_000L
+        assertNull(MissionValidation.dueError(30 * day, 0))
+        assertNotNull(MissionValidation.dueError(30 * day + 1, 0))
+        assertNull(MissionValidation.dueError(7 * day, 0))
+    }
+
+    @Test fun whitespaceOnlyContentIsRefused() {
+        assertNotNull(MissionValidation.contentError("   \t\n "))
+        assertNotNull(MissionValidation.contentError(" a "))
+        assertNull(MissionValidation.contentError("  ab  "))
+        assertNotNull(com.dailyquest.app.data.room.RoomValidation.nameError("   "))
+    }
+
     @Test fun dueMustBeFutureAndSelfAssigneeIsRefused() {
         assertNotNull(MissionValidation.dueError(100, 100))
         assertNull(MissionValidation.dueError(101, 100))
