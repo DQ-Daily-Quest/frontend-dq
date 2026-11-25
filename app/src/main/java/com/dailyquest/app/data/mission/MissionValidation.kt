@@ -23,8 +23,14 @@ object MissionValidation {
             "보상 코인은 ${REWARD_MIN}~${REWARD_MAX}코인, ${REWARD_STEP}코인 단위로 정해 주세요."
         } else null
 
-    fun dueError(dueAtMs: Long, nowMs: Long): String? =
-        if (dueAtMs <= nowMs) "마감 시간은 현재보다 이후여야 해요." else null
+    /** 서버(v0.13): 멤버 미션 마감은 미래이면서 30일 이내. */
+    const val DUE_MAX_DAYS = 30L
+
+    fun dueError(dueAtMs: Long, nowMs: Long): String? = when {
+        dueAtMs <= nowMs -> "마감 시간은 현재보다 이후여야 해요."
+        dueAtMs > nowMs + DUE_MAX_DAYS * 86_400_000L -> "마감 시간은 ${DUE_MAX_DAYS}일 이내로 정해 주세요."
+        else -> null
+    }
 
     fun assigneeError(assigneeUserId: Long?, myUserId: Long?): String? =
         if (assigneeUserId != null && assigneeUserId == myUserId) "본인을 대상으로 미션을 보낼 수 없어요." else null

@@ -4,7 +4,12 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
+import android.util.LruCache
+import androidx.compose.foundation.clickable
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
@@ -15,12 +20,35 @@ import androidx.compose.ui.platform.LocalContext
 import com.dailyquest.app.ui.components.Txt
 import com.dailyquest.app.ui.theme.DQColors
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
+import java.util.concurrent.TimeUnit
 
-private val imageClient: OkHttpClient by lazy { OkHttpClient() }
+private val imageClient: OkHttpClient by lazy {
+    OkHttpClient.Builder().connectTimeout(15, TimeUnit.SECONDS).readTimeout(30, TimeUnit.SECONDS).build()
+}
+
+/** 성공한 비트맵만 보관한다. 실패는 저장하지 않으므로 화면에 다시 들어오면 다시 받는다. */
+private val bitmapCache = object : LruCache<String, Bitmap>(24 * 1024 * 1024) {
+    override fun sizeOf(key: String, value: Bitmap) = value.byteCount
+}
+
+/** 일시적인 실패(연결 끊김·타임아웃·5xx)에 대비해 짧게 몇 번 더 시도한다. 성공하면 즉시 끝낸다. */
+internal suspend fun <T : Any> loadWithRetry(
+    attempts: Int = 3,
+    delayMs: Long = 600,
+    load: suspend () -> T?,
+): T? {
+    repeat(attempts) { i ->
+        val r = runCatching { load() }.getOrNull()
+        if (r != null) return r
+        if (i < attempts - 1) delay(delayMs * (i + 1))
+    }
+    return null
+}
 
 private const val MAX_EDGE = 1280
 
@@ -36,10 +64,13 @@ fun RemoteImage(
     contentScale: ContentScale = ContentScale.Crop,
 ) {
     val cache = LocalContext.current.cacheDir
-    val bitmap by produceState<Bitmap?>(null, url) {
-        value = if (url.isNullOrBlank()) null else withContext(Dispatchers.IO) { runCatching { download(url, cache) }.getOrNull() }
+    var attempt by remember(url) { mutableIntStateOf(0) }
+    val bitmap by produceState<Bitmap?>(url?.let { bitmapCache.get(it) }, url, attempt) {
+        if (url.isNullOrBlank()) return@produceState
+        bitmapCache.get(url)?.let { value = it; return@produceState }
+        value = withContext(Dispatchers.IO) { loadWithRetry { download(url, cache) } }?.also { bitmapCache.put(url, it) }
     }
-    Box(modifier, contentAlignment = Alignment.Center) {
+    Box(modifier.let { if (bitmap == null && !url.isNullOrBlank()) it.clickable { attempt++ } else it }, contentAlignment = Alignment.Center) {
         val b = bitmap
         if (b != null) Image(b.asImageBitmap(), null, Modifier.matchParentSize(), contentScale = contentScale)
         else Txt(placeholder, size = 12f, color = DQColors.Muted)

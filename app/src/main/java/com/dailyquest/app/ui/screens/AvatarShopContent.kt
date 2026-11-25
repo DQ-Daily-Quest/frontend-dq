@@ -102,7 +102,7 @@ fun AvatarShopContent(startOwned: Boolean = false) {
     // 구매가 확정되면 인벤토리를 다시 조회한다(첫 값은 건너뛴다).
     LaunchedEffect(purchaseVersion) { if (purchaseVersion > 0) invVm.refresh() }
     LaunchedEffect(shop.message) {
-        shop.message?.let { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }
+        shop.message?.let { Toast.makeText(context, it, Toast.LENGTH_SHORT).show(); shopVm.consumeMessage() }
     }
     LaunchedEffect(avatar.message) {
         avatar.message?.let { Toast.makeText(context, it, Toast.LENGTH_SHORT).show(); avatarVm.consumeMessage() }

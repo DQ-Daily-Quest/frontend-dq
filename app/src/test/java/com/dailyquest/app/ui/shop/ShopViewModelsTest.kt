@@ -168,6 +168,18 @@ class ShopViewModelsTest {
         assertNull(vm.ui.value.purchasingId)
     }
 
+    @Test fun purchaseMessageIsShownOnceAndClearedAfterConsume() = runTest {
+        val vm = shopVm(); advanceUntilIdle()
+        vm.purchase(vm.ui.value.items[1]); advanceUntilIdle()
+        assertEquals("'민트 상의' 구매가 완료됐어요.", vm.ui.value.message)
+        vm.consumeMessage()
+        assertNull(vm.ui.value.message)
+        // 탭을 벗어났다 돌아오거나(재구독) 목록을 새로 불러와도 지난 메시지는 다시 생기지 않는다.
+        vm.refresh(); advanceUntilIdle()
+        assertNull(vm.ui.value.message)
+        assertEquals(1, vm.purchaseVersion.value)
+    }
+
     @Test fun purchaseStillSucceedsWhenFollowUpRefreshFails() = runTest {
         profileRefreshFails = true
         val vm = shopVm(); advanceUntilIdle()
