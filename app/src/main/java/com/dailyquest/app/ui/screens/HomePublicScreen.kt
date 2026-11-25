@@ -74,20 +74,6 @@ import com.dailyquest.app.ui.theme.NotoSansKr
 // 현재 백엔드에서 지원하는 정렬 방식
 private val FILTERS = listOf("인기", "신규")
 
-// 랭킹 임시 데이터
-private data class Rank(
-    val rank: Int,
-    val name: String,
-    val count: Int,
-    val color: Color
-)
-
-private val RANKS = listOf(
-    Rank(1, "새벽 러닝클럽", 128, Color(0xFFF2C14E)),
-    Rank(2, "하늘 보는 사람들", 96, Color(0xFFC9CED6)),
-    Rank(3, "맛집 탐험대", 71, Color(0xFFD99A6C)),
-)
-
 // 공개방 카드 전용 UI 데이터
 private data class PublicRoom(
     val room: Room,
@@ -226,108 +212,6 @@ fun HomePublicScreen() {
                         }
                     }
 
-                    // 기존 챌린지 랭킹 UI
-                    // 추후 실제 랭킹 API 연동
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(
-                                top = 14.dp,
-                                start = 2.dp,
-                                end = 2.dp
-                            ),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        DqIcon(
-                            R.drawable.ic_trophy,
-                            20.dp
-                        )
-
-                        Txt(
-                            "이번 주 챌린지 랭킹",
-                            size = 16f,
-                            weight = Bold,
-                            modifier = Modifier
-                                .padding(start = 4.dp)
-                                .weight(1f)
-                        )
-
-                        Txt(
-                            "샘플 · 전체보기 ›",
-                            size = 12f,
-                            color = DQColors.Muted
-                        )
-                    }
-
-                    Row(
-                        Modifier.padding(top = 10.dp).testTag("sampleRanking"),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        RANKS.forEach { r ->
-
-                            val shape = RoundedCornerShape(16.dp)
-
-                            Box(
-                                Modifier
-                                    .weight(1f)
-                                    .height(118.dp)
-                                    .background(
-                                        DQColors.White,
-                                        shape
-                                    )
-                                    .border(
-                                        1.dp,
-                                        DQColors.Line,
-                                        shape
-                                    )
-                                    .padding(9.dp)
-                            ) {
-                                Box(
-                                    Modifier
-                                        .size(24.dp)
-                                        .background(
-                                            r.color,
-                                            CircleShape
-                                        ),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Txt(
-                                        "${r.rank}",
-                                        size = 13f,
-                                        weight = Black,
-                                        color = DQColors.White
-                                    )
-                                }
-
-                                DqImage(
-                                    R.drawable.img_house_rank,
-                                    Modifier
-                                        .align(Alignment.TopEnd)
-                                        .size(65.dp, 48.dp)
-                                )
-
-                                Column(
-                                    Modifier
-                                        .align(Alignment.TopStart)
-                                        .padding(top = 56.dp)
-                                ) {
-                                    Txt(
-                                        r.name,
-                                        size = 12f,
-                                        weight = Bold,
-                                        maxLines = 1
-                                    )
-
-                                    Txt(
-                                        "챌린지 ${r.count}회",
-                                        size = 11f,
-                                        color = DQColors.Muted,
-                                        modifier = Modifier.padding(top = 6.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
 
                     // 공개방 목록
                     Txt(
