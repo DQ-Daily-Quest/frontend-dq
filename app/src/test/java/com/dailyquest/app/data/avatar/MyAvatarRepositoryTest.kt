@@ -296,4 +296,30 @@ class MyAvatarRepositoryTest {
         repeat(5) { server.takeRequest().let { if (it.method == method) return it } }
         error("$method 요청이 없습니다")
     }
+
+    // ---- 아바타 속도 1단계: 마지막 아바타 기억 ----
+
+    @Test fun `불러오거나 착용하면 그 계정의 마지막 아바타로 기억하고, 다른 계정에는 주지 않는다`() = runBlocking {
+        assertNull(repo.cached(12))
+        responses["GET /api/v1/users/me"] = me("MALE", boyDefaultAvatar)
+        responses["GET /api/v1/users/me/items"] = boyItems
+        val loaded = (repo.load() as ApiResult.Success).value
+        assertEquals(loaded, repo.cached(12))
+        assertNull("다른 계정", repo.cached(99))
+
+        responses["PATCH /api/v1/users/me"] = me("MALE", boyDefaultAvatar.replace("\"hat\":null", "\"hat\":50"))
+        val equipped = (repo.equip(mapOf(AvatarPart.HAT to 50L)) as ApiResult.Success).value
+        assertEquals(equipped, repo.cached(12))
+        assertEquals(50L, repo.cached(12)!!.itemId(AvatarPart.HAT))
+    }
+
+    @Test fun `불러오기가 실패하면 기억한 아바타를 바꾸지 않는다`() = runBlocking {
+        responses["GET /api/v1/users/me"] = me("MALE", boyDefaultAvatar)
+        responses["GET /api/v1/users/me/items"] = boyItems
+        val loaded = (repo.load() as ApiResult.Success).value
+        responses.remove("GET /api/v1/users/me")
+        assertTrue(repo.load() is ApiResult.Failure)
+        assertEquals(loaded, repo.cached(12))
+    }
 }
+

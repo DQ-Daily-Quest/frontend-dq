@@ -280,7 +280,8 @@ class MyAvatarViewModelTest {
         val vm = MyAvatarViewModel(
             { ApiResult.Failure(ApiException.Network(IOException("offline"))) },
             MutableStateFlow(SessionState.Authenticated(profile(1))),
-        ) { calls++; ApiResult.Success(boy) }
+            saveEquip = { calls++; ApiResult.Success(boy) },
+        )
         advanceUntilIdle()
 
         vm.equip(hoodie)
@@ -307,4 +308,38 @@ class MyAvatarViewModelTest {
 
         assertNull(vm.ui.value.message)
     }
+
+    // ---- 아바타 속도 1단계: 마지막 아바타로 바로 시작 ----
+
+    @Test fun `기억해 둔 아바타가 있으면 서버 응답 전에 바로 보이고, 응답이 오면 바꾼다`() = runTest(dispatcher) {
+        val withHat = avatarOf(AvatarPart.SKIN to "u/body", AvatarPart.TOP to "u/top", AvatarPart.HAIR to "u/hair", AvatarPart.HAT to "u/hat")
+        val reply = CompletableDeferred<ApiResult<MyAvatar>>()
+        val vm = MyAvatarViewModel({ reply.await() }, MutableStateFlow(SessionState.Authenticated(profile(1))), cached = { id -> if (id == 1L) boy else null })
+
+        dispatcher.scheduler.runCurrent()
+        assertEquals("서버를 기다리지 않고 바로", boy, vm.ui.value.avatar)
+        assertTrue("뒤에서는 새로 받는 중", vm.ui.value.loading)
+
+        reply.complete(ApiResult.Success(withHat))
+        advanceUntilIdle()
+        assertEquals(withHat, vm.ui.value.avatar)
+        assertFalse(vm.ui.value.loading)
+    }
+
+    @Test fun `새로 받기가 실패해도 기억해 둔 모습은 그대로 둔다`() = runTest(dispatcher) {
+        val vm = MyAvatarViewModel({ ApiResult.Failure(ApiException.Network(IOException("offline"))) }, MutableStateFlow(SessionState.Authenticated(profile(1))), cached = { boy })
+        advanceUntilIdle()
+        assertEquals(boy, vm.ui.value.avatar)
+        assertFalse(vm.ui.value.loading)
+    }
+
+    @Test fun `다른 계정이 기억한 아바타는 쓰지 않는다`() = runTest(dispatcher) {
+        val reply = CompletableDeferred<ApiResult<MyAvatar>>()
+        val vm = MyAvatarViewModel({ reply.await() }, MutableStateFlow(SessionState.Authenticated(profile(2))), cached = { id -> if (id == 1L) boy else null })
+        dispatcher.scheduler.runCurrent()
+        assertNull("2번 계정은 기억한 것이 없어 비어 있다", vm.ui.value.avatar)
+        reply.complete(ApiResult.Success(boy))
+        advanceUntilIdle()
+    }
 }
+
