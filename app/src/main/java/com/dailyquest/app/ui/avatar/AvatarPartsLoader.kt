@@ -40,13 +40,17 @@ internal fun diffParts(shown: Map<AvatarPart, String>, target: Map<AvatarPart, S
  * - 빠진 슬롯과 교체된 슬롯의 이전 모델은 화면에서 뺀 뒤 [releaseModel]로 메모리에서 지운다.
  * - 받지 못한 슬롯은 이전 모델을 그대로 두고 [AvatarLoadStatus.Failed]로 알린다. [sync]를 다시 부르면 그 슬롯만 다시 받는다.
  *
- * @param createModel GLB 내용으로 모델을 만든다. Filament는 메인 스레드에서 만들어야 하므로 구현이 스레드를 정한다.
- * @param releaseModel 화면에서 뺀 모델을 지운다.
+ * @param createModel 그 주소의 GLB 내용으로 모델을 만든다. Filament는 메인 스레드에서 만들어야 하므로 구현이 스레드를 정한다.
+ * @param releaseModel 화면에서 뺀 모델을 돌려준다(지우거나 보관한다).
+ * @param isReady 이미 만들어 둔 모델이 있어 파일을 읽을 필요가 없는 주소인지(아바타 속도 3단계). 기본은 없음.
+ * @param reuseModel [isReady]인 주소의 모델을 파일 없이 가져온다. 그사이 없어졌으면 null(그러면 파일을 읽어 만든다).
  */
 class AvatarPartsLoader<T : Any>(
     private val fetcher: AvatarModelFetcher,
-    private val createModel: suspend (ByteArray) -> T,
+    private val createModel: suspend (url: String, bytes: ByteArray) -> T,
     private val releaseModel: suspend (T) -> Unit,
+    private val isReady: (url: String) -> Boolean = { false },
+    private val reuseModel: suspend (url: String) -> T? = { null },
 ) {
     data class Shown<T>(val url: String, val model: T)
 
@@ -80,15 +84,21 @@ class AvatarPartsLoader<T : Any>(
         }
 
         status = AvatarLoadStatus.Loading
-        val fetched = diff.toLoad.map { (part, url) -> async { Triple(part, url, fetcher.fetch(url)) } }.awaitAll()
+        // 이미 만들어 둔 모델이 있는 주소는 파일을 읽지 않는다(3단계).
+        val ready = diff.toLoad.filterValues(isReady).keys
+        val fetched = (diff.toLoad - ready)
+            .map { (part, url) -> async { part to fetcher.fetch(url) } }.awaitAll().toMap()
 
         // 모델을 만든 뒤 화면 상태에 넣기 전에 취소되면 만든 모델을 잃어버린다. 이 구간은 끝까지 실행한다.
         val replaced = mutableListOf<T>()
         withContext(NonCancellable) {
             var next = shown
-            fetched.forEach { (part, url, result) ->
-                val bytes = result.getOrNull() ?: return@forEach
-                val model = runCatching { createModel(bytes) }.getOrNull() ?: return@forEach
+            diff.toLoad.forEach { (part, url) ->
+                val model = (if (part in ready) runCatching { reuseModel(url) }.getOrNull() else null) ?: run {
+                    // 보관된 모델이 그사이 없어졌으면 여기서 파일을 읽는다(드문 경우).
+                    val bytes = (fetched[part] ?: fetcher.fetch(url)).getOrNull() ?: return@forEach
+                    runCatching { createModel(url, bytes) }.getOrNull() ?: return@forEach
+                }
                 next[part]?.let { replaced += it.model }
                 next = next + (part to Shown(url, model))
             }

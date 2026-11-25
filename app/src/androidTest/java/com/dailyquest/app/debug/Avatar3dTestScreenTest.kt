@@ -17,6 +17,7 @@ import org.junit.rules.TestRule
 import org.junit.runners.model.Statement
 import androidx.test.platform.app.InstrumentationRegistry
 import com.dailyquest.app.data.avatar.AvatarModels
+import com.dailyquest.app.ui.avatar.AvatarEngine
 
 /**
  * STEP 9 디버그 3D 테스트 화면 스모크 테스트. 화면은 앱 본체의 AvatarView로 그린다(9-4).
@@ -30,13 +31,22 @@ class Avatar3dTestScreenTest {
     /**
      * 화면이 뜨기 전에 GLB 캐시를 비운다(9-5). 이전 테스트나 수동 확인에서 받은 파일이 남아 있으면 "받은 파일 N개"가 달라진다.
      * 화면을 띄우는 compose 규칙보다 먼저 실행되도록 order를 준다.
+     *
+     * 이 테스트는 **파일 받기·디스크 캐시**를 확인한다. 아바타 속도 3단계의 모델 보관함은 보관된 파츠의 파일을 아예 읽지 않으므로,
+     * 테스트 동안에는 보관을 끄고(안 쓰는 모델은 바로 지움) 끝나면 다시 켠다. 모델 보관은 `AvatarEngineSharingTest`가 확인한다.
      */
     @get:Rule(order = 0) val clearCache = TestRule { base, _ ->
         object : Statement() {
             override fun evaluate() {
-                val context = InstrumentationRegistry.getInstrumentation().targetContext
+                val instrumentation = InstrumentationRegistry.getInstrumentation()
+                val context = instrumentation.targetContext
                 AvatarModels.cacheDirectory(context).deleteRecursively()
-                base.evaluate()
+                instrumentation.runOnMainSync { AvatarEngine.get(context).models.setKeeping(false) }
+                try {
+                    base.evaluate()
+                } finally {
+                    instrumentation.runOnMainSync { AvatarEngine.get(context).models.setKeeping(true) }
+                }
             }
         }
     }

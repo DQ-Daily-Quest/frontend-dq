@@ -11,6 +11,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -34,6 +35,7 @@ import io.github.sceneview.model.ModelInstance
 import io.github.sceneview.model.model
 import io.github.sceneview.rememberCameraManipulator
 import io.github.sceneview.rememberCameraNode
+import io.github.sceneview.rememberScene
 import android.os.SystemClock
 import io.github.sceneview.loaders.ModelLoader
 import kotlinx.coroutines.Dispatchers
@@ -122,24 +124,50 @@ private fun AvatarScene(
     val shared = remember { AvatarEngine.get(context) }
     val engine = shared.engine
     val modelLoader = shared.modelLoader
-    // 모델 로더를 함께 쓰므로 이 화면이 만든 모델은 이 화면이 지운다. 화면을 떠나면 남은 모델을 모두 지운다.
-    val models = remember { SceneModels(modelLoader) }
-    DisposableEffect(Unit) { onDispose { models.disposeAll() } }
+    // 이 화면의 Filament 장면. 모델은 SceneView의 모델 노드 대신 여기에 직접 넣고 뺀다(아바타 속도 3단계):
+    // 모델 노드는 화면을 떠날 때 모델의 엔티티까지 지워서, 보관해 둔 모델을 다시 쓸 수 없게 만든다.
+    // 장면을 지워도 그 안의 엔티티는 지워지지 않는다. 아래 DisposableEffect보다 먼저 만들어 나중에 지워지게 한다.
+    val filamentScene = rememberScene(engine)
+    // 이 화면이 보관함에서 빌려 쓰는 모델. 다 쓰면(바꿔 입기·화면 떠남) 보관함에 돌려준다.
+    val borrowed = remember { BorrowedModels(shared.models) }
+    val inScene = remember { mutableSetOf<ModelInstance>() }
+    DisposableEffect(Unit) {
+        onDispose {
+            inScene.forEach { runCatching { filamentScene.removeEntities(it.entities) } }
+            inScene.clear()
+            borrowed.returnAll()
+        }
+    }
 
     val loader = remember(modelLoader, fetcher) {
         AvatarPartsLoader<ModelInstance>(
             fetcher = fetcher,
             // Filament 모델 생성·삭제는 반드시 메인 스레드에서 한다. 다른 스레드면 네이티브 코드가 앱을 강제 종료한다(STEP 9-2).
-            createModel = { bytes -> withContext(Dispatchers.Main) { createModelSafely(modelLoader, bytes, models) } },
+            createModel = { url, bytes ->
+                withContext(Dispatchers.Main) {
+                    val made = shared.models.acquire(url) { createModelSafely(modelLoader, bytes) }
+                    borrowed.keep(made ?: error("모델을 만들지 못했습니다: $url"))
+                }
+            },
+            isReady = shared.models::has,
+            reuseModel = { url -> withContext(Dispatchers.Main) { shared.models.acquire(url) { null }?.let(borrowed::keep) } },
             releaseModel = { instance ->
                 withContext(Dispatchers.Main) {
-                    // 화면에서 노드가 빠진 다음 프레임 이후에 지운다. 그리는 중인 모델을 지우면 안 된다.
+                    // 장면에서 빠진 다음 프레임 이후에 돌려준다. 보관함은 그 뒤로도 잠시 지우지 않는다.
                     withFrameNanos { }
                     withFrameNanos { }
-                    models.release(instance)
+                    borrowed.giveBack(instance)
                 }
             },
         )
+    }
+    // 장면의 모델을 지금 보일 모습(loader.shown)에 맞춘다. 새로 보일 것은 넣고, 빠진 것은 뺀다(지우지 않음).
+    // 화면을 그릴 때 읽어 둬야 목록이 바뀔 때마다 다시 그려지고 아래가 다시 돈다.
+    val shownModels = loader.shown.values.map { it.model }
+    SideEffect {
+        val want = shownModels.toSet()
+        (inScene - want).forEach { filamentScene.removeEntities(it.entities); inScene -= it }
+        (want - inScene).forEach { allowEmptyBounds(engine, it); filamentScene.addEntities(it.entities); inScene += it }
     }
 
     var retryCount by remember { mutableIntStateOf(0) }
@@ -174,6 +202,7 @@ private fun AvatarScene(
             surfaceType = SurfaceType.TextureSurface,
             engine = engine,
             modelLoader = modelLoader,
+            scene = filamentScene,
             materialLoader = shared.materialLoader,
             environmentLoader = shared.environmentLoader,
             environment = shared.environment,
@@ -183,9 +212,7 @@ private fun AvatarScene(
             cameraNode = cameraNode,
             cameraManipulator = cameraManipulator,
             onFrame = onFrame,
-        ) {
-            loader.shown.values.forEach { ModelNode(modelInstance = it.model) }
-        }
+        )
         // 3D 화면이 막 생겨 아직 불러오기를 시작하지 않은 순간에도 빈 상자 대신 진행 표시를 보인다.
         val notStartedYet = parts.isNotEmpty() && loader.shown.isEmpty() && loader.status is AvatarLoadStatus.Ready
         AvatarStatusOverlay(
@@ -205,13 +232,10 @@ private fun AvatarScene(
  * (`PreconditionPanic in setImage: Texture is not created yet. It may be in the process of asynchronous loading`, STEP 9-6에서 발생).
  * 원본 데이터를 텍스처가 끝날 때까지 들고 있으면 주소가 겹치지 않는다. 모델도 하나씩 차례로 만들게 된다.
  *
- * 화면이 사라지면 새로 만들지 않는다. 텍스처를 만드는 중에 화면이 사라지면 **텍스처가 다 만들어진 뒤에** 지운다.
- * 모델 로더를 여러 화면이 함께 쓰므로(아바타 속도 2단계) 로더의 진행 중인 작업을 통째로 취소할 수 없고,
- * 텍스처를 만드는 중인 모델을 지우면 로더가 지워진 모델의 텍스처를 계속 만들다 앱이 강제 종료될 수 있다.
- * 이 함수는 [AvatarPartsLoader]의 취소되지 않는 구간에서 불려 화면이 사라져도 끝까지 돈다. 모두 메인 스레드에서 돈다.
+ * 만든 모델은 공유 보관함([AvatarModelCache])이 갖는다(3단계). 화면이 그사이 사라져도 모델은 보관함에 남아 다음에 쓰인다.
+ * [AvatarPartsLoader]의 취소되지 않는 구간에서 불려 끝까지 돈다. 모두 메인 스레드에서 돈다.
  */
-private suspend fun createModelSafely(modelLoader: ModelLoader, bytes: ByteArray, models: SceneModels): ModelInstance {
-    models.ensureAlive()
+private suspend fun createModelSafely(modelLoader: ModelLoader, bytes: ByteArray): ModelInstance {
     val model = modelLoader.createModel(ByteBuffer.wrap(bytes), releaseSourceData = false)
     val deadline = SystemClock.uptimeMillis() + TEXTURE_LOAD_TIMEOUT_MS
     // 진행률은 렌더 루프가 매 프레임 갱신하지만, 화면이 아직 안 그려지는 중이거나 이미 사라졌을 수 있어 직접도 갱신한다.
@@ -220,9 +244,6 @@ private suspend fun createModelSafely(modelLoader: ModelLoader, bytes: ByteArray
         delay(TEXTURE_POLL_MS)
     }
     model.releaseSourceData()
-    // 기다리는 사이 화면이 사라졌으면 지금 지운다. 아니면 이 화면의 모델로 등록한다.
-    models.track(model.instance)
-    models.ensureAlive()
     return model.instance
 }
 
@@ -230,39 +251,54 @@ private const val TEXTURE_LOAD_TIMEOUT_MS = 5_000L
 private const val TEXTURE_POLL_MS = 16L
 
 /**
- * 한 3D 화면이 만든 모델 목록 (아바타 속도 2단계). 모델 로더를 여러 화면이 함께 쓰므로, 로더 대신 화면이 자기 모델을 지운다.
- * - 다 만든 모델을 [track]으로 등록하고(화면이 이미 사라졌으면 바로 지움), 바꿔 입어 빠진 모델은 [release]로,
- *   화면을 떠나면 [disposeAll]로 남은 것을 모두 지운다.
- * - 한 모델을 두 번 지우면 네이티브 코드가 앱을 강제 종료하므로, 목록에 있는 것만 한 번 지운다.
- * - 모두 메인 스레드에서 부른다.
+ * 한 3D 화면이 보관함에서 빌려 쓰는 모델 (아바타 속도 3단계).
+ * - [keep]: 빌린 모델을 기록한다. 화면이 이미 사라졌으면 바로 돌려주고 실패로 알린다.
+ * - [giveBack]: 바꿔 입어 빠진 모델을 돌려준다. 기록에 있는 것만 한 번 돌려준다(보관함의 "쓰는 중" 수가 맞게).
+ * - [returnAll]: 화면을 떠날 때 남은 것을 모두 돌려준다.
+ * 모두 메인 스레드에서 부른다.
  */
-private class SceneModels(private val modelLoader: ModelLoader) {
-    private val owned = LinkedHashSet<ModelInstance>()
-    var disposed = false
-        private set
+private class BorrowedModels(private val cache: AvatarModelCache<ModelInstance>) {
+    private val held = mutableListOf<ModelInstance>()
+    private var closed = false
 
-    /** 화면이 이미 사라졌으면 모델 만들기를 멈춘다. 이 실패는 [AvatarPartsLoader]가 "못 불러옴"으로 처리한다. */
-    fun ensureAlive() {
-        check(!disposed) { "AvatarView가 이미 화면에서 사라졌습니다" }
+    fun keep(instance: ModelInstance): ModelInstance {
+        if (closed) {
+            cache.release(instance)
+            error("AvatarView가 이미 화면에서 사라졌습니다")
+        }
+        held += instance
+        return instance
     }
 
-    fun track(instance: ModelInstance) {
-        if (disposed) destroy(instance) else owned += instance
+    fun giveBack(instance: ModelInstance) {
+        if (held.remove(instance)) cache.release(instance)
     }
 
-    /** 바꿔 입어 빠진 모델을 지운다. 화면을 떠난 뒤라면 이미 [disposeAll]이 지웠다. */
-    fun release(instance: ModelInstance) {
-        if (owned.remove(instance)) destroy(instance)
+    fun returnAll() {
+        closed = true
+        held.forEach(cache::release)
+        held.clear()
     }
+}
 
-    fun disposeAll() {
-        disposed = true
-        owned.toList().forEach(::destroy)
-        owned.clear()
-    }
-
-    private fun destroy(instance: ModelInstance) {
-        runCatching { modelLoader.destroyModel(instance.model) }
+/**
+ * 경계 상자가 비어 있는 부품은 화면 밖 판정·그림자에서 뺀다. Filament는 빈 경계 상자로 판정을 켜 두면 앱을 멈춘다
+ * ("AABB can't be empty"). SceneView 모델 노드가 하던 일인데, 모델을 장면에 직접 넣으므로 여기서 한 번 한다.
+ * 아바타 파츠는 뼈대·애니메이션이 없는 고정 모델이라 넣을 때 한 번만 보면 된다.
+ */
+private fun allowEmptyBounds(engine: com.google.android.filament.Engine, instance: ModelInstance) {
+    val rm = engine.renderableManager
+    val box = com.google.android.filament.Box()
+    instance.entities.forEach { entity ->
+        if (!rm.hasComponent(entity)) return@forEach
+        val ri = rm.getInstance(entity)
+        rm.getAxisAlignedBoundingBox(ri, box)
+        val half = box.halfExtent
+        if (half[0] == 0f && half[1] == 0f && half[2] == 0f) {
+            rm.setCulling(ri, false)
+            rm.setCastShadows(ri, false)
+            rm.setReceiveShadows(ri, false)
+        }
     }
 }
 

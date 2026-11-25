@@ -39,7 +39,7 @@ class AvatarPartsLoaderTest {
     private val released = mutableListOf<String>()
     private val loader = AvatarPartsLoader(
         fetcher = fetcher,
-        createModel = { bytes -> "model:${String(bytes)}".also { created += it } },
+        createModel = { _, bytes -> "model:${String(bytes)}".also { created += it } },
         releaseModel = { model -> released += model },
     )
 
@@ -141,7 +141,7 @@ class AvatarPartsLoaderTest {
     @Test fun `모델 생성이 실패한 슬롯도 실패로 알린다`() = runBlocking {
         val broken = AvatarPartsLoader(
             fetcher = fetcher,
-            createModel = { bytes -> if (String(bytes) == "u/eyes") throw IllegalArgumentException("Failed to parse glTF") else "m" },
+            createModel = { _, bytes -> if (String(bytes) == "u/eyes") throw IllegalArgumentException("Failed to parse glTF") else "m" },
             releaseModel = {},
         )
 
@@ -155,7 +155,7 @@ class AvatarPartsLoaderTest {
         val gate = CompletableDeferred<Unit>()
         val slow = AvatarPartsLoader(
             fetcher = { url -> if (url == "u/hair-cafe") gate.await(); Result.success(url.toByteArray()) },
-            createModel = { bytes -> String(bytes) },
+            createModel = { _, bytes -> String(bytes) },
             releaseModel = {},
         )
         slow.sync(boyDefault)
@@ -187,4 +187,45 @@ class AvatarPartsLoaderTest {
         assertEquals(mapOf(TOP to "b2", SHOES to "d"), diff.toLoad)
         assertEquals(setOf<AvatarPart>(HAT), diff.toRemove)
     }
+
+    // ---- 아바타 속도 3단계: 보관된 모델 다시 쓰기 ----
+
+    @Test fun `보관된 모델이 있는 파츠는 파일을 읽지 않고 그 모델을 쓴다`() = runBlocking {
+        val kept = mapOf("u/body" to "kept:body", "u/hair" to "kept:hair")
+        val reused = mutableListOf<String>()
+        val l = AvatarPartsLoader(
+            fetcher = fetcher,
+            createModel = { _, bytes -> "model:${String(bytes)}".also { created += it } },
+            releaseModel = {},
+            isReady = { it in kept },
+            reuseModel = { url -> kept[url]?.also { reused += url } },
+        )
+        l.sync(boyDefault)
+        assertEquals(setOf("u/eyes", "u/top", "u/bottom", "u/shoes"), fetcher.requested.toSet())
+        assertEquals(listOf("u/body", "u/hair"), reused)
+        assertEquals("kept:hair", l.shown[HAIR]?.model)
+        assertEquals("model:u/top", l.shown[TOP]?.model)
+        assertEquals(AvatarLoadStatus.Ready(boyDefault.keys), l.status)
+    }
+
+    @Test fun `보관된 모델이 그사이 없어졌으면 파일을 읽어 만든다`() = runBlocking {
+        val l = AvatarPartsLoader(
+            fetcher = fetcher,
+            createModel = { _, bytes -> "model:${String(bytes)}".also { created += it } },
+            releaseModel = {},
+            isReady = { it == "u/hair" },
+            reuseModel = { null },
+        )
+        l.sync(mapOf(HAIR to "u/hair"))
+        assertEquals(listOf("u/hair"), fetcher.requested)
+        assertEquals("model:u/hair", l.shown[HAIR]?.model)
+    }
+
+    @Test fun `모델을 만들 때 주소를 함께 넘긴다`() = runBlocking {
+        val urls = mutableListOf<String>()
+        val l = AvatarPartsLoader(fetcher = fetcher, createModel = { url, _ -> url.also { urls += it } }, releaseModel = {})
+        l.sync(mapOf(SKIN to "u/body", HAT to "u/hat"))
+        assertEquals(setOf("u/body", "u/hat"), urls.toSet())
+    }
 }
+
