@@ -26,6 +26,7 @@ import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ViewModelProvider
 import com.dailyquest.app.navigation.DQNavGraph
+import com.dailyquest.app.ui.avatar.AvatarPrewarm
 import com.dailyquest.app.ui.avatar.FaceStudioHost
 import com.dailyquest.app.ui.avatar.FaceStudios
 import com.dailyquest.app.ui.auth.AuthViewModel
@@ -73,7 +74,11 @@ class MainActivity : ComponentActivity() {
                     Box(Modifier.fillMaxSize()) {
                         // 프로필 얼굴 공장: 맨 아래 층에 두고 위를 불투명한 배경이 덮는다(보이지 않게 아바타 얼굴을 찍는다).
                         // UI 테스트 환경(3D 끔)에서는 두지 않는다. 얼굴 사진이 없으면 화면은 기본 그림을 보여준다.
-                        if (container.avatar3dEnabled) FaceStudioHost(FaceStudios.get(this@MainActivity), Modifier.align(Alignment.Center))
+                        if (container.avatar3dEnabled) {
+                            FaceStudioHost(FaceStudios.get(this@MainActivity), Modifier.align(Alignment.Center))
+                            // 로그인 뒤 홈이 다 그려지고 쉴 때 3D 엔진과 내 착용 정보를 미리 준비한다(아바타 속도 2-1단계).
+                            AvatarPrewarm(container)
+                        }
                         Box(Modifier.fillMaxSize().background(DQColors.Bg)) { DQNavGraph() }
                     }
                 }
