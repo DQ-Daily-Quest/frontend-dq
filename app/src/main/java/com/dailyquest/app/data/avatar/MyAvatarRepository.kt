@@ -55,13 +55,21 @@ class MyAvatarRepository(
     /** 마지막으로 받은 보유 아바타 아이템(받은 계정 ID와 함께). 착용 저장 뒤 목록 조회만 실패했을 때 같은 계정이면 대신 쓴다. */
     @Volatile private var lastOwned: Pair<Long?, List<MyItemDto>> = null to emptyList()
 
+    /** 마지막으로 받은 내 아바타(받은 계정 ID와 함께). 상점을 다시 열 때 서버 응답을 기다리지 않고 바로 그린다(아바타 속도 1단계). */
+    @Volatile private var lastAvatar: Pair<Long, MyAvatar>? = null
+
+    /** [userId] 계정의 마지막 아바타. 다른 계정이거나 아직 받은 적 없으면 null. 앱이 켜져 있는 동안만 기억한다. */
+    fun cached(userId: Long): MyAvatar? = lastAvatar?.takeIf { it.first == userId }?.second
+
+    private fun remember(userId: Long, avatar: MyAvatar): MyAvatar = avatar.also { lastAvatar = userId to it }
+
     suspend fun load(): ApiResult<MyAvatar> = apiCall {
         coroutineScope {
             val me = async { api.me() }
             val items = async { api.listMyItems(type = AVATAR_TYPE) }
             val user = me.await()
             val owned = items.await().also { lastOwned = user.userId to it }
-            resolveMyAvatar(user, owned)
+            remember(user.userId, resolveMyAvatar(user, owned))
         }
     }
 
@@ -82,7 +90,7 @@ class MyAvatarRepository(
             is ApiResult.Success -> items.value.also { lastOwned = me.userId to it }
             is ApiResult.Failure -> lastOwned.takeIf { it.first == me.userId }?.second.orEmpty()
         }
-        return ApiResult.Success(resolveMyAvatar(me, owned))
+        return ApiResult.Success(remember(me.userId, resolveMyAvatar(me, owned)))
     }
 
     /**
@@ -110,7 +118,7 @@ class MyAvatarRepository(
 
         val owned = when (val items = apiCall { api.listMyItems(type = AVATAR_TYPE) }) {
             is ApiResult.Success -> items.value.also { lastOwned = me.userId to it }
-            is ApiResult.Failure -> return ApiResult.Success(resolveMyAvatar(me, lastOwned.takeIf { it.first == me.userId }?.second.orEmpty()))
+            is ApiResult.Failure -> return ApiResult.Success(remember(me.userId, resolveMyAvatar(me, lastOwned.takeIf { it.first == me.userId }?.second.orEmpty())))
         }
         val actualGender = AvatarGender.parse(me.gender) ?: gender
         val skinItem = owned.firstOrNull { it.code == skin.code(actualGender) }
@@ -121,7 +129,7 @@ class MyAvatarRepository(
                 if (userId != null) session.applyProfileIfCurrent(userId, me.toProfile())
             }
         }
-        return ApiResult.Success(resolveMyAvatar(me, owned))
+        return ApiResult.Success(remember(me.userId, resolveMyAvatar(me, owned)))
     }
 
     private companion object {

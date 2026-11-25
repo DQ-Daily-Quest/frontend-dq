@@ -48,13 +48,18 @@ data class MyAvatarUiState(
  * 상점·꾸미기 화면의 내 아바타와 입어보기 상태 (STEP 9-7).
  * 로그인 계정이 바뀌면 이전 계정의 모습을 지우고 다시 불러온다([com.dailyquest.app.ui.shop.InventoryViewModel]과 같은 방식).
  *
+ * 화면을 다시 열면 마지막으로 받은 아바타([cached])로 **바로** 그리고, 서버에서는 뒤에서 새로 받아 바뀐 것만 반영한다(아바타 속도 1단계).
+ * 새로 받기가 실패하면 마지막 모습을 그대로 둔다(미리보기는 아바타가 있으면 오류 화면 대신 그 모습을 보여준다). 기억한 것이 없을 때만 오류 화면이 뜬다.
+ *
  * @param load 내 아바타 불러오기. 앱에서는 [com.dailyquest.app.data.avatar.MyAvatarRepository.load]
  * @param sessionState 로그인 상태. 계정 전환을 감지한다.
+ * @param cached 계정의 마지막 아바타. 앱에서는 [com.dailyquest.app.data.avatar.MyAvatarRepository.cached]
  */
 class MyAvatarViewModel(
     private val load: suspend () -> ApiResult<MyAvatar>,
     sessionState: StateFlow<SessionState>,
     private val saveEquip: suspend (Map<AvatarPart, Long?>) -> ApiResult<MyAvatar> = { error("착용 저장이 연결되지 않았습니다") },
+    private val cached: (Long) -> MyAvatar? = { null },
 ) : ViewModel() {
     private val _ui = MutableStateFlow(MyAvatarUiState())
     val ui: StateFlow<MyAvatarUiState> = _ui.asStateFlow()
@@ -67,7 +72,7 @@ class MyAvatarViewModel(
                 .distinctUntilChanged()
                 .collect { userId ->
                     loadJob?.cancel()
-                    _ui.value = MyAvatarUiState(userId = userId)
+                    _ui.value = MyAvatarUiState(userId = userId, avatar = userId?.let(cached))
                     if (userId != null) refresh()
                 }
         }
@@ -137,7 +142,10 @@ class MyAvatarViewModel(
     class Factory(private val container: AppContainer) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T =
-            MyAvatarViewModel(container.myAvatarRepository::load, container.session.state, container.myAvatarRepository::equip) as T
+            MyAvatarViewModel(
+                container.myAvatarRepository::load, container.session.state, container.myAvatarRepository::equip,
+                container.myAvatarRepository::cached,
+            ) as T
     }
 }
 
