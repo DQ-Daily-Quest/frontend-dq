@@ -1,5 +1,6 @@
 package com.dailyquest.app.ui.proof
 
+import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image
@@ -22,13 +23,53 @@ import com.dailyquest.app.ui.theme.DQColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import okhttp3.Cache
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okio.blackholeSink
 import java.io.File
 import java.util.concurrent.TimeUnit
 
-private val imageClient: OkHttpClient by lazy {
-    OkHttpClient.Builder().connectTimeout(15, TimeUnit.SECONDS).readTimeout(30, TimeUnit.SECONDS).build()
+/**
+ * 이미지 받기용 인터넷 연결. [cacheDir]를 주면 받은 이미지를 기기에 저장해 다시 받지 않는다(상점 이미지 속도 1단계).
+ * OkHttp의 HTTP 캐시라 **서버가 저장해도 된다고 한 것만** 저장한다: 상점·가구 썸네일(S3)은 `max-age=1년, immutable`이라
+ * 앱을 다시 켜도 인터넷 없이 바로 쓴다. 저장 금지·유효기간이 없는 응답(인증 사진 등)은 전과 같이 매번 받는다.
+ */
+internal fun imageClient(cacheDir: File?, maxBytes: Long = RemoteImages.DISK_CACHE_BYTES): OkHttpClient =
+    OkHttpClient.Builder()
+        .connectTimeout(15, TimeUnit.SECONDS).readTimeout(30, TimeUnit.SECONDS)
+        .apply { if (cacheDir != null) cache(Cache(cacheDir, maxBytes)) }
+        .build()
+
+/** 앱 전체가 함께 쓰는 이미지 연결과 기기 저장소. */
+object RemoteImages {
+    /** 상점 썸네일 108개가 약 15MB. 상품이 늘어도 넉넉하게. 넘치면 오래 안 쓴 것부터 지운다. */
+    const val DISK_CACHE_BYTES = 50L * 1024 * 1024
+
+    @Volatile private var client: OkHttpClient? = null
+
+    /** 저장 공간이 부족하면 시스템이 지울 수 있는 캐시 폴더. 지워져도 다시 받으면 된다. */
+    fun cacheDirectory(context: Context): File = File(context.applicationContext.cacheDir, "remote_images")
+
+    fun client(context: Context): OkHttpClient = client ?: synchronized(this) {
+        client ?: imageClient(cacheDirectory(context)).also { client = it }
+    }
+
+    /**
+     * [url]을 화면에 그리지 않고 기기 저장소에만 받아 둔다(상점 이미지 속도 3단계). 이미 저장돼 있으면 인터넷을 쓰지 않는다.
+     * 서버가 저장을 허용하지 않은 이미지는 받아도 남지 않으므로 미리 받을 이유가 없다(상점 썸네일은 허용).
+     */
+    suspend fun prefetch(context: Context, url: String): Boolean = withContext(Dispatchers.IO) { fetchToCache(client(context), url) }
+}
+
+/** [url]을 받아 끝까지 읽는다. OkHttp 캐시는 끝까지 읽은 응답만 저장한다. 실패하면 false. */
+internal fun fetchToCache(client: OkHttpClient, url: String): Boolean {
+    if (!url.startsWith("https://") && !url.startsWith("http://")) return false
+    client.newCall(Request.Builder().url(url).build()).execute().use { r ->
+        if (!r.isSuccessful) return false
+        r.body?.source()?.readAll(blackholeSink()) ?: return false
+    }
+    return true
 }
 
 /** 성공한 비트맵만 보관한다. 실패는 저장하지 않으므로 화면에 다시 들어오면 다시 받는다. */
@@ -54,6 +95,7 @@ private const val MAX_EDGE = 1280
 
 /**
  * 인증 사진/썸네일 표시. 이미지 라이브러리를 추가하지 않고 인증 헤더 없이 공개 URL을 받아 축소 디코딩한다.
+ * 받은 파일은 서버가 허용하면 기기에 저장해 다시 받지 않는다([RemoteImages]).
  * [contentScale] 기본은 칸을 꽉 채우고 넘치는 부분을 자른다(Crop). 상점 가구 그림처럼 잘리면 안 되는 그림은 Fit을 넘긴다(STEP 10-8).
  */
 @Composable
@@ -63,12 +105,15 @@ fun RemoteImage(
     placeholder: String = "미리보기를 불러올 수 없어요",
     contentScale: ContentScale = ContentScale.Crop,
 ) {
-    val cache = LocalContext.current.cacheDir
+    val context = LocalContext.current
     var attempt by remember(url) { mutableIntStateOf(0) }
     val bitmap by produceState<Bitmap?>(url?.let { bitmapCache.get(it) }, url, attempt) {
         if (url.isNullOrBlank()) return@produceState
         bitmapCache.get(url)?.let { value = it; return@produceState }
-        value = withContext(Dispatchers.IO) { loadWithRetry { download(url, cache) } }?.also { bitmapCache.put(url, it) }
+        value = withContext(Dispatchers.IO) {
+            val client = RemoteImages.client(context)
+            loadWithRetry { download(client, url, context.cacheDir) }
+        }?.also { bitmapCache.put(url, it) }
     }
     Box(modifier.let { if (bitmap == null && !url.isNullOrBlank()) it.clickable { attempt++ } else it }, contentAlignment = Alignment.Center) {
         val b = bitmap
@@ -77,14 +122,21 @@ fun RemoteImage(
     }
 }
 
-private fun download(url: String, cacheDir: File): Bitmap? {
+/** [url]을 [file]에 받는다. 기기에 저장된 것이 있으면 인터넷 없이 거기서 읽는다. 실패하면 false. */
+internal fun fetchToFile(client: OkHttpClient, url: String, file: File): Boolean {
+    if (!url.startsWith("https://") && !url.startsWith("http://")) return false
+    client.newCall(Request.Builder().url(url).build()).execute().use { r ->
+        if (!r.isSuccessful) return false
+        r.body?.byteStream()?.use { ins -> file.outputStream().use { ins.copyTo(it) } } ?: return false
+    }
+    return true
+}
+
+private fun download(client: OkHttpClient, url: String, tmpDir: File): Bitmap? {
     if (!url.startsWith("https://") && !url.startsWith("http://")) return null
-    val tmp = File.createTempFile("img", ".bin", cacheDir)
+    val tmp = File.createTempFile("img", ".bin", tmpDir)
     try {
-        imageClient.newCall(Request.Builder().url(url).build()).execute().use { r ->
-            if (!r.isSuccessful) return null
-            r.body?.byteStream()?.use { ins -> tmp.outputStream().use { ins.copyTo(it) } } ?: return null
-        }
+        if (!fetchToFile(client, url, tmp)) return null
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeFile(tmp.path, bounds)
         var sample = 1

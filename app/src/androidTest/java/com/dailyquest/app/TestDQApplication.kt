@@ -77,6 +77,8 @@ class TestDQApplication : DQApplication() {
         avatar3dEnabled = false,
         // 방·가구 그림은 S3 대신 빈 그림을 준다. 인터넷 없이 돌게 하기 위해서다(STEP 10-5). 실제 그림은 debug.RoomExampleRenderTest가 확인한다.
         decorImages = DecorImageSource { Result.success(BLANK_DECOR_IMAGE) },
+        // 상점 이미지 미리 받기도 인터넷을 쓰므로 끈다(상점 이미지 속도 3단계). 미리 받기 동작은 ShopImagePrefetchTest가 가짜로 확인한다.
+        prefetchShopImages = false,
     )
 
     private object FakeApi : DqApi {

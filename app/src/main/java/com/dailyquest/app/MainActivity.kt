@@ -41,6 +41,7 @@ import com.dailyquest.app.ui.room.PublicRoomsViewModel
 import com.dailyquest.app.ui.shop.InventoryViewModel
 import com.dailyquest.app.ui.shop.LocalInventory
 import com.dailyquest.app.ui.shop.LocalShop
+import com.dailyquest.app.ui.shop.ShopImagePrefetch
 import com.dailyquest.app.ui.shop.ShopViewModel
 import com.dailyquest.app.ui.theme.DQColors
 import com.dailyquest.app.ui.theme.DailyQuestTheme
@@ -79,6 +80,8 @@ class MainActivity : ComponentActivity() {
                             // 로그인 뒤 홈이 다 그려지고 쉴 때 3D 엔진과 내 착용 정보를 미리 준비한다(아바타 속도 2-1단계).
                             AvatarPrewarm(container)
                         }
+                        // 같은 때에 상점 상품 이미지를 기기에 미리 받는다(상점 이미지 속도 3단계).
+                        if (container.prefetchShopImages) ShopImagePrefetch(container)
                         Box(Modifier.fillMaxSize().background(DQColors.Bg)) { DQNavGraph() }
                     }
                 }
