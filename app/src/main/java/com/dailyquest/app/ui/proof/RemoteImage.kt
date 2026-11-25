@@ -26,6 +26,7 @@ import kotlinx.coroutines.withContext
 import okhttp3.Cache
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okio.blackholeSink
 import java.io.File
 import java.util.concurrent.TimeUnit
 
@@ -42,7 +43,7 @@ internal fun imageClient(cacheDir: File?, maxBytes: Long = RemoteImages.DISK_CAC
 
 /** 앱 전체가 함께 쓰는 이미지 연결과 기기 저장소. */
 object RemoteImages {
-    /** 상점 썸네일 108개가 약 10MB. 상품이 늘어도 넉넉하게. 넘치면 오래 안 쓴 것부터 지운다. */
+    /** 상점 썸네일 108개가 약 15MB. 상품이 늘어도 넉넉하게. 넘치면 오래 안 쓴 것부터 지운다. */
     const val DISK_CACHE_BYTES = 50L * 1024 * 1024
 
     @Volatile private var client: OkHttpClient? = null
@@ -53,6 +54,22 @@ object RemoteImages {
     fun client(context: Context): OkHttpClient = client ?: synchronized(this) {
         client ?: imageClient(cacheDirectory(context)).also { client = it }
     }
+
+    /**
+     * [url]을 화면에 그리지 않고 기기 저장소에만 받아 둔다(상점 이미지 속도 3단계). 이미 저장돼 있으면 인터넷을 쓰지 않는다.
+     * 서버가 저장을 허용하지 않은 이미지는 받아도 남지 않으므로 미리 받을 이유가 없다(상점 썸네일은 허용).
+     */
+    suspend fun prefetch(context: Context, url: String): Boolean = withContext(Dispatchers.IO) { fetchToCache(client(context), url) }
+}
+
+/** [url]을 받아 끝까지 읽는다. OkHttp 캐시는 끝까지 읽은 응답만 저장한다. 실패하면 false. */
+internal fun fetchToCache(client: OkHttpClient, url: String): Boolean {
+    if (!url.startsWith("https://") && !url.startsWith("http://")) return false
+    client.newCall(Request.Builder().url(url).build()).execute().use { r ->
+        if (!r.isSuccessful) return false
+        r.body?.source()?.readAll(blackholeSink()) ?: return false
+    }
+    return true
 }
 
 /** 성공한 비트맵만 보관한다. 실패는 저장하지 않으므로 화면에 다시 들어오면 다시 받는다. */

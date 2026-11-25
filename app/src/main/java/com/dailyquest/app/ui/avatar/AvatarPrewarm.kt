@@ -60,8 +60,8 @@ internal fun AvatarPrewarm(
     }
 }
 
-/** 화면 스레드가 처리할 일을 다 끝내고 쉬는 순간까지 기다린다. */
-private suspend fun awaitMainThreadIdle() = suspendCancellableCoroutine { cont ->
+/** 화면 스레드가 처리할 일을 다 끝내고 쉬는 순간까지 기다린다. 상점 이미지 미리 받기([com.dailyquest.app.ui.shop.ShopImagePrefetch])도 쓴다. */
+internal suspend fun awaitMainThreadIdle() = suspendCancellableCoroutine { cont ->
     val queue = Looper.getMainLooper().queue
     // false를 돌려주면 한 번 부른 뒤 스스로 빠진다.
     val handler = MessageQueue.IdleHandler { if (cont.isActive) cont.resume(Unit); false }

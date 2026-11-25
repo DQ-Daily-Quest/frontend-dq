@@ -48,6 +48,10 @@ class AppContainer(
      * UI 테스트는 인터넷 없이 돌도록 빈 그림을 주는 가짜를 넣는다.
      */
     val decorImages: DecorImageSource? = null,
+    /**
+     * 로그인 뒤 홈에서 쉴 때 상점 상품 이미지를 기기에 미리 받을지 (상점 이미지 속도 3단계). UI 테스트는 인터넷 없이 돌도록 false로 둔다.
+     */
+    val prefetchShopImages: Boolean = true,
 ) {
     val tokens = SessionTokens(tokenStore)
     val session = SessionManager(

@@ -13,7 +13,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
-/** 상점 이미지 속도 1단계: 받은 이미지를 기기에 저장하고, 서버가 허용한 것만 다시 받지 않는다. */
+/** 상점 이미지 속도 1·3단계: 받은 이미지를 기기에 저장하고, 서버가 허용한 것만 다시 받지 않는다. 미리 받기도 같은 저장소를 쓴다. */
 class RemoteImageDiskCacheTest {
     @get:Rule val tmp = TemporaryFolder()
     private val server = MockWebServer()
@@ -68,6 +68,20 @@ class RemoteImageDiskCacheTest {
         assertEquals(null, fetch(client, "/thumb/b.png"))
         assertArrayEquals(png, fetch(client, "/thumb/b.png"))
         assertEquals(2, server.requestCount)
+    }
+
+    @Test fun `미리 받아 두면 화면에 보일 때 서버에 묻지 않는다`() {
+        server.enqueue(image("public, max-age=31536000, immutable"))
+        val client = imageClient(tmp.newFolder("cache"))
+        assertTrue(fetchToCache(client, server.url("/thumb/c.png").toString()))
+        assertArrayEquals(png, fetch(client, "/thumb/c.png"))
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test fun `미리 받기가 실패하면 false`() {
+        server.enqueue(MockResponse().setResponseCode(404))
+        assertFalse(fetchToCache(imageClient(tmp.newFolder("cache")), server.url("/thumb/none.png").toString()))
+        assertFalse(fetchToCache(imageClient(null), "file:///x.png"))
     }
 
     @Test fun `http(s)가 아닌 주소는 받지 않는다`() {
