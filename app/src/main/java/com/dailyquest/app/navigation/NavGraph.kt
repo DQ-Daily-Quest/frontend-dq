@@ -69,7 +69,7 @@ private val SERVER_BACKED_ROUTES = PUBLIC_ROUTES + setOf(
     Routes.PROOF_SUBMIT, Routes.PROOF_DETAIL, Routes.PENDING_PROOFS, Routes.FEED, Routes.NOTIFICATIONS,
     Routes.SHOP, Routes.COIN_HISTORY, Routes.INVENTORY,
     Routes.PROFILE_EDIT, Routes.PASSWORD_CHANGE, Routes.WITHDRAW,
-    Routes.ROOM_DECOR,
+    Routes.ROOM_DECOR, Routes.HOME, Routes.HOME_PUBLIC, Routes.ROOM, Routes.FEED,
 )
 
 @Composable
@@ -435,7 +435,7 @@ fun DQNavGraph() {
         }
         if (route != null && route !in SERVER_BACKED_ROUTES) {
             Txt(
-                if (route == Routes.HOME_PUBLIC || route == Routes.HOME || route == Routes.ROOM) "일부 샘플 데이터 포함" else "샘플 데이터 · 서버 미연동", size = 10.5f, weight = Medium, color = DQColors.White,
+                "샘플 데이터 · 서버 미연동", size = 10.5f, weight = Medium, color = DQColors.White,
                 modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 2.dp)
                     .background(DQColors.Ink.copy(alpha = 0.6f), RoundedCornerShape(10.dp))
                     .padding(horizontal = 8.dp, vertical = 2.dp),

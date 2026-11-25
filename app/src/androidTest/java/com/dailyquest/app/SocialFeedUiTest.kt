@@ -106,4 +106,36 @@ class SocialFeedUiTest {
         compose.waitUntil(5_000) { TestProofCalls.calls.contains("delete:7304") }
         waitTag("feed")
     }
+
+    private fun openRoomFeedTab() {
+        click("홈 · 우리만 (마을 지도)"); waitText("서버 내 방 1")
+        compose.onNode(hasText("서버 내 방 1") and hasText("1명")).performClick()
+        waitText("서버 설명 9101")
+    }
+
+    @Test fun roomDetailFeedTabShowsRealFeedNotPlaceholder() {
+        TestProofCalls.seedPending(7301, 9101, 8001)
+        openRoomFeedTab()
+        waitTag("feedItem-7301")
+        compose.onNodeWithText("피드는 아직 서버와 연결되지 않았어요.", substring = true).assertDoesNotExist()
+        assertTrue(TestProofCalls.calls.contains("feed:9101"))
+        compose.onNodeWithTag("feedItem-7301").performScrollTo().performClick()
+        waitTag("proofDetail")
+    }
+
+    @Test fun roomDetailFeedTabErrorRetryRecovers() {
+        TestProofCalls.seedPending(7302, 9101, 8001)
+        TestProofCalls.feedFailure = java.io.IOException("offline")
+        openRoomFeedTab()
+        waitTag("feedError")
+        TestProofCalls.feedFailure = null
+        compose.onNodeWithTag("feedRetry").performScrollTo().performClick()
+        waitTag("feedItem-7302")
+    }
+
+    @Test fun homeShowsNoSampleBadgeOrSampleRanking() {
+        click("홈 · 우리만 (마을 지도)"); waitText("서버 내 방 1")
+        compose.onNodeWithText("샘플", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("일부 샘플 데이터 포함").assertDoesNotExist()
+    }
 }

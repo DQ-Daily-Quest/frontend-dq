@@ -164,7 +164,8 @@ class RoomFlowTest {
         click("피드")
         compose.onNodeWithText("지수").assertDoesNotExist()
         compose.onNodeWithText("민수").assertDoesNotExist()
-        compose.onNodeWithText("피드는 아직 서버와 연결되지 않았어요.", substring = true).assertExists()
+        compose.onNodeWithText("피드는 아직 서버와 연결되지 않았어요.", substring = true).assertDoesNotExist()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("feedContent").fetchSemanticsNodes().isNotEmpty() }
         click("+ 미션 보내기")
         compose.onNodeWithTag("sendRoomMission").assertExists()
     }
