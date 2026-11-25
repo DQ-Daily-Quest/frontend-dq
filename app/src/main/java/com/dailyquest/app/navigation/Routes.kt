@@ -45,6 +45,8 @@ object Routes {
     const val MISSIONS = "missions"
     const val MISSION_DETAIL = "mission/{missionId}?roomId={roomId}"
 
+    const val MISSION_EDIT = "mission/{missionId}/edit?roomId={roomId}"
+    fun missionEdit(missionId: Long, roomId: Long): String = "mission/$missionId/edit?roomId=$roomId"
     fun missionDetail(missionId: Long, roomId: Long): String = "mission/$missionId?roomId=$roomId"
 
     // 미션 인증(STEP 5): 실제 missionId·proofId·roomId만 받는다.

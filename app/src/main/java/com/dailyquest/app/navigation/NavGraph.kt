@@ -28,7 +28,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import com.dailyquest.app.ui.mission.CreateMissionViewModel
 import com.dailyquest.app.ui.mission.LocalMyMissions
+import com.dailyquest.app.ui.mission.EditMissionViewModel
 import com.dailyquest.app.ui.mission.MissionDetailViewModel
+import com.dailyquest.app.ui.screens.EditMissionScreen
 import com.dailyquest.app.ui.mission.RoomMissionsViewModel
 import com.dailyquest.app.ui.room.CreateRoomViewModel
 import com.dailyquest.app.ui.room.LocalAppContainer
@@ -221,6 +223,23 @@ fun DQNavGraph() {
                     factory = MissionDetailViewModel.Factory(missionId, roomId, LocalAppContainer.current),
                 )
                 MissionDetailScreen(roomId = roomId, viewModel = vm)
+            }
+
+            composable(
+                route = Routes.MISSION_EDIT,
+                arguments = listOf(
+                    navArgument("missionId") { type = NavType.LongType },
+                    navArgument("roomId") { type = NavType.LongType; defaultValue = 0L },
+                )
+            ) { backStackEntry ->
+                val args = requireNotNull(backStackEntry.arguments)
+                val missionId = args.getLong("missionId")
+                val roomId = args.getLong("roomId")
+                val vm: EditMissionViewModel = viewModel(
+                    key = "mission-edit-$missionId",
+                    factory = EditMissionViewModel.Factory(missionId, roomId, LocalAppContainer.current),
+                )
+                EditMissionScreen(vm)
             }
 
             composable(
