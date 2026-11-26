@@ -77,7 +77,8 @@ class RoomDecorSaveFlowTest {
         waitGone("decorEdit")
         compose.onNodeWithTag("roomDecorCard").performScrollTo()
         waitFor(hasTestTag("roomView") and hasAnyAncestor(hasTestTag("roomDecorCard")) and hasContentDescription("방, 가구 1개"))
-        waitFor(hasTestTag("roomDecorCaption") and hasText("마지막으로 꾸민 사람: 테스터"))
+        // 방 그림 안에는 안내 글자가 없다(QA 디자인 3단계).
+        compose.onNodeWithTag("roomDecorCaption").assertDoesNotExist()
 
         compose.runOnIdle {
             val (roomId, body) = TestDecorCalls.saveRequests.single()

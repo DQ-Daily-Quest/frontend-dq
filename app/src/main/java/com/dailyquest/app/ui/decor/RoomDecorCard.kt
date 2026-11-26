@@ -55,8 +55,9 @@ import com.dailyquest.app.ui.theme.DQColors
 /**
  * 방 화면에 넣는 "꾸민 방" (STEP 10-5). 예전 고정 일러스트(RoomInterior) 자리를 대신한다.
  *
- * - 멤버: 서버에 저장된 배치를 보여준다. 한 번도 저장하지 않은 방은 기본 방. 카드 안쪽 아래에 마지막으로 꾸민 사람,
- *   카드 아래 테두리 가운데에 걸친 "방 꾸미기" 버튼(QA 디자인 3단계).
+ * - 멤버: 서버에 저장된 배치를 보여준다. 한 번도 저장하지 않은 방은 기본 방. 카드 아래 테두리 가운데에 걸친 "방 꾸미기" 버튼.
+ * - 방 그림 안에는 안내 글자를 넣지 않는다(QA 디자인 3단계, 사용자 요청). 꾸미기 정보를 못 받으면 기본 방이 보이고,
+ *   방 화면에 다시 들어오면(ON_RESUME) 다시 받는다.
  * - 비멤버: 꾸미기 API가 멤버 전용이라 부르지 않고 기본 방만 보여준다.
  * - 방을 누르면 크게 보기 창이 열린다(두 손가락 확대·이동, 두 번 탭 되돌리기).
  *   카드 안에서는 확대하지 않는다. 방 화면이 세로 스크롤이라 손가락 동작이 겹치지 않게 하기 위해서다.
@@ -111,12 +112,6 @@ fun RoomDecorCard(
         if (ui.loading && ui.decor == null) {
             CircularProgressIndicator(Modifier.align(Alignment.Center).size(28.dp).testTag("roomDecorLoading"), strokeWidth = 3.dp)
         }
-        // 안내 띠는 카드 안쪽 아래. 멤버면 버튼이 걸치는 자리만큼 위로 올린다.
-        RoomDecorCaption(
-            ui, onRetry = vm::refresh,
-            modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth()
-                .padding(start = 8.dp, end = 8.dp, bottom = if (isMember) DECOR_BUTTON_HEIGHT / 2 + 8.dp else 8.dp),
-        )
     }
     if (isMember) {
         Row(
@@ -157,51 +152,6 @@ private val DECOR_BUTTON_HEIGHT = 44.dp
 /** 예전 고정 일러스트의 디자인 크기 (RoomScreen의 RoomInterior height = 252f, 358 디자인 캔버스). */
 private const val CARD_WIDTH = 358f
 private const val CARD_HEIGHT = 252f
-
-/** 카드 안쪽 아래의 작은 안내 띠. 오류가 있으면 다시 시도. 내용이 없으면 그리지 않는다. */
-@Composable
-private fun RoomDecorCaption(ui: RoomDecorUiState, onRetry: () -> Unit, modifier: Modifier = Modifier) {
-    val text: String? = when {
-        !ui.isMember -> "방에 참여하면 멤버들이 꾸민 모습을 볼 수 있어요."
-        ui.error != null -> ui.error
-        ui.decor == null -> null
-        ui.decor.updatedBy != null -> "마지막으로 꾸민 사람: ${ui.decor.updatedBy.nickname}"
-        else -> "아직 꾸미지 않은 방이에요. 가구를 놓아 보세요."
-    }
-    val kept = ui.decor?.kept?.size ?: 0
-    if (text == null && kept == 0) {
-        Box(modifier)
-        return
-    }
-    Row(
-        // 방 그림 위에 겹치므로 반투명 흰 바탕으로 글자를 읽기 쉽게 한다.
-        modifier.background(DQColors.White.copy(alpha = 0.85f), RoundedCornerShape(10.dp)).padding(horizontal = 8.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        Column(Modifier.weight(1f)) {
-            text?.let {
-                Txt(
-                    it, size = 11f, maxLines = 2,
-                    color = if (ui.error != null) DQColors.Orange else DQColors.Muted,
-                    modifier = Modifier.testTag("roomDecorCaption"),
-                )
-            }
-            if (kept > 0) {
-                Txt(
-                    "앱을 업데이트하면 보이는 가구가 ${kept}개 있어요.", size = 10.5f, color = DQColors.Muted,
-                    modifier = Modifier.testTag("roomDecorKept"),
-                )
-            }
-        }
-        if (ui.error != null) {
-            Txt(
-                "다시 시도", size = 12f, weight = Bold, color = DQColors.Green,
-                modifier = Modifier.testTag("roomDecorRetry").clickable(onClick = onRetry).padding(4.dp),
-            )
-        }
-    }
-}
 
 /** 크게 보기: 화면 전체 창. 두 손가락 확대·이동은 안의 RoomView가 한다. */
 @Composable
