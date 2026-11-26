@@ -1,6 +1,5 @@
 package com.dailyquest.app.ui.screens
 
-import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -53,6 +52,7 @@ import com.dailyquest.app.ui.components.DqIcon
 import com.dailyquest.app.ui.components.DqScreen
 import com.dailyquest.app.ui.components.Medium
 import com.dailyquest.app.ui.components.Member
+import com.dailyquest.app.ui.components.LocalDqToast
 import com.dailyquest.app.ui.components.RoomMemberStrip
 import com.dailyquest.app.ui.components.NavHeader
 import com.dailyquest.app.ui.decor.RoomDecorCard
@@ -146,7 +146,7 @@ fun RoomScreen(roomId: Long, viewModel: RoomDetailViewModel, manage: RoomManageV
     val avatars = ui.members.map { m -> if (m.userId == me?.userId && me.avatar != null) me.avatar else m.avatar }
     val faces = rememberPersonFaces(avatars)
     val faceById = remember(ui.members, faces) { ui.members.mapIndexed { i, m -> m.userId to faces.getOrNull(i) }.toMap() }
-    val context = LocalContext.current
+    val toast = LocalDqToast.current
     val clipboard = LocalClipboardManager.current
     DqScreen {
         Column(Modifier.fillMaxSize()) {
@@ -235,15 +235,14 @@ fun RoomScreen(roomId: Long, viewModel: RoomDetailViewModel, manage: RoomManageV
                                     else -> "초대코드 없음"
                                 },
                                 onInvite = {
-                                    val message = when {
-                                        detail.isPublic -> "공개방은 초대코드 없이 공개 목록에서 누구나 참여할 수 있어요."
+                                    when {
+                                        detail.isPublic -> toast.show("공개방은 초대코드 없이 누구나 참여할 수 있어요")
                                         inviteCode != null -> {
                                             clipboard.setText(AnnotatedString(inviteCode))
-                                            "초대코드($inviteCode)를 복사했어요. 친구에게 보내 주세요."
+                                            toast.show("초대코드($inviteCode)를 복사했어요")
                                         }
-                                        else -> "초대코드를 불러오지 못했어요. 잠시 후 다시 시도해 주세요."
+                                        else -> toast.show("초대코드를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.", isError = true)
                                     }
-                                    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
                                 },
                                 modifier = Modifier.horizontalScroll(rememberScrollState()).padding(start = 18.dp, end = 18.dp),
                                 onMember = { storyOf = it },

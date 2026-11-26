@@ -47,6 +47,8 @@ data class ShopUiState(
     val detailError: String? = null,
     /** 1회성 안내(성공·오류). 화면이 표시한 뒤 [ShopViewModel.consumeMessage]로 비운다. */
     val message: String? = null,
+    /** [message]가 실패 안내인지(빨강) 성공 안내인지(초록). QA 디자인 5단계. */
+    val messageIsError: Boolean = false,
 ) {
     fun isOwned(item: ShopItem) = item.owned || item.itemId in ownedIds
 }
@@ -201,9 +203,9 @@ class ShopViewModel(
         val userId = _ui.value.userId ?: return
         if (purchaseInFlight) return
         val s = _ui.value
-        if (s.isOwned(item)) { _ui.update { it.copy(message = "이미 보유한 아이템이에요.") }; return }
+        if (s.isOwned(item)) { _ui.update { it.copy(message = "이미 보유한 아이템이에요.", messageIsError = true) }; return }
         val balance = coins()
-        if (balance != null && balance < item.price) { _ui.update { it.copy(message = ShopErrorMessages.forApi(insufficient())) }; return }
+        if (balance != null && balance < item.price) { _ui.update { it.copy(message = ShopErrorMessages.forApi(insufficient()), messageIsError = true) }; return }
         purchaseInFlight = true
         val gen = accountGen
         _ui.update { it.copy(purchasingId = item.itemId) }
@@ -235,14 +237,15 @@ class ShopViewModel(
     private fun insufficient() = ApiException.Http(409, com.dailyquest.app.data.remote.ApiErrorCode.INSUFFICIENT_COINS, null, "")
 
     private fun post(gen: Int, msg: String) {
-        if (gen == accountGen) _ui.update { it.copy(message = msg) }
+        if (gen == accountGen) _ui.update { it.copy(message = msg, messageIsError = true) }
     }
 
     private suspend fun handleFailure(gen: Int, item: ShopItem, e: ApiException) {
         if (gen != accountGen) return
         val http = e as? ApiException.Http
         when {
-            http?.code == com.dailyquest.app.data.remote.ApiErrorCode.ITEM_ALREADY_OWNED -> finishOwned(gen, item, ShopErrorMessages.forApi(e), refreshBalance = true)
+            // 이미 가진 아이템: 보유로 표시하되 이번 구매는 이뤄지지 않았으므로 실패(빨강) 안내.
+            http?.code == com.dailyquest.app.data.remote.ApiErrorCode.ITEM_ALREADY_OWNED -> finishOwned(gen, item, ShopErrorMessages.forApi(e), refreshBalance = true, isError = true)
             http != null && http.status in 400..499 -> {
                 post(gen, ShopErrorMessages.forApi(e))
                 // 코인 부족 등은 앱이 가진 잔액이 낡았다는 뜻일 수 있어 서버 값으로 다시 맞춘다.
@@ -267,9 +270,9 @@ class ShopViewModel(
     private suspend fun verifyOwnership(itemId: Long): Boolean? =
         (repo.getItem(itemId) as? ApiResult.Success)?.value?.owned
 
-    private suspend fun finishOwned(gen: Int, item: ShopItem, msg: String, refreshBalance: Boolean = true) {
+    private suspend fun finishOwned(gen: Int, item: ShopItem, msg: String, refreshBalance: Boolean = true, isError: Boolean = false) {
         if (gen != accountGen) return
-        _ui.update { it.copy(ownedIds = it.ownedIds + item.itemId, unconfirmedIds = it.unconfirmedIds - item.itemId, message = msg) }
+        _ui.update { it.copy(ownedIds = it.ownedIds + item.itemId, unconfirmedIds = it.unconfirmedIds - item.itemId, message = msg, messageIsError = isError) }
         _purchaseVersion.update { it + 1 }
         // 후속 조회는 실패해도 구매 결과(성공)를 바꾸지 않는다.
         if (refreshBalance) runCatching { refreshProfile() }

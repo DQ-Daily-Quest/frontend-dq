@@ -1,6 +1,5 @@
 package com.dailyquest.app.ui.screens
 
-import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -83,7 +82,7 @@ private fun ShopCardData.toTryOn(): TryOnItem? =
  */
 @Composable
 fun AvatarShopContent(startOwned: Boolean = false) {
-    val context = LocalContext.current
+    val toast = LocalDqToast.current
     val nav = LocalNav.current
     val shopVm = LocalShop.current
     val invVm = LocalInventory.current
@@ -102,10 +101,10 @@ fun AvatarShopContent(startOwned: Boolean = false) {
     // 구매가 확정되면 인벤토리를 다시 조회한다(첫 값은 건너뛴다).
     LaunchedEffect(purchaseVersion) { if (purchaseVersion > 0) invVm.refresh() }
     LaunchedEffect(shop.message) {
-        shop.message?.let { Toast.makeText(context, it, Toast.LENGTH_SHORT).show(); shopVm.consumeMessage() }
+        shop.message?.let { toast.show(it, isError = shop.messageIsError); shopVm.consumeMessage() }
     }
     LaunchedEffect(avatar.message) {
-        avatar.message?.let { Toast.makeText(context, it, Toast.LENGTH_SHORT).show(); avatarVm.consumeMessage() }
+        avatar.message?.let { toast.show(it, isError = avatar.messageIsError); avatarVm.consumeMessage() }
     }
 
     val type = shop.type
