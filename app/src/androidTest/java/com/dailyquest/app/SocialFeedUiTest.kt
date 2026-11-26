@@ -45,7 +45,8 @@ class SocialFeedUiTest {
         openFeed()
         waitTag("feedItem-7201")
         compose.onNodeWithTag("feedItem-7202").assertExists()
-        compose.onNodeWithTag("feedStrip").assertExists()
+        // 위의 동그라미 줄은 뺐다(QA 디자인 4단계).
+        compose.onNodeWithTag("feedStrip").assertDoesNotExist()
         compose.onNodeWithTag("feedItem-7201").performClick()
         waitTag("proofDetail")
         assertTrue(TestProofCalls.calls.contains("detail:7201"))

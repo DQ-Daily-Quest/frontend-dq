@@ -140,6 +140,12 @@ fun RoomScreen(roomId: Long, viewModel: RoomDetailViewModel, manage: RoomManageV
     val feedItems = feedVm?.ui?.collectAsStateWithLifecycle()?.value?.items.orEmpty()
     val rings = remember(feedItems) { storyRings(feedItems) }
     var storyOf by remember { mutableStateOf<Member?>(null) }
+    // 멤버마다 실제 아바타 얼굴(프로필 얼굴 5단계). 멤버 줄과 피드 카드가 함께 쓴다. 모르는 아이템은 멤버 전원 것을 한 번에 받는다.
+    // 내 얼굴은 세션의 착용(방금 바꾼 옷)을 쓴다. 다른 사람은 방에 다시 들어오면 새 착용으로 바뀐다.
+    val me = (session as? SessionState.Authenticated)?.profile
+    val avatars = ui.members.map { m -> if (m.userId == me?.userId && me.avatar != null) me.avatar else m.avatar }
+    val faces = rememberPersonFaces(avatars)
+    val faceById = remember(ui.members, faces) { ui.members.mapIndexed { i, m -> m.userId to faces.getOrNull(i) }.toMap() }
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
     DqScreen {
@@ -212,9 +218,6 @@ fun RoomScreen(roomId: Long, viewModel: RoomDetailViewModel, manage: RoomManageV
                         else -> {
                             // 멤버마다 실제 아바타 얼굴(프로필 얼굴 5단계). 모르는 아이템은 멤버 전원 것을 한 번에 받는다.
                             // 내 얼굴은 세션의 착용(방금 바꾼 옷)을 쓴다. 다른 사람은 방에 다시 들어오면 새 착용으로 바뀐다.
-                            val me = (session as? SessionState.Authenticated)?.profile
-                            val avatars = ui.members.map { m -> if (m.userId == me?.userId && me.avatar != null) me.avatar else m.avatar }
-                            val faces = rememberPersonFaces(avatars)
                             val all = ui.members.mapIndexed { i, it ->
                                 it.userId to Member(
                                     it.nickname, badge = if (it.role == ROLE_OWNER) "방장" else null, face = faces[i], showsFace = true,
@@ -297,7 +300,7 @@ fun RoomScreen(roomId: Long, viewModel: RoomDetailViewModel, manage: RoomManageV
                 when (tab) {
                     "피드" ->
                         if (ui.isMember) {
-                            Box(Modifier.fillMaxWidth().padding(16.dp)) { feedVm?.let { FeedContent(roomId, it) } }
+                            Box(Modifier.fillMaxWidth().padding(16.dp)) { feedVm?.let { FeedContent(roomId, it, faceOf = { id -> faceById[id] }) } }
                         } else Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
                             Txt("참여 후 방의 인증 피드를 볼 수 있어요.", size = 14f, color = DQColors.Muted)
                         }

@@ -1,6 +1,7 @@
 package com.dailyquest.app.ui.feed
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -21,6 +22,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
@@ -37,6 +39,8 @@ import com.dailyquest.app.ui.components.BtnStyle
 import com.dailyquest.app.ui.components.DqScreen
 import com.dailyquest.app.ui.components.NavHeader
 import com.dailyquest.app.ui.components.Txt
+import com.dailyquest.app.data.avatar.PersonFace
+import com.dailyquest.app.ui.avatar.ProfileFace
 import com.dailyquest.app.ui.proof.RemoteImage
 import com.dailyquest.app.ui.theme.DQColors
 
@@ -56,9 +60,12 @@ fun FeedScreen(roomId: Long, viewModel: FeedViewModel) {
     }
 }
 
-/** 피드 목록 본문(로딩·오류·빈 상태·더 보기·새로고침). 인증 피드 화면과 방 상세의 피드 탭이 함께 쓴다. */
+/**
+ * 피드 목록 본문(로딩·오류·빈 상태·더 보기·새로고침). 인증 피드 화면과 방 상세의 피드 탭이 함께 쓴다.
+ * @param faceOf 올린 사람의 프로필 얼굴(방 멤버 목록에서 찾음). 모르면 null → 기본 얼굴.
+ */
 @Composable
-fun FeedContent(roomId: Long, viewModel: FeedViewModel) {
+fun FeedContent(roomId: Long, viewModel: FeedViewModel, faceOf: (Long) -> PersonFace? = { null }) {
     val nav = LocalNav.current
     val ui by viewModel.ui.collectAsStateWithLifecycle()
     val open = { p: PendingProof -> nav.navigate(Routes.proofDetail(p.proofId, roomId)) }
@@ -72,44 +79,47 @@ fun FeedContent(roomId: Long, viewModel: FeedViewModel) {
             !ui.loaded -> Txt("인증 피드를 불러오는 중이에요.", size = 13f, color = DQColors.Muted, modifier = Modifier.testTag("feedLoading"))
             ui.items.isEmpty() -> Txt("최근 24시간 동안 올라온 인증이 없어요.", size = 13f, color = DQColors.Muted, modifier = Modifier.testTag("feedEmpty"))
         }
-        if (ui.items.isNotEmpty()) {
-            Txt("최근 24시간 인증", size = 12f, weight = Bold, color = DQColors.Muted)
-            Row(Modifier.horizontalScroll(rememberScrollState()).testTag("feedStrip"), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                ui.items.forEach { p -> StripItem(p) { open(p) } }
-            }
-            ui.items.forEach { p -> FeedRow(p) { open(p) } }
-        }
+        // 위의 동그라미 줄("최근 24시간 인증")은 뺐다. 방 화면에서는 멤버 얼굴 테두리가 같은 역할을 한다(QA 디자인 4단계).
+        ui.items.forEach { p -> FeedRow(p, faceOf(p.user.userId)) { open(p) } }
         if (ui.hasNext) Btn("더 보기", Modifier.fillMaxWidth().height(40.dp).testTag("feedMore"), size = 13f, enabled = !ui.loadingMore) { viewModel.loadMore() }
         if (ui.loaded && !ui.gone) Btn("새로고침", Modifier.fillMaxWidth().height(40.dp).testTag("feedRefresh"), BtnStyle.Outline, size = 13f, enabled = !ui.loading) { viewModel.refresh() }
     }
 }
 
-@Composable
-private fun StripItem(p: PendingProof, onClick: () -> Unit) {
-    Column(Modifier.width(60.dp).clickable(onClick = onClick).testTag("feedStrip-${p.proofId}"), horizontalAlignment = Alignment.CenterHorizontally) {
-        RemoteImage(p.thumbnailUrl, Modifier.size(52.dp).clip(CircleShape).background(DQColors.Soft), placeholder = mediaLabel(p.mediaType))
-        Txt(p.user.nickname, size = 10.5f, maxLines = 1, color = DQColors.Muted)
-    }
-}
-
 private fun mediaLabel(t: ProofMediaType) = when (t) { ProofMediaType.VIDEO -> "영상"; ProofMediaType.IMAGE -> "사진"; ProofMediaType.TEXT -> "글" }
 
+/**
+ * 피드 카드(QA 디자인 4단계): 왼쪽 프로필 얼굴, 이름(굵게)과 미션, 오른쪽 위 날짜, 그 아래 사진.
+ * 인증 글귀는 피드 목록에 오지 않아(상세에서만) 미션 내용을 보여 준다. 글 인증은 사진 자리가 없다.
+ */
 @Composable
-private fun FeedRow(p: PendingProof, onClick: () -> Unit) {
+private fun FeedRow(p: PendingProof, face: PersonFace?, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(16.dp)
     Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(DQColors.Soft).clickable(onClick = onClick).padding(12.dp).testTag("feedItem-${p.proofId}"),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        Modifier.fillMaxWidth().clip(shape).background(DQColors.White).border(1.dp, DQColors.Line, shape)
+            .clickable(onClick = onClick).padding(12.dp).testTag("feedItem-${p.proofId}"),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        if (p.mediaType == ProofMediaType.TEXT) {
-            Box(Modifier.size(56.dp), contentAlignment = Alignment.Center) { Txt("글", size = 14f, weight = Bold) }
-        } else {
-            RemoteImage(p.thumbnailUrl, Modifier.size(56.dp).clip(RoundedCornerShape(12.dp)).background(DQColors.White), placeholder = mediaLabel(p.mediaType))
+        ProfileFace(face, 44.dp, contentDescription = "${p.user.nickname} 아바타")
+        Column(Modifier.weight(1f).padding(top = 2.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Txt(p.user.nickname, size = 14.5f, weight = Bold, maxLines = 1)
+            Txt(p.missionContent, size = 13f, maxLines = 2)
         }
-        Column(Modifier.weight(1f)) {
-            Txt(p.missionContent, size = 14f, weight = Bold, maxLines = 1)
-            Txt("${p.user.nickname}님의 인증" + (p.createdAtMs?.let { " · ${MissionTime.kstDateTimeLabel(it)}" } ?: ""), size = 11.5f, color = DQColors.Muted)
+        Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            p.createdAtMs?.let { Txt(MissionTime.kstDateTimeLabel(it), size = 11f, color = DQColors.Muted) }
+            if (p.mediaType != ProofMediaType.TEXT) {
+                Box(contentAlignment = Alignment.Center) {
+                    RemoteImage(
+                        p.thumbnailUrl, Modifier.size(64.dp).clip(RoundedCornerShape(12.dp)).background(DQColors.Soft),
+                        placeholder = mediaLabel(p.mediaType),
+                    )
+                    if (p.mediaType == ProofMediaType.VIDEO && p.thumbnailUrl != null) {
+                        Box(Modifier.size(24.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.45f)), contentAlignment = Alignment.Center) {
+                            Txt("▶", size = 10f, color = DQColors.White)
+                        }
+                    }
+                }
+            }
         }
-        if (p.mediaType == ProofMediaType.VIDEO) Txt("영상", size = 11.5f, weight = Bold, color = DQColors.PrimaryStrong)
     }
 }
