@@ -1,6 +1,7 @@
 package com.dailyquest.app.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -126,19 +127,25 @@ fun RoomScreen(roomId: Long, viewModel: RoomDetailViewModel, manage: RoomManageV
         return
     }
 
+    val manageState = rememberRoomManageState()
     DqScreen {
         Column(Modifier.fillMaxSize()) {
             NavHeader(
                 detail.name,
+                // 오른쪽에 공개 배지 + ⋮ 메뉴가 있어 긴 방 이름이 겹치지 않게 양쪽을 넓게 비운다.
+                titlePadding = 104.dp,
                 right = {
                     Row(
-                        Modifier.height(22.dp).background(DQColors.Soft, RoundedCornerShape(11.dp)).padding(horizontal = 8.dp),
+                        Modifier.height(28.dp).border(1.dp, DQColors.Line, RoundedCornerShape(14.dp))
+                            .background(DQColors.White, RoundedCornerShape(14.dp)).padding(horizontal = 10.dp)
+                            .testTag("roomVisibility"),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(2.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
-                        if (!detail.isPublic) DqIcon(R.drawable.ic_lock_green, 12.dp)
-                        Txt(if (detail.isPublic) "공개" else "우리만", size = 10.5f, weight = Bold, color = DQColors.Green)
+                        DqIcon(if (detail.isPublic) R.drawable.ic_globe else R.drawable.ic_lock_green, 14.dp)
+                        Txt(if (detail.isPublic) "공개" else "우리만", size = 12f, weight = Bold, color = DQColors.Green)
                     }
+                    RoomManageMenu(ui, manage, manageState)
                 }
             )
 
@@ -169,7 +176,7 @@ fun RoomScreen(roomId: Long, viewModel: RoomDetailViewModel, manage: RoomManageV
                     )
                 }
 
-                RoomManageSection(ui, manage)
+                RoomManageSection(ui, manage, manageState)
 
                 // 멤버 영역: 멤버 전용 API이므로 비멤버에게는 호출하지도 표시하지도 않는다.
                 Column(Modifier.testTag("roomMembers")) {
