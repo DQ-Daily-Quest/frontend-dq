@@ -127,23 +127,16 @@ fun RoomManageMenu(ui: RoomDetailUiState, manage: RoomManageViewModel, state: Ro
     }
 }
 
-/** 방 본문의 관리 안내(초대코드 복사·오류·처리 중)와 ⋮ 메뉴가 연 확인 창. */
+/** 방 본문의 관리 안내(오류·처리 중)와 ⋮ 메뉴가 연 확인 창. 초대코드 복사는 멤버 줄의 초대하기 버튼이 한다(QA 디자인 2단계). */
 @Composable
 fun RoomManageSection(ui: RoomDetailUiState, manage: RoomManageViewModel, state: RoomManageState) {
     val detail = ui.detail ?: return
     if (!ui.isMember) return
     val m by manage.ui.collectAsStateWithLifecycle()
-    val clipboard = LocalClipboardManager.current
     val busy = m.busy != null
     var dialog by state::dialog
 
     Column(Modifier.padding(horizontal = 18.dp, vertical = 2.dp).testTag("roomManage")) {
-        ui.visibleInviteCode?.let { code ->
-            Txt(
-                "초대코드 복사", size = 12f, weight = Bold, color = DQColors.Green,
-                modifier = Modifier.clickable { clipboard.setText(AnnotatedString(code)) }.padding(vertical = 4.dp).testTag("copyInviteCode"),
-            )
-        }
         m.error?.let { Txt(it, size = 11.5f, color = DQColors.Orange, modifier = Modifier.padding(vertical = 4.dp).testTag("manageError")) }
         if (busy) Txt("처리 중이에요…", size = 11.5f, color = DQColors.Muted, modifier = Modifier.padding(vertical = 4.dp))
     }

@@ -1,5 +1,6 @@
 package com.dailyquest.app
 
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.espresso.Espresso
@@ -22,6 +23,10 @@ class RoomManageFlowTest {
     private fun confirm() = compose.onNodeWithTag("confirmAction").performClick()
     private fun waitText(text: String) = compose.waitUntil(5_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }
     private fun openMenu() = compose.onNodeWithTag("roomMenu").performClick()
+    /** 초대하기 버튼의 상태 설명(우리만 방: "초대코드 ○○○", 공개방: "공개방"). QA 디자인 2단계에서 초대코드 글자 줄 대신. */
+    private fun assertInvite(state: String) = compose.onNodeWithTag("roomInvite")
+        .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, state))
+    private fun hasInvite(state: String) = hasTestTag("roomInvite") and SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, state)
     private fun menu(item: String) { openMenu(); compose.onNode(hasText(item) and hasClickAction()).performClick() }
 
     private fun openMyRoom(n: Int) {
@@ -86,15 +91,15 @@ class RoomManageFlowTest {
     @Test
     fun ownerRegeneratesInviteCodeAfterConfirm() {
         openMyRoom(1)
-        compose.onNodeWithTag("roomInviteCode").assertTextEquals("초대코드: SRV9101")
+        assertInvite("초대코드 SRV9101")
         menu("코드 재발급")
         compose.onNodeWithText("기존 코드는 즉시 사용할 수 없게 돼요.", substring = true).assertExists()
         confirm()
         compose.waitUntil(5_000) { TestRoomCalls.calls.any { it.startsWith("regenerate") } }
         compose.waitUntil(5_000) {
-            compose.onAllNodes(hasTestTag("roomInviteCode") and hasText("초대코드: SRV9101")).fetchSemanticsNodes().isEmpty()
+            compose.onAllNodes(hasInvite("초대코드 SRV9101")).fetchSemanticsNodes().isEmpty()
         }
-        compose.onNodeWithTag("roomInviteCode").assertExists()
+        compose.onNodeWithTag("roomInvite").assertExists()
         assertEquals(1, TestRoomCalls.calls.count { it.startsWith("regenerate") })
     }
 

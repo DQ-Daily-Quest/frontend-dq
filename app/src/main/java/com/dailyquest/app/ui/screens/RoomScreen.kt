@@ -1,5 +1,6 @@
 package com.dailyquest.app.ui.screens
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -33,7 +34,10 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dailyquest.app.R
@@ -49,7 +53,7 @@ import com.dailyquest.app.ui.components.DqIcon
 import com.dailyquest.app.ui.components.DqScreen
 import com.dailyquest.app.ui.components.Medium
 import com.dailyquest.app.ui.components.Member
-import com.dailyquest.app.ui.components.MemberRow
+import com.dailyquest.app.ui.components.RoomMemberStrip
 import com.dailyquest.app.ui.components.NavHeader
 import com.dailyquest.app.ui.decor.RoomDecorCard
 import com.dailyquest.app.ui.components.Txt
@@ -128,6 +132,8 @@ fun RoomScreen(roomId: Long, viewModel: RoomDetailViewModel, manage: RoomManageV
     }
 
     val manageState = rememberRoomManageState()
+    val context = LocalContext.current
+    val clipboard = LocalClipboardManager.current
     DqScreen {
         Column(Modifier.fillMaxSize()) {
             NavHeader(
@@ -158,21 +164,10 @@ fun RoomScreen(roomId: Long, viewModel: RoomDetailViewModel, manage: RoomManageV
                         modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp),
                     )
                 }
-                Txt(
-                    "멤버 ${detail.memberCount}/${detail.maxMembers}명 · 방장 ${detail.owner.nickname}",
-                    size = 12f, color = DQColors.Muted,
-                    modifier = Modifier.padding(start = 18.dp, end = 18.dp, top = 8.dp, bottom = 4.dp),
-                )
                 if (!detail.description.isNullOrBlank()) {
                     Txt(
                         detail.description, size = 12.5f,
                         modifier = Modifier.padding(horizontal = 18.dp, vertical = 4.dp),
-                    )
-                }
-                ui.visibleInviteCode?.let {
-                    Txt(
-                        "초대코드: $it", size = 11.5f, weight = Bold, color = DQColors.Green,
-                        modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp).testTag("roomInviteCode"),
                     )
                 }
 
@@ -180,6 +175,12 @@ fun RoomScreen(roomId: Long, viewModel: RoomDetailViewModel, manage: RoomManageV
 
                 // 멤버 영역: 멤버 전용 API이므로 비멤버에게는 호출하지도 표시하지도 않는다.
                 Column(Modifier.testTag("roomMembers")) {
+                    if (ui.isMember) {
+                        Txt(
+                            "함께하는 친구 ${detail.memberCount}/${detail.maxMembers}", size = 14f, weight = Bold, color = DQColors.InkGreen,
+                            modifier = Modifier.padding(start = 18.dp, end = 18.dp, top = 10.dp, bottom = 10.dp).testTag("roomMemberCount"),
+                        )
+                    }
                     when {
                         !ui.isMember -> Txt(
                             "참여하지 않은 공개방이에요. 멤버와 미션은 참여 후 볼 수 있어요.",
@@ -206,15 +207,30 @@ fun RoomScreen(roomId: Long, viewModel: RoomDetailViewModel, manage: RoomManageV
                             val me = (session as? SessionState.Authenticated)?.profile
                             val avatars = ui.members.map { m -> if (m.userId == me?.userId && me.avatar != null) me.avatar else m.avatar }
                             val faces = rememberPersonFaces(avatars)
-                            MemberRow(
-                                members = ui.members.mapIndexed { i, it ->
-                                    Member(it.nickname, badge = if (it.role == ROLE_OWNER) "방장" else null, face = faces[i], showsFace = true)
+                            val all = ui.members.mapIndexed { i, it ->
+                                it.userId to Member(it.nickname, badge = if (it.role == ROLE_OWNER) "방장" else null, face = faces[i], showsFace = true)
+                            }
+                            // 내 얼굴을 맨 앞에 두고 세로선으로 다른 멤버와 나눈다(QA 디자인 2단계).
+                            val inviteCode = ui.visibleInviteCode
+                            RoomMemberStrip(
+                                me = all.firstOrNull { it.first == me?.userId }?.second,
+                                others = all.filter { it.first != me?.userId }.map { it.second },
+                                inviteState = when {
+                                    detail.isPublic -> "공개방"
+                                    inviteCode != null -> "초대코드 $inviteCode"
+                                    else -> "초대코드 없음"
                                 },
-                                size = 52.dp,
-                                inviteSize = 44.dp,
-                                showInviteLabel = false,
-                                showInvite = false,
-                                onStory = {},
+                                onInvite = {
+                                    val message = when {
+                                        detail.isPublic -> "공개방은 초대코드 없이 공개 목록에서 누구나 참여할 수 있어요."
+                                        inviteCode != null -> {
+                                            clipboard.setText(AnnotatedString(inviteCode))
+                                            "초대코드($inviteCode)를 복사했어요. 친구에게 보내 주세요."
+                                        }
+                                        else -> "초대코드를 불러오지 못했어요. 잠시 후 다시 시도해 주세요."
+                                    }
+                                    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                                },
                                 modifier = Modifier.horizontalScroll(rememberScrollState()).padding(start = 18.dp, end = 18.dp),
                             )
                         }
