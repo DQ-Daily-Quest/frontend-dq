@@ -40,6 +40,28 @@ import com.dailyquest.app.navigation.Routes
 import com.dailyquest.app.ui.auth.LocalAuth
 import com.dailyquest.app.ui.components.*
 import com.dailyquest.app.ui.proof.RemoteImage
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.layout.layout
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.offset
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
+import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 import com.dailyquest.app.ui.shop.purchaseSummary
 import com.dailyquest.app.ui.shop.coinText
 import androidx.compose.ui.text.style.TextAlign
@@ -76,6 +98,124 @@ private data class ShopCardData(
  * 가구는 512×512 상점용 썸네일(thumbnailUrl)이 있으면 그것을 쓰고, 없으면 방에 놓는 그림(28~120px 직사각형)을 쓴다.
  * 그 그림을 꽉 채우면 위아래·양옆이 잘리고 많이 늘어나므로, 가구는 칸 안에 다 보이게 맞춘다(썸네일이어도 결과는 같다).
  */
+/** 시트 손잡이 위 여백·작은 아바타 높이·내렸을 때 보이는 시트 높이(손잡이 + 분류 + 칩). */
+private val SHEET_GAP = 12.dp
+private val SMALL_AVATAR_HEIGHT = 200.dp
+private val SHEET_PEEK = 118.dp
+
+/**
+ * 상점 본문: 아바타(위) + 흰 시트(아래). 시트는 홈 아래 시트처럼 둥근 윗모서리·그림자·손잡이 막대가 있다.
+ * - 아바타 탭: 시트 위쪽(손잡이·분류·칩)을 끌거나 손잡이를 누르면 시트가 내려가 아바타가 크게 보이고, 다시 올리면 작은 아바타 + 상품 목록.
+ *   3D 화면은 크기가 바뀌면 그림 버퍼를 다시 만들다 실패할 수 있어(EGL_BAD_ALLOC), 가장 큰 크기로 한 번 만들고 줄여서만 그린다.
+ *   아바타 상자(배경·입어보기 글자)의 높이만 시트 위치를 따라 바뀐다.
+ * - 가구 탭: 아바타가 없어 시트가 위까지 차고 끌 수 없다.
+ */
+@Composable
+private fun ShopSheetLayout(
+    modifier: Modifier,
+    avatarTab: Boolean,
+    avatar: @Composable (modifier: Modifier, sceneHeight: Dp, sceneScale: () -> Float, interactive: Boolean) -> Unit,
+    header: @Composable ColumnScope.() -> Unit,
+    content: @Composable () -> Unit,
+) {
+    BoxWithConstraints(modifier.fillMaxWidth()) {
+        val density = LocalDensity.current
+        val fullHeight = maxHeight
+        val expandedTop = if (avatarTab) SHEET_GAP + SMALL_AVATAR_HEIGHT + SHEET_GAP else SHEET_GAP
+        val collapsedTop = (fullHeight - SHEET_PEEK).coerceAtLeast(expandedTop)
+        val expandedPx = with(density) { expandedTop.toPx() }
+        val collapsedPx = with(density) { collapsedTop.toPx() }
+        var collapsed by rememberSaveable { mutableStateOf(false) }
+        if (!avatarTab) collapsed = false
+        var top by remember { mutableFloatStateOf(expandedPx) }
+        var settling by remember { mutableStateOf(false) }
+        var dragging by remember { mutableStateOf(false) }
+        // 화면 크기·탭이 바뀌면 현재 상태 위치로 맞춘다.
+        LaunchedEffect(expandedPx, collapsedPx, avatarTab) { top = if (collapsed) collapsedPx else expandedPx }
+        val scope = rememberCoroutineScope()
+
+        fun settleTo(down: Boolean, velocity: Float = 0f) {
+            scope.launch {
+                settling = true
+                val target = if (down) collapsedPx else expandedPx
+                animate(top, target, velocity, spring(stiffness = Spring.StiffnessMediumLow)) { v, _ -> top = v }
+                collapsed = down
+                settling = false
+            }
+        }
+
+        if (avatarTab) {
+            // 3D 화면은 가장 큰 높이(시트를 내렸을 때)로 고정. 상자는 시트 위쪽까지만 보이고, 3D는 그 비율로 줄여 그린다.
+            // 아래 "구매하기" 막대가 생기고 사라져도 3D 높이가 바뀌지 않게, 지금까지 잰 가장 큰 높이를 쓴다.
+            val gapPx = with(density) { SHEET_GAP.toPx() }
+            var scenePx by remember { mutableFloatStateOf(0f) }
+            (collapsedPx - gapPx * 2).let { if (it > scenePx) scenePx = it }
+            val sceneHeight = with(density) { scenePx.toDp() }
+            avatar(
+                Modifier.padding(horizontal = 16.dp).padding(top = SHEET_GAP).fillMaxWidth()
+                    .layout { measurable, constraints ->
+                        // 시트 위치를 읽어 높이만 다시 잰다(다시 그리기만, 화면 구성은 다시 하지 않음).
+                        val h = (top - gapPx * 2).roundToInt().coerceIn(0, constraints.maxHeight)
+                        val placeable = measurable.measure(constraints.copy(minHeight = h, maxHeight = h))
+                        layout(placeable.width, h) { placeable.place(0, 0) }
+                    }
+                    .testTag(if (collapsed) "shopAvatarLarge" else "shopAvatarSmall"),
+                sceneHeight,
+                { ((top - gapPx * 2) / scenePx).coerceIn(0.05f, 1f) },
+                // 3D 화면이 보이는 상자에 딱 맞을 때(시트를 내린 뒤, 아래 막대 없음)만 손가락으로 돌린다.
+                // 3D 화면은 보이는 것보다 크게 놓여 시트 아래까지 이어지는데, 그때 돌리기를 켜 두면 시트 끌기를 가로챈다.
+                collapsed && !dragging && !settling && scenePx <= collapsedPx - gapPx * 2 + 1f,
+            )
+        }
+
+        val sheetShape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp)
+        Column(
+            Modifier
+                .offset { IntOffset(0, top.roundToInt()) }
+                .fillMaxWidth()
+                .height(fullHeight - expandedTop)
+                .shadow(10.dp, sheetShape, spotColor = Color.Black.copy(alpha = 0.2f))
+                .background(DQColors.White, sheetShape)
+                .testTag("shopSheet"),
+        ) {
+            Column(
+                Modifier.fillMaxWidth().then(
+                    if (avatarTab) Modifier.draggable(
+                        orientation = Orientation.Vertical,
+                        enabled = !settling,
+                        state = rememberDraggableState { delta -> top = (top + delta).coerceIn(expandedPx, collapsedPx) },
+                        onDragStarted = { dragging = true },
+                        onDragStopped = { velocity ->
+                            dragging = false
+                            val down = when {
+                                velocity > 1_000f -> true
+                                velocity < -1_000f -> false
+                                else -> top > (expandedPx + collapsedPx) / 2
+                            }
+                            settleTo(down, velocity)
+                        },
+                    ) else Modifier,
+                ),
+            ) {
+                if (avatarTab) {
+                    // 손잡이: 누르면 내리기/올리기.
+                    Box(
+                        Modifier.fillMaxWidth().height(26.dp).clickable(role = Role.Button, enabled = !settling) { settleTo(!collapsed) }
+                            .semantics { contentDescription = if (collapsed) "상품 목록 올리기" else "아바타 크게 보기" }
+                            .testTag("shopSheetHandle"),
+                        contentAlignment = Alignment.Center,
+                    ) { Box(Modifier.size(40.dp, 4.dp).background(DQColors.Handle, RoundedCornerShape(2.dp))) }
+                } else {
+                    Spacer(Modifier.height(16.dp))
+                }
+                header()
+                Spacer(Modifier.height(4.dp))
+            }
+            Box(Modifier.weight(1f).fillMaxWidth()) { content() }
+        }
+    }
+}
+
 private fun thumbScale(type: ItemType): ContentScale = if (type == ItemType.FURNITURE) ContentScale.Fit else ContentScale.Crop
 
 // 카드에는 상점용 썸네일(있으면)을 쓴다. 3D 입어보기는 modelUrl만 쓰므로 영향이 없다.
@@ -153,32 +293,41 @@ fun AvatarShopContent(startOwned: Boolean = false) {
                         ) { Txt(t.label, weight = Bold, size = 14f) }
                     }
                 }
-                Row(Modifier.padding(top = 12.dp).horizontalScroll(rememberScrollState()).testTag("shopCategories"), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    (listOf<ItemCategory?>(null) + ItemCategory.of(type)).forEach { c ->
-                        Column(
-                            Modifier.testTag("shopCategory_${c?.name ?: "ALL"}").clickable { shopVm.selectCategory(c); invVm.selectCategory(c) },
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                        ) {
-                            Txt(c?.label ?: "전체", weight = if (category == c) Bold else Medium, size = 14f)
-                            Box(Modifier.padding(top = 9.dp).size(38.dp, 3.dp).background(if (category == c) DQColors.Primary else DQColors.White))
-                        }
-                    }
-                }
-                Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Chip("전체 상품", !ownedOnly, Modifier.testTag("shopTabAll")) { ownedOnly = false }
-                    Chip("보유 아이템", ownedOnly, Modifier.testTag("shopTabOwned")) { ownedOnly = true; invVm.refresh() }
-                }
-                if (avatarTab) {
-                    // 높이를 고정한다. 3D 화면 크기가 자주 바뀌면 화면 버퍼를 다시 만들게 된다.
+            }
+            // 아바타 탭: 위에 내 아바타, 아래에 흰 시트(분류·상품 목록). 시트를 내리면 아바타가 크게, 올리면 지금처럼(QA 디자인).
+            // 가구 탭: 아바타가 없어 시트가 위까지 차고 끌 수 없다.
+            ShopSheetLayout(
+                modifier = Modifier.weight(1f),
+                avatarTab = avatarTab,
+                avatar = { modifier, sceneHeight, sceneScale, interactive ->
                     MyAvatarPreview(
                         state = avatar,
                         onRetry = avatarVm::refresh,
                         onClearTryOn = { avatarVm.clearTryOn(); selectedId = null },
-                        modifier = Modifier.padding(top = 12.dp).fillMaxWidth().height(200.dp),
+                        modifier = modifier,
+                        sceneHeight = sceneHeight,
+                        sceneScale = sceneScale,
+                        sceneInteractive = interactive,
                     )
-                }
-            }
-            Box(Modifier.weight(1f).fillMaxWidth()) {
+                },
+                header = {
+                    Row(Modifier.padding(horizontal = 16.dp).horizontalScroll(rememberScrollState()).testTag("shopCategories"), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                        (listOf<ItemCategory?>(null) + ItemCategory.of(type)).forEach { c ->
+                            Column(
+                                Modifier.testTag("shopCategory_${c?.name ?: "ALL"}").clickable { shopVm.selectCategory(c); invVm.selectCategory(c) },
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                Txt(c?.label ?: "전체", weight = if (category == c) Bold else Medium, size = 14f)
+                                Box(Modifier.padding(top = 9.dp).size(38.dp, 3.dp).background(if (category == c) DQColors.Primary else DQColors.White))
+                            }
+                        }
+                    }
+                    Row(Modifier.padding(horizontal = 16.dp).padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Chip("전체 상품", !ownedOnly, Modifier.testTag("shopTabAll")) { ownedOnly = false }
+                        Chip("보유 아이템", ownedOnly, Modifier.testTag("shopTabOwned")) { ownedOnly = true; invVm.refresh() }
+                    }
+                },
+            ) {
                 if (ownedOnly) OwnedList(inv.loading, inv.error, cards, invVm::retry, tryingOn, if (avatarTab) onCard else noop)
                 else CatalogList(
                     loading = shop.loading, error = shop.error, cards = cards,
