@@ -32,6 +32,7 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.dailyquest.app.R
+import com.dailyquest.app.ui.feed.StoryRing
 import com.dailyquest.app.ui.theme.DQColors
 
 /**
@@ -45,6 +46,10 @@ data class Member(
     val badge: String? = null,
     val face: PersonFace? = null,
     val showsFace: Boolean = false,
+    /** 사용자 ID(방 화면 멤버 줄에서 누른 사람을 찾는 데 쓴다). */
+    val id: Long? = null,
+    /** 스토리 링. null이면 테두리 없음(QA 디자인 2-1단계). */
+    val ring: StoryRing? = null,
 )
 
 /** 방 멤버 줄 (03 · 13) — 멤버 + 초대 버튼 */
@@ -93,16 +98,17 @@ fun RoomMemberStrip(
     onInvite: () -> Unit,
     modifier: Modifier = Modifier,
     size: Dp = 52.dp,
+    onMember: (Member) -> Unit = {},
 ) {
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        me?.let { MemberFace(it, size, Modifier.testTag("memberMe")) }
+        me?.let { MemberFace(it, size, onMember, Modifier.testTag("memberMe")) }
         if (me != null && others.isNotEmpty()) {
-            Box(Modifier.padding(top = (size - 36.dp) / 2).width(1.dp).height(36.dp).background(DQColors.Line).testTag("memberDivider"))
+            Box(Modifier.padding(top = (size + 8.dp - 36.dp) / 2).width(1.dp).height(36.dp).background(DQColors.Line).testTag("memberDivider"))
         }
-        others.forEach { MemberFace(it, size) }
-        Column(Modifier.width(size + 4.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        others.forEach { MemberFace(it, size, onMember) }
+        Column(Modifier.width(size + 8.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Box(
-                Modifier.size(size).clip(CircleShape).background(DQColors.White).border(1.dp, DQColors.Line, CircleShape)
+                Modifier.padding(4.dp).size(size).clip(CircleShape).background(DQColors.White).border(1.dp, DQColors.Line, CircleShape)
                     .clickable(role = Role.Button, onClick = onInvite)
                     .testTag("roomInvite")
                     .semantics { contentDescription = "초대하기"; stateDescription = inviteState },
@@ -115,10 +121,25 @@ fun RoomMemberStrip(
     }
 }
 
+/**
+ * 멤버 얼굴. 스토리 링이 있으면 테두리를 두르고 누를 수 있다(안 본 인증: 분홍, 다 봄: 연한 회색).
+ * 테두리가 없어도 같은 자리를 차지해 얼굴 줄이 들쭉날쭉하지 않다.
+ */
 @Composable
-private fun MemberFace(m: Member, size: Dp, modifier: Modifier = Modifier) {
-    Column(modifier.width(size + 4.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        ProfileFace(m.face, size, contentDescription = "${m.name} 아바타")
+private fun MemberFace(m: Member, size: Dp, onClick: (Member) -> Unit, modifier: Modifier = Modifier) {
+    val ringColor = when (m.ring) {
+        StoryRing.NEW -> DQColors.StoryPink
+        StoryRing.SEEN -> DQColors.Line
+        null -> Color.Transparent
+    }
+    Column(modifier.width(size + 8.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Box(
+            Modifier.size(size + 8.dp).clip(CircleShape).border(2.5.dp, ringColor, CircleShape)
+                .then(if (m.ring != null) Modifier.clickable(role = Role.Button) { onClick(m) } else Modifier)
+                .testTag("memberFace-${m.id}")
+                .semantics { stateDescription = when (m.ring) { StoryRing.NEW -> "새 인증"; StoryRing.SEEN -> "인증 봄"; null -> "인증 없음" } },
+            contentAlignment = Alignment.Center,
+        ) { ProfileFace(m.face, size, contentDescription = "${m.name} 아바타") }
         Txt(m.name, size = 11.5f, maxLines = 1, color = DQColors.Muted)
         if (m.badge != null) Txt(m.badge, size = 10f, weight = Bold, color = DQColors.Green)
     }

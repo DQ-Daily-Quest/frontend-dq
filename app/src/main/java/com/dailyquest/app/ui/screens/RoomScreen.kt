@@ -66,6 +66,9 @@ import com.dailyquest.app.ui.room.RoomManageEvent
 import com.dailyquest.app.ui.room.RoomManageViewModel
 import com.dailyquest.app.ui.feed.FeedContent
 import com.dailyquest.app.ui.feed.FeedViewModel
+import com.dailyquest.app.ui.feed.MemberProofsDialog
+import com.dailyquest.app.ui.feed.proofsOf
+import com.dailyquest.app.ui.feed.storyRings
 import com.dailyquest.app.ui.room.LocalAppContainer
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.dailyquest.app.ui.theme.DQColors
@@ -132,6 +135,11 @@ fun RoomScreen(roomId: Long, viewModel: RoomDetailViewModel, manage: RoomManageV
     }
 
     val manageState = rememberRoomManageState()
+    // 방 피드: 피드 탭과 멤버 얼굴 테두리(스토리 링)가 함께 쓴다. 멤버만 받는다(QA 디자인 2-1단계).
+    val feedVm: FeedViewModel? = if (ui.isMember) viewModel(key = "room-feed-$roomId", factory = FeedViewModel.Factory(roomId, LocalAppContainer.current)) else null
+    val feedItems = feedVm?.ui?.collectAsStateWithLifecycle()?.value?.items.orEmpty()
+    val rings = remember(feedItems) { storyRings(feedItems) }
+    var storyOf by remember { mutableStateOf<Member?>(null) }
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
     DqScreen {
@@ -208,7 +216,10 @@ fun RoomScreen(roomId: Long, viewModel: RoomDetailViewModel, manage: RoomManageV
                             val avatars = ui.members.map { m -> if (m.userId == me?.userId && me.avatar != null) me.avatar else m.avatar }
                             val faces = rememberPersonFaces(avatars)
                             val all = ui.members.mapIndexed { i, it ->
-                                it.userId to Member(it.nickname, badge = if (it.role == ROLE_OWNER) "방장" else null, face = faces[i], showsFace = true)
+                                it.userId to Member(
+                                    it.nickname, badge = if (it.role == ROLE_OWNER) "방장" else null, face = faces[i], showsFace = true,
+                                    id = it.userId, ring = rings[it.userId],
+                                )
                             }
                             // 내 얼굴을 맨 앞에 두고 세로선으로 다른 멤버와 나눈다(QA 디자인 2단계).
                             val inviteCode = ui.visibleInviteCode
@@ -232,7 +243,22 @@ fun RoomScreen(roomId: Long, viewModel: RoomDetailViewModel, manage: RoomManageV
                                     Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
                                 },
                                 modifier = Modifier.horizontalScroll(rememberScrollState()).padding(start = 18.dp, end = 18.dp),
+                                onMember = { storyOf = it },
                             )
+                            // 테두리 있는 얼굴을 누르면 그 사람의 최근 인증 목록(QA 디자인 2-1단계).
+                            storyOf?.let { who ->
+                                val proofs = proofsOf(feedItems, who.id ?: -1L)
+                                if (proofs.isEmpty()) storyOf = null
+                                else MemberProofsDialog(
+                                    who.name, proofs,
+                                    onOpen = { p ->
+                                        feedVm?.markViewed(p.proofId)
+                                        storyOf = null
+                                        nav.navigate(Routes.proofDetail(p.proofId, roomId))
+                                    },
+                                    onDismiss = { storyOf = null },
+                                )
+                            }
                         }
                     }
                 }
@@ -271,8 +297,7 @@ fun RoomScreen(roomId: Long, viewModel: RoomDetailViewModel, manage: RoomManageV
                 when (tab) {
                     "피드" ->
                         if (ui.isMember) {
-                            val feedVm: FeedViewModel = viewModel(key = "room-feed-$roomId", factory = FeedViewModel.Factory(roomId, LocalAppContainer.current))
-                            Box(Modifier.fillMaxWidth().padding(16.dp)) { FeedContent(roomId, feedVm) }
+                            Box(Modifier.fillMaxWidth().padding(16.dp)) { feedVm?.let { FeedContent(roomId, it) } }
                         } else Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
                             Txt("참여 후 방의 인증 피드를 볼 수 있어요.", size = 14f, color = DQColors.Muted)
                         }
