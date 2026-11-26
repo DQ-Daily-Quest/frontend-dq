@@ -81,7 +81,7 @@ class ShopTryOnTest {
         compose.onNodeWithTag("shopItem_2").performClick()
 
         compose.onNodeWithTag("myAvatarTryOnLabel").assertTextContains("민트 상의", substring = true)
-        compose.onNodeWithTag("shopTryOnAction").assertTextContains("120 코인으로 구매").assertIsEnabled()
+        compose.onNodeWithTag("shopTryOnAction").assertTextContains("구매하기").assertIsEnabled()
         // 카드를 누르는 것만으로는 상세 창이 뜨지 않는다
         assertTrue(!exists("shopDetail"))
     }

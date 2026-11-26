@@ -212,7 +212,7 @@ fun AvatarShopContent(startOwned: Boolean = false) {
 
 /**
  * 아바타 탭에서 고른 아이템의 버튼 (STEP 9-7, 9-8).
- * - 보유하지 않음: "N 코인으로 구매" → 기존 상세·구매 창
+ * - 보유하지 않음: "구매하기" → 상세·구매 창(가격은 카드와 상세 창에 있다. QA 디자인)
  * - 보유, 입고 있지 않음: "착용하기" → 서버에 저장
  * - 입고 있는 모자: "모자 벗기" / 입고 있는 다른 슬롯: "착용 중"(비활성. 모자 외에는 벗을 수 없다)
  */
@@ -225,7 +225,7 @@ private fun TryOnActionBar(
     val modifier = Modifier.fillMaxWidth().height(48.dp).testTag("shopTryOnAction")
     Box(Modifier.fillMaxWidth().background(DQColors.White).padding(horizontal = 16.dp, vertical = 8.dp)) {
         when {
-            !c.owned -> Btn("${c.price} 코인으로 구매", modifier, enabled = c.item != null, onClick = onBuy)
+            !c.owned -> Btn("구매하기", modifier, enabled = c.item != null, onClick = onBuy)
             saving -> Btn("저장 중…", modifier, style = BtnStyle.Soft, enabled = false)
             equipped && part in REMOVABLE_PARTS -> Btn("모자 벗기", modifier, style = BtnStyle.Outline, onClick = onTakeOff)
             equipped -> Btn("착용 중", modifier, style = BtnStyle.Soft, enabled = false)
