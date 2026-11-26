@@ -40,6 +40,17 @@ import com.dailyquest.app.navigation.Routes
 import com.dailyquest.app.ui.auth.LocalAuth
 import com.dailyquest.app.ui.components.*
 import com.dailyquest.app.ui.proof.RemoteImage
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import com.dailyquest.app.R
 import com.dailyquest.app.ui.shop.LocalInventory
 import com.dailyquest.app.ui.shop.LocalShop
 import com.dailyquest.app.ui.theme.DQColors
@@ -298,6 +309,10 @@ private fun ProductCard(c: ShopCardData, selected: Boolean, modifier: Modifier, 
     }
 }
 
+/**
+ * 상품 상세 창 (QA 디자인 5-1단계): "상품 상세" + X, 큰 그림, 분류·이름·가격, "○○ 코인으로 구매".
+ * 누르면 같은 창 안에서 구매 확인으로 넘어간다(5-2단계에서 모양을 바꾼다). 상품 설명은 서버에 없어 넣지 않는다.
+ */
 @Composable
 private fun ShopDetailDialog(
     item: ShopItem, owned: Boolean, coins: Int, loading: Boolean, error: String?,
@@ -305,39 +320,72 @@ private fun ShopDetailDialog(
 ) {
     var confirming by rememberSaveable(item.itemId) { mutableStateOf(false) }
     val lacking = !owned && coins < item.price
-    AlertDialog(
-        onDismissRequest = { if (!purchasing) onClose() },
-        modifier = Modifier.testTag("shopDetail"),
-        title = { Text(if (confirming && !owned) "구매할까요?" else item.name) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                if (!confirming || owned) {
-                    RemoteImage(
-                        item.cardImageUrl, Modifier.fillMaxWidth().height(140.dp).background(DQColors.Soft, RoundedCornerShape(12.dp)),
-                        placeholder = "이미지 없음", contentScale = thumbScale(item.type),
-                    )
-                    Text("${item.type.label} · ${item.category.label}")
-                    Text(if (item.isDefault && owned) "기본 제공 아이템" else if (owned) "보유 중" else "${item.price} 코인")
-                    if (loading) Text("상세 정보를 확인하는 중이에요.")
-                    error?.let { Text(it) }
-                    if (unconfirmed && !owned) Text("이전 구매 결과를 확인하지 못했어요. 다시 시도하면 보유 여부를 먼저 확인해요.")
-                    if (lacking) Text("코인이 부족해요. (보유 $coins 코인)")
+    Dialog(onDismissRequest = { if (!purchasing) onClose() }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Column(
+            Modifier.padding(horizontal = 24.dp).fillMaxWidth().widthIn(max = 420.dp)
+                .background(DQColors.White, RoundedCornerShape(24.dp)).padding(20.dp).testTag("shopDetail"),
+        ) {
+            if (!confirming || owned) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Txt("상품 상세", size = 17f, weight = Bold, color = DQColors.InkGreen, modifier = Modifier.weight(1f))
+                    Box(
+                        Modifier.size(32.dp).clip(CircleShape).clickable(enabled = !purchasing, role = Role.Button, onClick = onClose)
+                            .semantics { contentDescription = "닫기" }.testTag("shopDetailClose"),
+                        contentAlignment = Alignment.Center,
+                    ) { Image(painterResource(R.drawable.ic_close), null, Modifier.size(22.dp)) }
+                }
+                RemoteImage(
+                    item.cardImageUrl,
+                    Modifier.padding(top = 12.dp).fillMaxWidth().height(190.dp).clip(RoundedCornerShape(16.dp)).background(DQColors.Soft),
+                    placeholder = "이미지 없음", contentScale = ContentScale.Fit,
+                )
+                Txt("${item.type.label} · ${item.category.label}", size = 12.5f, color = DQColors.Muted, modifier = Modifier.padding(top = 14.dp))
+                Txt(item.name, size = 20f, weight = Bold, color = DQColors.InkGreen, modifier = Modifier.padding(top = 2.dp))
+                Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (item.isDefault && owned) Txt("기본 제공 아이템", size = 15f, weight = Bold, color = DQColors.Green)
+                    else if (owned) Txt("보유 중", size = 15f, weight = Bold, color = DQColors.Green)
+                    else {
+                        Image(painterResource(R.drawable.ic_coin), null, Modifier.size(20.dp))
+                        Txt("${item.price}", size = 17f, weight = Bold, color = DQColors.InkGreen)
+                    }
+                }
+                val notes = listOfNotNull(
+                    "상세 정보를 확인하는 중이에요.".takeIf { loading },
+                    error,
+                    "이전 구매 결과를 확인하지 못했어요. 다시 시도하면 보유 여부를 먼저 확인해요.".takeIf { unconfirmed && !owned },
+                    "코인이 부족해요. (보유 $coins 코인)".takeIf { lacking },
+                )
+                notes.forEach { Txt(it, size = 12.5f, color = if (it == error || lacking && it.startsWith("코인")) DQColors.Danger else DQColors.Muted, modifier = Modifier.padding(top = 6.dp)) }
+                val buttonShape = RoundedCornerShape(14.dp)
+                if (owned) {
+                    Box(
+                        Modifier.padding(top = 18.dp).fillMaxWidth().height(52.dp).clip(buttonShape).border(1.dp, DQColors.Line, buttonShape)
+                            .clickable(role = Role.Button, onClick = onClose),
+                        contentAlignment = Alignment.Center,
+                    ) { Txt("닫기", size = 15f, weight = Bold, color = DQColors.InkGreen) }
                 } else {
-                    Text("'${item.name}' — ${item.price} 코인")
-                    Text("보유 코인 $coins → 구매 후 ${coins - item.price}")
-                    Text("구매 후에는 환불할 수 없어요.")
+                    val enabled = !lacking && !loading
+                    Box(
+                        Modifier.padding(top = 18.dp).fillMaxWidth().height(52.dp).clip(buttonShape)
+                            .background(if (enabled) DQColors.InkGreen else DQColors.Line)
+                            .clickable(enabled = enabled, role = Role.Button) { confirming = true }
+                            .testTag("shopBuy"),
+                        contentAlignment = Alignment.Center,
+                    ) { Txt(if (lacking) "코인 부족" else "${item.price} 코인으로 구매", size = 15f, weight = Bold, color = if (enabled) DQColors.White else DQColors.Muted) }
+                }
+            } else {
+                // 구매 확인(5-2단계에서 새 모양으로 바꾼다).
+                Txt("구매할까요?", size = 18f, weight = Bold, color = DQColors.InkGreen)
+                Txt("'${item.name}' — ${item.price} 코인", size = 14f, modifier = Modifier.padding(top = 12.dp))
+                Txt("보유 코인 $coins → 구매 후 ${coins - item.price}", size = 14f, modifier = Modifier.padding(top = 4.dp))
+                Txt("구매 후에는 환불할 수 없어요.", size = 12.5f, color = DQColors.Muted, modifier = Modifier.padding(top = 4.dp))
+                Row(Modifier.padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    TextButton(onClick = { confirming = false }, enabled = !purchasing, modifier = Modifier.weight(1f)) { Text("뒤로") }
+                    TextButton(onClick = onBuy, enabled = !purchasing && !lacking, modifier = Modifier.weight(1f).testTag("shopConfirm")) {
+                        Text(if (purchasing) "구매 중…" else "구매 확정")
+                    }
                 }
             }
-        },
-        confirmButton = {
-            when {
-                owned -> TextButton(onClose) { Text("닫기") }
-                !confirming -> TextButton(onClick = { confirming = true }, enabled = !lacking && !loading, modifier = Modifier.testTag("shopBuy")) { Text(if (lacking) "코인 부족" else "${item.price} 코인으로 구매") }
-                else -> TextButton(onClick = onBuy, enabled = !purchasing && !lacking, modifier = Modifier.testTag("shopConfirm")) { Text(if (purchasing) "구매 중…" else "구매 확정") }
-            }
-        },
-        dismissButton = {
-            if (!owned) TextButton(onClick = { if (confirming) confirming = false else onClose() }, enabled = !purchasing) { Text(if (confirming) "뒤로" else "닫기") }
-        },
-    )
+        }
+    }
 }
