@@ -1,5 +1,6 @@
 package com.dailyquest.app.ui.decor
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
@@ -27,9 +29,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -37,6 +43,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.dailyquest.app.R
 import com.dailyquest.app.data.decor.RoomCatalogs
 import com.dailyquest.app.ui.components.Bold
 import com.dailyquest.app.ui.components.Btn
@@ -48,7 +55,8 @@ import com.dailyquest.app.ui.theme.DQColors
 /**
  * 방 화면에 넣는 "꾸민 방" (STEP 10-5). 예전 고정 일러스트(RoomInterior) 자리를 대신한다.
  *
- * - 멤버: 서버에 저장된 배치를 보여준다. 한 번도 저장하지 않은 방은 기본 방. 카드 안쪽 아래에 마지막으로 꾸민 사람과 "방 꾸미기" 버튼.
+ * - 멤버: 서버에 저장된 배치를 보여준다. 한 번도 저장하지 않은 방은 기본 방. 카드 안쪽 아래에 마지막으로 꾸민 사람,
+ *   카드 아래 테두리 가운데에 걸친 "방 꾸미기" 버튼(QA 디자인 3단계).
  * - 비멤버: 꾸미기 API가 멤버 전용이라 부르지 않고 기본 방만 보여준다.
  * - 방을 누르면 크게 보기 창이 열린다(두 손가락 확대·이동, 두 번 탭 되돌리기).
  *   카드 안에서는 확대하지 않는다. 방 화면이 세로 스크롤이라 손가락 동작이 겹치지 않게 하기 위해서다.
@@ -78,8 +86,12 @@ fun RoomDecorCard(
     val shape = RoundedCornerShape(20.dp)
     // 크기는 예전 고정 일러스트(RoomInterior, 358×252 디자인)와 같은 비율이다. 방 화면의 다른 부분 위치가 바뀌지 않게 하기 위해서다.
     // 방 그림(4:3)은 그 안에 맞춰 넣고 남는 양옆은 배경색으로 둔다. 안내 문구도 카드 안쪽 아래에 넣는다.
+    // 멤버면 "방 꾸미기" 버튼을 방 그림 아래 테두리 가운데에 반쯤 걸치게 둔다(QA 디자인 3단계).
+    // 버튼이 눌리도록 바깥 상자 안에 두고, 방 그림은 버튼 절반 높이만큼 위로 띄운다.
+    Box(modifier.fillMaxWidth()) {
     Box(
-        modifier
+        Modifier
+            .padding(bottom = if (isMember) DECOR_BUTTON_HEIGHT / 2 else 0.dp)
             .fillMaxWidth()
             .aspectRatio(CARD_WIDTH / CARD_HEIGHT)
             .clip(shape)
@@ -99,20 +111,28 @@ fun RoomDecorCard(
         if (ui.loading && ui.decor == null) {
             CircularProgressIndicator(Modifier.align(Alignment.Center).size(28.dp).testTag("roomDecorLoading"), strokeWidth = 3.dp)
         }
+        // 안내 띠는 카드 안쪽 아래. 멤버면 버튼이 걸치는 자리만큼 위로 올린다.
+        RoomDecorCaption(
+            ui, onRetry = vm::refresh,
+            modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth()
+                .padding(start = 8.dp, end = 8.dp, bottom = if (isMember) DECOR_BUTTON_HEIGHT / 2 + 8.dp else 8.dp),
+        )
+    }
+    if (isMember) {
         Row(
-            Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(8.dp),
-            verticalAlignment = Alignment.Bottom,
+            Modifier.align(Alignment.BottomCenter).height(DECOR_BUTTON_HEIGHT)
+                .shadow(6.dp, CircleShape, spotColor = DQColors.Shadow.copy(alpha = 0.35f))
+                .clip(CircleShape).background(DQColors.InkGreen)
+                .clickable(role = Role.Button, onClick = onDecorate)
+                .padding(horizontal = 22.dp)
+                .testTag("roomDecorEdit"),
+            verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            RoomDecorCaption(ui, onRetry = vm::refresh, modifier = Modifier.weight(1f))
-            if (isMember) {
-                Btn(
-                    "방 꾸미기",
-                    Modifier.width(86.dp).height(32.dp).testTag("roomDecorEdit"),
-                    style = BtnStyle.Outline, size = 12f, onClick = onDecorate,
-                )
-            }
+            Image(painterResource(R.drawable.ic_sofa), null, Modifier.size(20.dp))
+            Txt("방 꾸미기", size = 15f, weight = Bold, color = DQColors.White)
         }
+    }
     }
 
     if (fullScreen) {
@@ -130,6 +150,9 @@ fun RoomDecorCard(
         }
     }
 }
+
+/** 방 꾸미기 버튼 높이. 이 절반만큼 방 그림 아래 테두리에 걸친다. */
+private val DECOR_BUTTON_HEIGHT = 44.dp
 
 /** 예전 고정 일러스트의 디자인 크기 (RoomScreen의 RoomInterior height = 252f, 358 디자인 캔버스). */
 private const val CARD_WIDTH = 358f
