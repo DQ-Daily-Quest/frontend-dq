@@ -40,6 +40,9 @@ import com.dailyquest.app.navigation.Routes
 import com.dailyquest.app.ui.auth.LocalAuth
 import com.dailyquest.app.ui.components.*
 import com.dailyquest.app.ui.proof.RemoteImage
+import com.dailyquest.app.ui.shop.purchaseSummary
+import com.dailyquest.app.ui.shop.coinText
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
@@ -309,9 +312,18 @@ private fun ProductCard(c: ShopCardData, selected: Boolean, modifier: Modifier, 
     }
 }
 
+/** 구매 확인 창의 금액 한 줄: 왼쪽 이름, 오른쪽 숫자. */
+@Composable
+private fun ConfirmLine(label: String, value: String, color: androidx.compose.ui.graphics.Color, bold: Boolean, tag: String) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Txt(label, size = if (bold) 15f else 14f, weight = if (bold) Bold else Medium, color = DQColors.Ink, modifier = Modifier.weight(1f))
+        Txt(value, size = if (bold) 17f else 14f, weight = Bold, color = color, modifier = Modifier.testTag(tag))
+    }
+}
+
 /**
  * 상품 상세 창 (QA 디자인 5-1단계): "상품 상세" + X, 큰 그림, 분류·이름·가격, "○○ 코인으로 구매".
- * 누르면 같은 창 안에서 구매 확인으로 넘어간다(5-2단계에서 모양을 바꾼다). 상품 설명은 서버에 없어 넣지 않는다.
+ * 누르면 같은 창 안에서 구매 확인(5-2단계)으로 넘어간다. 상품 설명은 서버에 없어 넣지 않는다.
  */
 @Composable
 private fun ShopDetailDialog(
@@ -374,16 +386,50 @@ private fun ShopDetailDialog(
                     ) { Txt(if (lacking) "코인 부족" else "${item.price} 코인으로 구매", size = 15f, weight = Bold, color = if (enabled) DQColors.White else DQColors.Muted) }
                 }
             } else {
-                // 구매 확인(5-2단계에서 새 모양으로 바꾼다).
-                Txt("구매할까요?", size = 18f, weight = Bold, color = DQColors.InkGreen)
-                Txt("'${item.name}' — ${item.price} 코인", size = 14f, modifier = Modifier.padding(top = 12.dp))
-                Txt("보유 코인 $coins → 구매 후 ${coins - item.price}", size = 14f, modifier = Modifier.padding(top = 4.dp))
-                Txt("구매 후에는 환불할 수 없어요.", size = 12.5f, color = DQColors.Muted, modifier = Modifier.padding(top = 4.dp))
-                Row(Modifier.padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    TextButton(onClick = { confirming = false }, enabled = !purchasing, modifier = Modifier.weight(1f)) { Text("뒤로") }
-                    TextButton(onClick = onBuy, enabled = !purchasing && !lacking, modifier = Modifier.weight(1f).testTag("shopConfirm")) {
-                        Text(if (purchasing) "구매 중…" else "구매 확정")
+                // 구매 확인(QA 디자인 5-2단계): 상품 줄, 보유 코인 / 사용 코인 / 구매 후 잔액, 취소·구매하기.
+                val sum = purchaseSummary(coins, item.price)
+                Txt("이 아이템을 구매할까요?", size = 18f, weight = Bold, color = DQColors.InkGreen, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+                Row(
+                    Modifier.padding(top = 16.dp).fillMaxWidth().border(1.dp, DQColors.Line, RoundedCornerShape(14.dp)).padding(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    RemoteImage(
+                        item.cardImageUrl, Modifier.size(56.dp).clip(RoundedCornerShape(10.dp)).background(DQColors.Soft),
+                        placeholder = "", contentScale = ContentScale.Fit,
+                    )
+                    Column(Modifier.weight(1f)) {
+                        Txt(item.name, size = 15f, weight = Bold, maxLines = 1)
+                        Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Image(painterResource(R.drawable.ic_coin), null, Modifier.size(16.dp))
+                            Txt(coinText(item.price), size = 14f, weight = Bold)
+                        }
                     }
+                }
+                Column(Modifier.padding(top = 16.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ConfirmLine("보유 코인", sum.balance, DQColors.Ink, bold = false, tag = "confirmBalance")
+                    ConfirmLine("사용 코인", sum.cost, DQColors.Danger, bold = false, tag = "confirmCost")
+                    Box(Modifier.fillMaxWidth().height(1.dp).background(DQColors.Line))
+                    ConfirmLine("구매 후 잔액", sum.after, DQColors.Green, bold = true, tag = "confirmAfter")
+                }
+                Txt(
+                    "구매 후에는 환불할 수 없어요.", size = 12.5f, color = DQColors.Muted, align = TextAlign.Center,
+                    modifier = Modifier.padding(top = 16.dp).fillMaxWidth(),
+                )
+                val buttonShape = RoundedCornerShape(14.dp)
+                Row(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    // 취소는 창을 닫지 않고 상품 상세로 돌아간다.
+                    Box(
+                        Modifier.weight(1f).height(50.dp).clip(buttonShape).border(1.dp, DQColors.PrimaryStrong, buttonShape)
+                            .clickable(enabled = !purchasing, role = Role.Button) { confirming = false }.testTag("shopConfirmCancel"),
+                        contentAlignment = Alignment.Center,
+                    ) { Txt("취소", size = 15f, weight = Bold, color = DQColors.InkGreen) }
+                    val canBuy = !purchasing && !lacking
+                    Box(
+                        Modifier.weight(1f).height(50.dp).clip(buttonShape).background(if (canBuy) DQColors.InkGreen else DQColors.Line)
+                            .clickable(enabled = canBuy, role = Role.Button, onClick = onBuy).testTag("shopConfirm"),
+                        contentAlignment = Alignment.Center,
+                    ) { Txt(if (purchasing) "구매 중…" else "구매하기", size = 15f, weight = Bold, color = if (canBuy) DQColors.White else DQColors.Muted) }
                 }
             }
         }
