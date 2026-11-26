@@ -114,7 +114,7 @@ private val SHEET_PEEK = 118.dp
 private fun ShopSheetLayout(
     modifier: Modifier,
     avatarTab: Boolean,
-    avatar: @Composable (modifier: Modifier, sceneHeight: Dp, sceneScale: () -> Float, interactive: Boolean) -> Unit,
+    avatar: @Composable (modifier: Modifier, sceneHeight: Dp, sceneScale: () -> Float) -> Unit,
     header: @Composable ColumnScope.() -> Unit,
     content: @Composable () -> Unit,
 ) {
@@ -129,7 +129,6 @@ private fun ShopSheetLayout(
         if (!avatarTab) collapsed = false
         var top by remember { mutableFloatStateOf(expandedPx) }
         var settling by remember { mutableStateOf(false) }
-        var dragging by remember { mutableStateOf(false) }
         // 화면 크기·탭이 바뀌면 현재 상태 위치로 맞춘다.
         LaunchedEffect(expandedPx, collapsedPx, avatarTab) { top = if (collapsed) collapsedPx else expandedPx }
         val scope = rememberCoroutineScope()
@@ -162,9 +161,6 @@ private fun ShopSheetLayout(
                     .testTag(if (collapsed) "shopAvatarLarge" else "shopAvatarSmall"),
                 sceneHeight,
                 { ((top - gapPx * 2) / scenePx).coerceIn(0.05f, 1f) },
-                // 3D 화면이 보이는 상자에 딱 맞을 때(시트를 내린 뒤, 아래 막대 없음)만 손가락으로 돌린다.
-                // 3D 화면은 보이는 것보다 크게 놓여 시트 아래까지 이어지는데, 그때 돌리기를 켜 두면 시트 끌기를 가로챈다.
-                collapsed && !dragging && !settling && scenePx <= collapsedPx - gapPx * 2 + 1f,
             )
         }
 
@@ -184,9 +180,7 @@ private fun ShopSheetLayout(
                         orientation = Orientation.Vertical,
                         enabled = !settling,
                         state = rememberDraggableState { delta -> top = (top + delta).coerceIn(expandedPx, collapsedPx) },
-                        onDragStarted = { dragging = true },
                         onDragStopped = { velocity ->
-                            dragging = false
                             val down = when {
                                 velocity > 1_000f -> true
                                 velocity < -1_000f -> false
@@ -299,7 +293,7 @@ fun AvatarShopContent(startOwned: Boolean = false) {
             ShopSheetLayout(
                 modifier = Modifier.weight(1f),
                 avatarTab = avatarTab,
-                avatar = { modifier, sceneHeight, sceneScale, interactive ->
+                avatar = { modifier, sceneHeight, sceneScale ->
                     MyAvatarPreview(
                         state = avatar,
                         onRetry = avatarVm::refresh,
@@ -307,7 +301,6 @@ fun AvatarShopContent(startOwned: Boolean = false) {
                         modifier = modifier,
                         sceneHeight = sceneHeight,
                         sceneScale = sceneScale,
-                        sceneInteractive = interactive,
                     )
                 },
                 header = {

@@ -20,6 +20,14 @@ import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import io.github.sceneview.math.Position
 import androidx.compose.ui.unit.dp
 import com.dailyquest.app.ui.components.Bold
 import com.dailyquest.app.ui.components.Btn
@@ -48,9 +56,10 @@ fun MyAvatarPreview(
     modifier: Modifier = Modifier,
     sceneHeight: Dp? = null,
     sceneScale: () -> Float = { 1f },
-    /** 손가락으로 돌리기·확대. 3D 화면이 보이는 상자 밖(상점 시트 아래)까지 이어질 때는 꺼서 시트 끌기를 가로채지 않게 한다. */
-    sceneInteractive: Boolean = true,
 ) {
+    // 상점 시트 방식([sceneHeight])에서는 3D 화면이 보이는 상자보다 크게(시트 아래까지) 놓인다. SceneView의 내장 돌리기는
+    // 그 큰 화면 전체에서 손가락을 받아 시트 끌기를 가로채므로 끄고, 보이는 상자 안에서만 좌우로 끌어 직접 돌린다.
+    var yaw by rememberSaveable { mutableFloatStateOf(0f) }
     val render3d = LocalAppContainer.current.avatar3dEnabled
     val shape = RoundedCornerShape(22.dp)
     Box(modifier.clip(shape).background(DQColors.Soft, shape).testTag("myAvatarPreview")) {
@@ -70,9 +79,11 @@ fun MyAvatarPreview(
                 size = 13f, color = DQColors.Muted,
                 modifier = Modifier.align(Alignment.Center).testTag("myAvatarNeedsGender"),
             )
+            render3d && sceneHeight == null -> AvatarView(parts = state.previewParts, modifier = Modifier.fillMaxSize())
             render3d -> AvatarView(
                 parts = state.previewParts,
-                interactive = sceneInteractive,
+                interactive = false,
+                camera = remember(yaw) { AvatarCamera.FULL_BODY.orbitAroundY(yaw) },
                 modifier = if (sceneHeight == null) Modifier.fillMaxSize()
                 else Modifier.align(Alignment.TopCenter).fillMaxWidth()
                     .wrapContentHeight(Alignment.Top, unbounded = true).requiredHeight(sceneHeight)
@@ -87,6 +98,17 @@ fun MyAvatarPreview(
                 "3D 미리보기 (테스트 환경)",
                 size = 12f, color = DQColors.Muted,
                 modifier = Modifier.align(Alignment.Center).testTag("myAvatarPlaceholder"),
+            )
+        }
+        if (render3d && sceneHeight != null && avatar != null && !avatar.needsGender) {
+            // 보이는 상자 안에서 좌우로 끌면 돌린다(오른쪽으로 끌면 아바타가 오른쪽으로 돈다).
+            Box(
+                Modifier.matchParentSize().pointerInput(Unit) {
+                    detectHorizontalDragGestures { change, dx ->
+                        change.consume()
+                        yaw -= dx * ROTATE_DEGREES_PER_PX
+                    }
+                }.testTag("myAvatarRotate"),
             )
         }
         if (state.isTryingOn) {
@@ -105,4 +127,18 @@ fun MyAvatarPreview(
             }
         }
     }
+}
+
+/** 좌우로 1픽셀 끌 때 도는 각도. */
+private const val ROTATE_DEGREES_PER_PX = 0.35f
+
+/** 카메라를 바라보는 점 둘레로 세로축을 기준으로 [degrees]만큼 돌린다(아바타를 옆·뒤에서 보기). */
+internal fun AvatarCamera.orbitAroundY(degrees: Float): AvatarCamera {
+    if (degrees == 0f) return this
+    val r = Math.toRadians(degrees.toDouble())
+    val c = kotlin.math.cos(r).toFloat()
+    val sn = kotlin.math.sin(r).toFloat()
+    val dx = position.x - target.x
+    val dz = position.z - target.z
+    return AvatarCamera(Position(target.x + dx * c + dz * sn, position.y, target.z - dx * sn + dz * c), target)
 }
