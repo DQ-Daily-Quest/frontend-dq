@@ -337,7 +337,7 @@ fun RoomScreen(roomId: Long, viewModel: RoomDetailViewModel, manage: RoomManageV
                                 Modifier.weight(1f).clickable { tab = t }.padding(bottom = 10.dp),
                                 contentAlignment = Alignment.TopCenter,
                             ) {
-                                Txt(t, size = 15f, weight = if (on) Bold else Medium, color = if (on) DQColors.Ink else DQColors.Muted)
+                                Txt(t, size = 15f, weight = if (on) Bold else Medium, color = if (on) Color(0xFF303A34) else Color(0xFF788078))
                             }
                         }
                     }

@@ -77,8 +77,8 @@ fun FeedContent(roomId: Long, viewModel: FeedViewModel, faceOf: (Long) -> Person
                 if (!ui.gone) Btn("다시 시도", Modifier.width(140.dp).height(44.dp).testTag("feedRetry")) { if (ui.loaded) viewModel.refresh() else viewModel.retry() }
                 else Btn("돌아가기", Modifier.width(140.dp).height(44.dp)) { nav.backOrHome() }
             }
-            !ui.loaded -> Txt("인증 피드를 불러오는 중이에요.", size = 13f, color = DQColors.Muted, modifier = Modifier.testTag("feedLoading"))
-            ui.items.isEmpty() -> Txt("최근 24시간 동안 올라온 인증이 없어요.", size = 13f, color = DQColors.Muted, modifier = Modifier.testTag("feedEmpty"))
+            !ui.loaded -> Txt("인증 피드를 불러오는 중이에요.", size = 13f, color = FeedColors.Sub, modifier = Modifier.testTag("feedLoading"))
+            ui.items.isEmpty() -> Txt("최근 24시간 동안 올라온 인증이 없어요.", size = 13f, color = FeedColors.Sub, modifier = Modifier.testTag("feedEmpty"))
         }
         // 위의 동그라미 줄("최근 24시간 인증")은 뺐다. 방 화면에서는 멤버 얼굴 테두리가 같은 역할을 한다(QA 디자인 4단계).
         ui.items.forEach { p -> FeedRow(p, faceOf(p.user.userId)) { open(p) } }
@@ -93,25 +93,33 @@ private fun mediaLabel(t: ProofMediaType) = when (t) { ProofMediaType.VIDEO -> "
  * 피드 카드(QA 디자인 4단계): 왼쪽 프로필 얼굴, 이름(굵게)과 미션, 오른쪽 위 날짜, 그 아래 사진.
  * 인증 글귀는 피드 목록에 오지 않아(상세에서만) 미션 내용을 보여 준다. 글 인증은 사진 자리가 없다.
  */
+/** 피드 색 (QA 디자인): 배경·탭 영역은 흰색(#FFFFFF), 카드 #F1F6F0, 카드 테두리 #E0E8DF, 본문 #303A34, 날짜·보조 글씨 #788078. */
+private object FeedColors {
+    val CardBg = Color(0xFFF1F6F0)
+    val CardLine = Color(0xFFE0E8DF)
+    val Body = Color(0xFF303A34)
+    val Sub = Color(0xFF788078)
+}
+
 @Composable
 private fun FeedRow(p: PendingProof, face: PersonFace?, onClick: () -> Unit) {
     val shape = RoundedCornerShape(16.dp)
     Row(
-        Modifier.fillMaxWidth().clip(shape).background(DQColors.White).border(1.dp, DQColors.Line, shape)
+        Modifier.fillMaxWidth().clip(shape).background(FeedColors.CardBg).border(1.dp, FeedColors.CardLine, shape)
             .clickable(onClick = onClick).padding(12.dp).testTag("feedItem-${p.proofId}"),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         ProfileFace(face, 44.dp, contentDescription = "${p.user.nickname} 아바타")
         Column(Modifier.weight(1f).padding(top = 2.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Txt(p.user.nickname, size = 14.5f, weight = Bold, maxLines = 1)
-            Txt(p.missionContent, size = 13f, maxLines = 2)
+            Txt(p.user.nickname, size = 14.5f, weight = Bold, color = FeedColors.Body, maxLines = 1)
+            Txt(p.missionContent, size = 13f, color = FeedColors.Body, maxLines = 2)
         }
         Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            p.createdAtMs?.let { Txt(MissionTime.kstDateTimeLabel(it), size = 11f, color = DQColors.Muted) }
+            p.createdAtMs?.let { Txt(MissionTime.kstDateTimeLabel(it), size = 11f, color = FeedColors.Sub) }
             if (p.mediaType != ProofMediaType.TEXT) {
                 Box(contentAlignment = Alignment.Center) {
                     RemoteImage(
-                        p.thumbnailUrl, Modifier.size(64.dp).clip(RoundedCornerShape(12.dp)).background(DQColors.Soft),
+                        p.thumbnailUrl, Modifier.size(64.dp).clip(RoundedCornerShape(12.dp)).background(DQColors.White),
                         placeholder = mediaLabel(p.mediaType),
                     )
                     if (p.mediaType == ProofMediaType.VIDEO && p.thumbnailUrl != null) {
