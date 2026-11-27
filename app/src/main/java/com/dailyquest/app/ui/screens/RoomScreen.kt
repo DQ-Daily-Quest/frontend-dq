@@ -188,7 +188,7 @@ fun RoomScreen(roomId: Long, viewModel: RoomDetailViewModel, manage: RoomManageV
                     )
                 }
 
-                RoomManageSection(ui, manage, manageState)
+                RoomManageSection(ui, manage, manageState, faceOf = { id -> faceById[id] })
 
                 // 멤버 영역: 멤버 전용 API이므로 비멤버에게는 호출하지도 표시하지도 않는다.
                 Column(Modifier.testTag("roomMembers")) {

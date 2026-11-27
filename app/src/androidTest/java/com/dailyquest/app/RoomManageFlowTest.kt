@@ -57,7 +57,7 @@ class RoomManageFlowTest {
     fun ownerWithOtherMembersCannotLeave() {
         openMyRoom(1)
         menu("방 나가기")
-        compose.onNodeWithText("방장은 다른 멤버가 있으면 나갈 수 없어요.", substring = true).assertExists()
+        compose.onNodeWithText("다른 멤버가 남아 있어 바로 나갈 수 없어요.", substring = true).assertExists()
         assertTrue(TestRoomCalls.calls.isEmpty())
     }
 
@@ -67,7 +67,7 @@ class RoomManageFlowTest {
         menu("방 설정")
         compose.onAllNodes(hasSetTextAction())[0].performTextReplacement("바뀐 이름")
         Espresso.closeSoftKeyboard()
-        compose.onNodeWithText("저장").performClick()
+        compose.onNodeWithTag("editRoomSave").performClick()
         waitText("바뀐 이름")
         val sent = TestRoomCalls.lastUpdate!!
         assertEquals("바뀐 이름", sent.name)
@@ -78,14 +78,16 @@ class RoomManageFlowTest {
     }
 
     @Test
-    fun capacityOutOfRangeIsRejectedLocally() {
+    fun capacityCannotGoBelowMemberCount() {
         openMyRoom(1)
         menu("방 설정")
-        compose.onAllNodes(hasSetTextAction())[2].performTextReplacement("1")
-        Espresso.closeSoftKeyboard()
-        compose.onNodeWithText("저장").performClick()
-        compose.onNodeWithText("최대 인원은 2~30명으로 입력해 주세요.").assertExists()
-        assertTrue(TestRoomCalls.calls.isEmpty())
+        // 최대 인원은 −/+ 버튼(QA 디자인). 지금 멤버 수(2명)보다 줄일 수 없어 − 버튼이 멈춘다.
+        repeat(12) { runCatching { compose.onNodeWithTag("capacityMinus").performClick() } }
+        compose.onNodeWithTag("capacityValue").assertTextEquals("2명")
+        compose.onNodeWithTag("capacityMinus").assertIsNotEnabled()
+        compose.onNodeWithTag("editRoomSave").performClick()
+        compose.waitUntil(5_000) { TestRoomCalls.calls.isNotEmpty() }
+        assertEquals("최대 인원만 바뀌어 보낸다", 2, TestRoomCalls.lastUpdate!!.maxMembers)
     }
 
     @Test
@@ -109,7 +111,7 @@ class RoomManageFlowTest {
         menu("멤버 관리")
         compose.onNodeWithTag("membersDialog").assertExists()
         compose.onAllNodesWithText("내보내기")[1].performClick()
-        compose.onNodeWithText("‘서버멤버’ 님을 내보낼까요?").assertExists()
+        compose.onNodeWithText("서버멤버님을 내보낼까요?").assertExists()
         confirm()
         compose.waitUntil(5_000) { compose.onAllNodesWithText("서버멤버").fetchSemanticsNodes().isEmpty() }
         assertEquals(listOf("kick:9101:8"), TestRoomCalls.calls.toList())
@@ -135,7 +137,7 @@ class RoomManageFlowTest {
     fun ownerDeletesRoomAfterConfirmAndReturnsHome() {
         openMyRoom(1)
         menu("방 삭제")
-        compose.onNodeWithText("되돌릴 수 없어요.", substring = true).assertExists()
+        compose.onNodeWithText("복구할 수 없어요.", substring = true).assertExists()
         confirm()
         waitText("1 / 1 페이지 · 4개 방")
         compose.onNodeWithText("서버 내 방 1").assertDoesNotExist()
@@ -178,8 +180,17 @@ class RoomManageFlowTest {
     fun closingMembersDialogDoesNothing() {
         openMyRoom(1)
         menu("멤버 관리")
-        compose.onNodeWithText("닫기").performClick()
+        compose.onNodeWithTag("membersClose").performClick()
         compose.onNodeWithTag("membersDialog").assertDoesNotExist()
+        assertTrue(TestRoomCalls.calls.isEmpty())
+    }
+
+    @Test
+    fun leaveBlockedOpensMemberManagement() {
+        openMyRoom(1)
+        menu("방 나가기")
+        compose.onNodeWithTag("leaveBlockedMembers").performClick()
+        compose.onNodeWithTag("membersDialog").assertExists()
         assertTrue(TestRoomCalls.calls.isEmpty())
     }
 }

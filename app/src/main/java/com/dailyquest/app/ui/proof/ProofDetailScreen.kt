@@ -53,6 +53,11 @@ import com.dailyquest.app.ui.components.DqScreen
 import com.dailyquest.app.ui.components.FieldLabel
 import com.dailyquest.app.ui.components.NavHeader
 import com.dailyquest.app.ui.components.DqConfirmDialog
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.res.painterResource
+import com.dailyquest.app.R
+import com.dailyquest.app.ui.components.DqNoticeChip
 import com.dailyquest.app.ui.components.Txt
 import com.dailyquest.app.ui.theme.DQColors
 
@@ -105,30 +110,74 @@ fun ProofDetailScreen(viewModel: ProofDetailViewModel) {
         }
     }
 
-    if (confirmDelete) {
-        AlertDialog(
-            onDismissRequest = { confirmDelete = false },
-            title = { Text("이 인증을 삭제할까요?") },
-            text = { Text("삭제하면 되돌릴 수 없고, 달린 리액션도 함께 사라져요. 승인 대기 중인 내 인증만 삭제할 수 있어요.") },
-            confirmButton = {
-                TextButton(onClick = { confirmDelete = false; viewModel.requestDelete() }, modifier = Modifier.testTag("proofDeleteConfirm")) { Text("삭제") }
+    if (confirmDelete && d != null) {
+        // 인증 삭제 확인(QA 디자인): 인증 카드(사진·미션·승인 대기), 복구 불가 안내.
+        DqConfirmDialog(
+            title = "이 인증을 삭제할까요?",
+            body = "인증과 달린 리액션이 함께 삭제돼요.",
+            confirmLabel = "삭제하기", danger = true, icon = R.drawable.ic_delete, confirmTag = "proofDeleteConfirm",
+            onConfirm = { confirmDelete = false; viewModel.requestDelete() }, onDismiss = { confirmDelete = false },
+            content = {
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(DQColors.Soft).padding(10.dp),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    ProofMediaThumb(
+                        d.proof.mediaType, d.proof.mediaUrl, d.proof.thumbnailUrl,
+                        Modifier.size(56.dp).clip(RoundedCornerShape(10.dp)).background(DQColors.White),
+                    )
+                    Column(Modifier.weight(1f)) {
+                        Txt(d.missionContent, size = 15f, weight = Bold, maxLines = 2)
+                        Box(Modifier.padding(top = 4.dp).clip(RoundedCornerShape(8.dp)).background(DQColors.Gold.copy(alpha = 0.14f)).padding(horizontal = 8.dp, vertical = 2.dp)) {
+                            Txt("승인 대기", size = 11.5f, weight = Bold, color = DQColors.Gold)
+                        }
+                    }
+                }
             },
-            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("취소") } },
+            footer = {
+                Txt("삭제 후에는 복구할 수 없어요.", size = 14f, weight = Bold, color = DQColors.Danger, modifier = Modifier.padding(bottom = 10.dp))
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(DQColors.Bg).padding(vertical = 10.dp, horizontal = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
+                ) {
+                    Image(painterResource(R.drawable.ic_info), null, Modifier.size(16.dp))
+                    Txt("승인 대기 중인 인증만 삭제할 수 있어요.", size = 12.5f, color = DQColors.Muted)
+                }
+            },
         )
     }
 
     val pick = confirm
     if (pick != null && d != null) {
         val approve = pick == VoteChoice.APPROVE
-        // 승인·거절 확인(QA 디자인): 승인은 초록 ✓, 거절은 빨강 ✕.
+        // 승인·거절 확인(QA 디자인): 인증 카드(사진·영상 첫 장면, 제출자·미션), 보상/재인증 안내.
         DqConfirmDialog(
             title = if (approve) "이 인증을 승인할까요?" else "이 인증을 거절할까요?",
-            body = "${d.proof.user.nickname}님의 인증입니다.\n" + if (approve) "승인이 확정되면 제출자에게 보상이 지급돼요." else "거절이 확정되면 제출자가 다시 인증할 수 있어요.",
-            confirmLabel = if (approve) "승인" else "거절",
+            body = if (approve) "승인하면 제출자에게\n미션 보상이 지급돼요." else "거절해도 제출자가\n다시 인증할 수 있어요.",
+            confirmLabel = if (approve) "승인하기" else "거절하기",
             danger = !approve,
             confirmTag = "proofVoteConfirm",
             onConfirm = { confirm = null; if (approve) viewModel.approve() else viewModel.reject() },
             onDismiss = { confirm = null },
+            content = {
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(DQColors.Soft).padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    ProofMediaThumb(
+                        d.proof.mediaType, d.proof.mediaUrl, d.proof.thumbnailUrl,
+                        Modifier.size(56.dp).clip(RoundedCornerShape(10.dp)).background(DQColors.White),
+                    )
+                    Column(Modifier.weight(1f)) {
+                        Txt(d.proof.user.nickname, size = 15f, weight = Bold, maxLines = 1)
+                        Txt(d.missionContent, size = 13f, color = DQColors.Muted, maxLines = 1)
+                    }
+                }
+            },
+            footer = {
+                if (approve) DqNoticeChip(R.drawable.ic_gift, "보상이 지급됩니다", DQColors.InkGreen)
+                else DqNoticeChip(R.drawable.ic_refresh, "재인증이 가능해요", DQColors.Danger)
+            },
         )
     }
 }
