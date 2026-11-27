@@ -52,6 +52,7 @@ import com.dailyquest.app.ui.components.DqCard
 import com.dailyquest.app.ui.components.DqScreen
 import com.dailyquest.app.ui.components.FieldLabel
 import com.dailyquest.app.ui.components.NavHeader
+import com.dailyquest.app.ui.components.DqConfirmDialog
 import com.dailyquest.app.ui.components.Txt
 import com.dailyquest.app.ui.theme.DQColors
 
@@ -119,17 +120,15 @@ fun ProofDetailScreen(viewModel: ProofDetailViewModel) {
     val pick = confirm
     if (pick != null && d != null) {
         val approve = pick == VoteChoice.APPROVE
-        AlertDialog(
-            onDismissRequest = { confirm = null },
-            title = { Text(if (approve) "이 인증을 승인할까요?" else "이 인증을 거절할까요?") },
-            text = { Text("${d.proof.user.nickname}님의 인증입니다. " + if (approve) "승인이 확정되면 제출자에게 보상이 지급돼요." else "거절이 확정되면 제출자가 다시 인증할 수 있어요.") },
-            confirmButton = {
-                TextButton(
-                    onClick = { confirm = null; if (approve) viewModel.approve() else viewModel.reject() },
-                    modifier = Modifier.testTag("proofVoteConfirm"),
-                ) { Text(if (approve) "승인" else "거절") }
-            },
-            dismissButton = { TextButton(onClick = { confirm = null }) { Text("취소") } },
+        // 승인·거절 확인(QA 디자인): 승인은 초록 ✓, 거절은 빨강 ✕.
+        DqConfirmDialog(
+            title = if (approve) "이 인증을 승인할까요?" else "이 인증을 거절할까요?",
+            body = "${d.proof.user.nickname}님의 인증입니다.\n" + if (approve) "승인이 확정되면 제출자에게 보상이 지급돼요." else "거절이 확정되면 제출자가 다시 인증할 수 있어요.",
+            confirmLabel = if (approve) "승인" else "거절",
+            danger = !approve,
+            confirmTag = "proofVoteConfirm",
+            onConfirm = { confirm = null; if (approve) viewModel.approve() else viewModel.reject() },
+            onDismiss = { confirm = null },
         )
     }
 }
