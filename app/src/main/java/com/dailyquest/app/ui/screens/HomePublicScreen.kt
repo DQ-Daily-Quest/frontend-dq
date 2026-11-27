@@ -64,6 +64,10 @@ import com.dailyquest.app.ui.avatar.ProfileFace
 import com.dailyquest.app.ui.avatar.rememberRoomOwnerFaces
 import com.dailyquest.app.ui.components.DqIcon
 import com.dailyquest.app.ui.components.DqImage
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.dailyquest.app.ui.components.DqScreen
 import com.dailyquest.app.ui.components.HomeHeader
 import com.dailyquest.app.ui.components.Scope
@@ -105,9 +109,7 @@ fun HomePublicScreen() {
     val query = ui.keyword
 
     // 미참여 방을 선택했을 때 표시할 미리보기 (서버 목록 데이터만 사용)
-    var selectedRoom by remember {
-        mutableStateOf<Room?>(null)
-    }
+    var selectedRoom by remember { mutableStateOf<PublicRoom?>(null) }
 
     val publicRooms = createPublicRooms(ui.rooms)
     // 참여한 방의 방장 얼굴. 참여하지 않은 방은 서버가 멤버를 주지 않아 얼굴을 띄우지 않는다.
@@ -256,9 +258,10 @@ fun HomePublicScreen() {
                                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
                                     row.forEach { item ->
-                                        // 방 상세·참여는 아직 서버 연동 전이므로 미리보기만 연다.
+                                        // 내가 참여한 방이면 팝업 없이 바로 들어가고, 아니면 미리보기 팝업(QA 디자인 6단계).
                                         PublicRoomCard(item, ownerFaces, Modifier.weight(1f)) {
-                                            selectedRoom = item.room
+                                            if (item.room.joined) nav.navigate(Routes.room(item.room.roomId)) { launchSingleTop = true }
+                                            else selectedRoom = item
                                         }
                                     }
                                     // 홀수 개의 방이 있어도 카드 크기 유지
@@ -292,14 +295,20 @@ fun HomePublicScreen() {
     }
 
     // 공개방 상세 미리보기
-    selectedRoom?.let { room ->
-        RoomPreviewDialog(room, onDismiss = { selectedRoom = null })
+    selectedRoom?.let { item ->
+        RoomPreviewDialog(item.room, item.house, onDismiss = { selectedRoom = null })
     }
 }
 
-/** 공개방 미리보기. 상세는 서버(GET /rooms/{id})로 갱신하며 입장 여부는 서버의 myRole로만 판단한다. */
+/**
+ * 참여하지 않은 공개방 미리보기 팝업 (QA 디자인 6단계). 상세는 서버(GET /rooms/{id})로 갱신하며 참여 여부는 서버의 myRole로 판단한다.
+ * - 입장하기: 참여한 뒤 방으로 들어간다(이미 멤버로 확인되면 참여 요청 없이 들어간다).
+ * - 둘러보기: 참여하지 않고 방 화면을 본다(방 그림·공개 정보만, 멤버·미션은 참여 후).
+ * - 닫기.
+ * 내가 참여한 방은 목록에서 바로 들어가므로 이 팝업이 뜨지 않는다.
+ */
 @Composable
-private fun RoomPreviewDialog(room: Room, onDismiss: () -> Unit) {
+private fun RoomPreviewDialog(room: Room, @DrawableRes house: Int, onDismiss: () -> Unit) {
     val nav = LocalNav.current
     val vm: RoomDetailViewModel = viewModel(
         key = "preview-${room.roomId}",
@@ -325,41 +334,84 @@ private fun RoomPreviewDialog(room: Room, onDismiss: () -> Unit) {
         onDismiss()
         nav.navigate(Routes.room(id)) { launchSingleTop = true }
     }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(detail?.name ?: room.name) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("공개 마을")
-                Text("멤버 ${detail?.memberCount ?: room.memberCount}/${detail?.maxMembers ?: room.maxMembers}명")
-                Text(
-                    (detail?.description ?: room.description)
-                        ?.takeIf { it.isNotBlank() }
-                        ?: "친구들과 함께 미션을 수행하는 마을입니다."
+    val enter = { onDismiss(); nav.navigate(Routes.room(room.roomId)) { launchSingleTop = true } }
+
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Column(
+            Modifier.padding(horizontal = 24.dp).fillMaxWidth().widthIn(max = 420.dp)
+                .background(DQColors.White, RoundedCornerShape(24.dp)).padding(20.dp).testTag("publicPreview"),
+        ) {
+            // 방 그림: 공개 목록 카드와 같은 집 그림과 하늘색 바탕.
+            Box(
+                Modifier.fillMaxWidth().height(140.dp).clip(RoundedCornerShape(16.dp))
+                    .background(Brush.verticalGradient(listOf(Color(0xFFDCEFF7), Color(0xFFCDE6B2)))),
+                contentAlignment = Alignment.Center,
+            ) { DqImage(house, Modifier.size(130.dp, 96.dp)) }
+
+            Row(Modifier.padding(top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Txt(detail?.name ?: room.name, size = 19f, weight = Bold, color = DQColors.InkGreen, maxLines = 1, modifier = Modifier.weight(1f))
+                Row(
+                    Modifier.height(26.dp).border(1.dp, DQColors.Line, RoundedCornerShape(13.dp))
+                        .background(DQColors.White, RoundedCornerShape(13.dp)).padding(horizontal = 9.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    DqIcon(R.drawable.ic_globe, 13.dp)
+                    Txt("공개", size = 11.5f, weight = Bold, color = DQColors.Green)
+                }
+            }
+            Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                DqIcon(R.drawable.ic_users, 15.dp)
+                val count = "멤버 ${detail?.memberCount ?: room.memberCount}/${detail?.maxMembers ?: room.maxMembers}명"
+                Txt(detail?.owner?.nickname?.let { "$count · 방장 $it" } ?: count, size = 13f, color = DQColors.Muted, modifier = Modifier.testTag("publicPreviewMembers"))
+            }
+            Txt(
+                (detail?.description ?: room.description)?.takeIf { it.isNotBlank() } ?: "친구들과 함께 미션을 수행하는 마을입니다.",
+                size = 13.5f, modifier = Modifier.padding(top = 10.dp),
+            )
+            val notes = listOfNotNull(
+                ui.error,
+                "방 정보를 불러오는 중이에요…".takeIf { detail == null && ui.error == null },
+                joinUi.error,
+                JOIN_UNKNOWN_MESSAGE.takeIf { joinUi.outcomeUnknown },
+            )
+            notes.forEach { Txt(it, size = 12.5f, color = if (it == ui.error || it == joinUi.error) DQColors.Danger else DQColors.Muted, modifier = Modifier.padding(top = 6.dp)) }
+
+            val shape = RoundedCornerShape(14.dp)
+            val retry = ui.error != null && detail == null
+            val busy = joinUi.submitting
+            Box(
+                Modifier.padding(top = 18.dp).fillMaxWidth().height(50.dp).clip(shape)
+                    .background(if (busy) DQColors.Line else DQColors.InkGreen)
+                    .clickable(enabled = !busy, role = Role.Button) {
+                        when {
+                            retry -> vm.retry()
+                            ui.isMember -> enter()
+                            else -> join.joinPublic(room.roomId)
+                        }
+                    }
+                    .testTag("publicJoin"),
+                contentAlignment = Alignment.Center,
+            ) {
+                Txt(
+                    when { retry -> "다시 시도"; busy -> "입장 중…"; else -> "입장하기" },
+                    size = 15f, weight = Bold, color = if (busy) DQColors.Muted else DQColors.White,
                 )
-                when {
-                    ui.error != null -> Text(ui.error.orEmpty(), color = DQColors.Orange)
-                    detail == null -> Text("방 정보를 불러오는 중이에요…", color = DQColors.Muted)
-                    else -> Unit
-                }
-                joinUi.error?.let { Text(it, color = DQColors.Orange) }
-                if (joinUi.outcomeUnknown) Text(JOIN_UNKNOWN_MESSAGE, color = DQColors.Orange)
             }
-        },
-        confirmButton = {
-            if (ui.error != null && detail == null) {
-                TextButton(onClick = { vm.retry() }) { Text("다시 시도") }
-            } else if (ui.isMember) {
-                TextButton(onClick = { onDismiss(); nav.navigate(Routes.room(room.roomId)) }) { Text("입장하기") }
-            } else {
-                TextButton(enabled = !joinUi.submitting, onClick = { join.joinPublic(room.roomId) }) {
-                    Text(if (joinUi.submitting) "참여 중…" else "참여하기")
-                }
+            Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Box(
+                    Modifier.weight(1f).height(48.dp).clip(shape).border(1.dp, DQColors.PrimaryStrong, shape)
+                        .clickable(enabled = !busy, role = Role.Button, onClick = enter).testTag("publicBrowse"),
+                    contentAlignment = Alignment.Center,
+                ) { Txt("둘러보기", size = 14.5f, weight = Bold, color = DQColors.InkGreen) }
+                Box(
+                    Modifier.weight(1f).height(48.dp).clip(shape).border(1.dp, DQColors.Line, shape)
+                        .clickable(enabled = !busy, role = Role.Button, onClick = onDismiss).testTag("publicClose"),
+                    contentAlignment = Alignment.Center,
+                ) { Txt("닫기", size = 14.5f, weight = Bold, color = DQColors.Muted) }
             }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("닫기") } },
-        containerColor = DQColors.White
-    )
+        }
+    }
 }
 
 @Composable

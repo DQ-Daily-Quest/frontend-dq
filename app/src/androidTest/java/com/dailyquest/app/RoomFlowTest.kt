@@ -91,9 +91,9 @@ class RoomFlowTest {
         click("홈 · 공개 (다른 마을 구경)")
         compose.waitUntil(5_000) { compose.onAllNodesWithText("서버 공개방 A").fetchSemanticsNodes().isNotEmpty() }
         click("서버 공개방 A")
-        compose.waitUntil(5_000) { compose.onAllNodesWithText("참여하기").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("publicJoin").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("roomInvite").assertDoesNotExist()
-        click("참여하기")
+        compose.onNodeWithTag("publicJoin").performClick()
         compose.waitUntil(5_000) { compose.onAllNodesWithText("서버 설명 9001").fetchSemanticsNodes().isNotEmpty() }
         assertEquals(listOf("join:9001"), TestRoomCalls.calls.toList())
         back()
@@ -109,10 +109,10 @@ class RoomFlowTest {
         click("홈 · 공개 (다른 마을 구경)")
         compose.waitUntil(5_000) { compose.onAllNodesWithText("서버 공개방 A").fetchSemanticsNodes().isNotEmpty() }
         click("서버 공개방 A")
-        compose.waitUntil(5_000) { compose.onAllNodesWithText("참여하기").fetchSemanticsNodes().isNotEmpty() }
-        click("참여하기")
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("publicJoin").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("publicJoin").performClick()
         compose.waitUntil(5_000) { compose.onAllNodesWithText("방 정원이 가득 찼어요.").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("참여하기").assertIsEnabled()
+        compose.onNodeWithTag("publicJoin").assertIsEnabled()
         assertTrue(TestRoomCalls.joined.isEmpty())
     }
 
@@ -192,14 +192,16 @@ class RoomFlowTest {
         compose.onNodeWithText("공개").performClick()
         compose.waitUntil(5_000) { compose.onAllNodesWithText("서버 공개방 A").fetchSemanticsNodes().isNotEmpty() }
         click("서버 공개방 A")
-        compose.waitUntil(5_000) { compose.onAllNodesWithText("참여하기").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("참여하기").assertIsEnabled()
-        compose.onNodeWithText("입장하기").assertDoesNotExist()
-        click("닫기")
+        // 참여하지 않은 방: 입장하기 · 둘러보기 · 닫기 팝업(QA 디자인 6단계).
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("publicJoin").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("publicJoin").assertIsEnabled()
+        compose.onNodeWithTag("publicBrowse").assertExists()
+        compose.onNodeWithTag("publicClose").performClick()
+        compose.onNodeWithTag("publicPreview").assertDoesNotExist()
+        // 참여 중인 방: 팝업 없이 바로 들어간다.
         click("서버 공개방 B")
-        compose.waitUntil(5_000) { compose.onAllNodesWithText("입장하기").fetchSemanticsNodes().isNotEmpty() }
-        click("입장하기")
         compose.waitUntil(5_000) { compose.onAllNodesWithText("서버 설명 9002").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("publicPreview").assertDoesNotExist()
         compose.waitUntil(5_000) { compose.onAllNodesWithText("서버멤버").fetchSemanticsNodes().isNotEmpty() }
         // 공개방에서는 서버가 코드를 주지 않으므로 초대코드가 없다(초대하기는 "공개방" 안내).
         assertInvite("공개방")
@@ -307,5 +309,16 @@ class RoomFlowTest {
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("createOutcomeUnknown").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("생성되었").assertDoesNotExist()
         assertEquals(1, TestRoomCalls.createCalls)
+    }
+
+    @Test
+    fun publicPreviewBrowseOpensRoomWithoutJoining() {
+        click("홈 · 공개 (다른 마을 구경)")
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("서버 공개방 A").fetchSemanticsNodes().isNotEmpty() }
+        click("서버 공개방 A")
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("publicJoin").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("publicBrowse").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("참여하지 않은 공개방이에요", substring = true).fetchSemanticsNodes().isNotEmpty() }
+        assertTrue("둘러보기는 참여하지 않는다", TestRoomCalls.calls.none { it.startsWith("join") })
     }
 }

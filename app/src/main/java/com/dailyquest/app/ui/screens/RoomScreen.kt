@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -166,6 +167,8 @@ fun RoomScreen(roomId: Long, viewModel: RoomDetailViewModel, manage: RoomManageV
                         Txt(if (detail.isPublic) "공개" else "우리만", size = 12f, weight = Bold, color = DQColors.Green)
                     }
                     RoomManageMenu(ui, manage, manageState)
+                    // 참여하지 않은 방은 ⋮ 메뉴가 없어 배지가 오른쪽 끝에 붙지 않게 여백을 둔다.
+                    if (!ui.isMember) Spacer(Modifier.width(4.dp))
                 }
             )
 
