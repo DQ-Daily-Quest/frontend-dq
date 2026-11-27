@@ -29,4 +29,10 @@ class MemberStoriesTest {
         assertEquals(listOf(9L, 7L), proofsOf(items, 1).map { it.proofId })
         assertTrue(proofsOf(items, 3).isEmpty())
     }
+
+    @Test fun `얼굴을 누르면 안 본 것 중 가장 최근 것, 다 봤으면 가장 최근 것을 연다`() {
+        assertEquals(8L, storyProofToOpen(listOf(proof(9, 1, true), proof(8, 1, false), proof(7, 1, false)))?.proofId)
+        assertEquals(9L, storyProofToOpen(listOf(proof(9, 1, true), proof(8, 1, true)))?.proofId)
+        assertNull(storyProofToOpen(emptyList()))
+    }
 }

@@ -53,6 +53,8 @@ import com.dailyquest.app.ui.components.DqScreen
 import com.dailyquest.app.ui.components.FieldLabel
 import com.dailyquest.app.ui.components.NavHeader
 import com.dailyquest.app.ui.components.DqConfirmDialog
+import com.dailyquest.app.ui.avatar.rememberUserFaces
+import com.dailyquest.app.ui.avatar.ProfileFace
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.res.painterResource
@@ -188,10 +190,15 @@ private fun Body(d: ProofDetail, myUserId: Long?, error: String?) {
     val context = LocalContext.current
     Txt("${d.roomName} · ${if (d.missionType == MissionType.APP) "앱 미션" else "친구 미션"}", size = 12f, color = DQColors.Muted)
     Txt(d.missionContent, size = 18f, weight = Bold, modifier = Modifier.padding(top = 6.dp))
-    Txt(
-        "${if (d.isMine(myUserId)) "내 인증" else "${p.user.nickname}님의 인증"}" + (p.createdAtMs?.let { " · ${MissionTime.kstDateTimeLabel(it)}" } ?: ""),
-        size = 12.5f, color = DQColors.Muted, modifier = Modifier.padding(top = 6.dp),
-    )
+    // 올린 사람: 프로필 얼굴 + 이름 + 시각(QA 디자인).
+    val face = rememberUserFaces(listOf(p.user.userId))[p.user.userId]
+    Row(Modifier.padding(top = 10.dp).testTag("proofAuthor"), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        ProfileFace(face, 40.dp, contentDescription = "${p.user.nickname} 아바타")
+        Column {
+            Txt(if (d.isMine(myUserId)) "${p.user.nickname} (나)" else p.user.nickname, size = 14.5f, weight = Bold, maxLines = 1)
+            p.createdAtMs?.let { Txt(MissionTime.kstDateTimeLabel(it), size = 12f, color = DQColors.Muted) }
+        }
+    }
 
     when (p.mediaType) {
         ProofMediaType.TEXT -> Unit

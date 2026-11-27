@@ -67,7 +67,7 @@ import com.dailyquest.app.ui.room.RoomManageEvent
 import com.dailyquest.app.ui.room.RoomManageViewModel
 import com.dailyquest.app.ui.feed.FeedContent
 import com.dailyquest.app.ui.feed.FeedViewModel
-import com.dailyquest.app.ui.feed.MemberProofsDialog
+import com.dailyquest.app.ui.feed.storyProofToOpen
 import com.dailyquest.app.ui.feed.proofsOf
 import com.dailyquest.app.ui.feed.storyRings
 import com.dailyquest.app.ui.room.LocalAppContainer
@@ -140,7 +140,6 @@ fun RoomScreen(roomId: Long, viewModel: RoomDetailViewModel, manage: RoomManageV
     val feedVm: FeedViewModel? = if (ui.isMember) viewModel(key = "room-feed-$roomId", factory = FeedViewModel.Factory(roomId, LocalAppContainer.current)) else null
     val feedItems = feedVm?.ui?.collectAsStateWithLifecycle()?.value?.items.orEmpty()
     val rings = remember(feedItems) { storyRings(feedItems) }
-    var storyOf by remember { mutableStateOf<Member?>(null) }
     // 멤버마다 실제 아바타 얼굴(프로필 얼굴 5단계). 멤버 줄과 피드 카드가 함께 쓴다. 모르는 아이템은 멤버 전원 것을 한 번에 받는다.
     // 내 얼굴은 세션의 착용(방금 바꾼 옷)을 쓴다. 다른 사람은 방에 다시 들어오면 새 착용으로 바뀐다.
     val me = (session as? SessionState.Authenticated)?.profile
@@ -248,22 +247,15 @@ fun RoomScreen(roomId: Long, viewModel: RoomDetailViewModel, manage: RoomManageV
                                     }
                                 },
                                 modifier = Modifier.horizontalScroll(rememberScrollState()).padding(start = 18.dp, end = 18.dp),
-                                onMember = { storyOf = it },
-                            )
-                            // 테두리 있는 얼굴을 누르면 그 사람의 최근 인증 목록(QA 디자인 2-1단계).
-                            storyOf?.let { who ->
-                                val proofs = proofsOf(feedItems, who.id ?: -1L)
-                                if (proofs.isEmpty()) storyOf = null
-                                else MemberProofsDialog(
-                                    who.name, proofs,
-                                    onOpen = { p ->
+                                // 테두리 있는 얼굴을 누르면 목록 없이 바로 그 사람의 인증 상세(QA 디자인).
+                                // 안 본 인증이 있으면 그중 가장 최근 것, 다 봤으면 가장 최근 것.
+                                onMember = { who ->
+                                    storyProofToOpen(proofsOf(feedItems, who.id ?: -1L))?.let { p ->
                                         feedVm?.markViewed(p.proofId)
-                                        storyOf = null
                                         nav.navigate(Routes.proofDetail(p.proofId, roomId))
-                                    },
-                                    onDismiss = { storyOf = null },
-                                )
-                            }
+                                    }
+                                },
+                            )
                         }
                     }
                 }

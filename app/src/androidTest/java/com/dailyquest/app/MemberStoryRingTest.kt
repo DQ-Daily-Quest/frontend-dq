@@ -20,7 +20,7 @@ import org.junit.rules.ExternalResource
 import org.junit.rules.RuleChain
 
 /**
- * QA 디자인 2-1단계: 방 멤버 얼굴의 스토리 링(FakeApi). 가짜 피드는 인증을 모두 "안 봄"으로 준다.
+ * QA 디자인 2-1단계: 방 멤버 얼굴의 스토리 링(FakeApi). 누르면 바로 인증 상세. 가짜 피드는 인증을 모두 "안 봄"으로 준다.
  * 서버방장(7)이 인증 하나를 올린 방 9101: 서버방장 얼굴은 분홍(새 인증), 서버멤버(8)는 테두리 없음.
  */
 class MemberStoryRingTest {
@@ -56,14 +56,14 @@ class MemberStoryRingTest {
         ring(8, "인증 없음")
     }
 
-    @Test fun tappingRingShowsThatPersonsProofsAndOpeningOneMarksItSeen() {
+    @Test fun tappingRingOpensTheProofDirectlyAndMarksItSeen() {
         openRoom()
         compose.onNodeWithTag("memberFace-7").performClick()
-        compose.onNodeWithTag("memberProofs").assertExists()
-        compose.onNodeWithText("서버방장님의 인증").assertExists()
-        compose.onNodeWithTag("memberProofNew-7301").assertExists()
-        compose.onNodeWithTag("memberProof-7301").performClick()
+        // 목록 창 없이 바로 인증 상세(QA 디자인). 올린 사람 얼굴·이름이 보인다.
         compose.waitUntil(5_000) { TestProofCalls.calls.contains("detail:7301") }
+        compose.onNodeWithTag("memberProofs").assertDoesNotExist()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("proofAuthor").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("서버방장").assertExists()
         Espresso.pressBack()
         waitText("서버멤버")
         // 서버는 아직 viewed=false로 주지만 이 앱에서 연 인증은 봤음으로 둔다.
