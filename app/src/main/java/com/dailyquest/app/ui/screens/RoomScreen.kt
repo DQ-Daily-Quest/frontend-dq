@@ -1,5 +1,34 @@
 package com.dailyquest.app.ui.screens
 
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.BoxWithConstraintsScope
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.offset
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.IntOffset
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -171,8 +200,13 @@ fun RoomScreen(roomId: Long, viewModel: RoomDetailViewModel, manage: RoomManageV
                 }
             )
 
+            // 위쪽(설명·멤버·방 그림)은 그대로 두고, 아래 흰 시트(피드·미션·랭킹)가 그 위로 올라와 가린다(QA 디자인).
+            BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+            val sheetArea = this
+            var topContentPx by remember { mutableIntStateOf(0) }
             Column(
-                Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 110.dp).testTag("roomDetail")
+                Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
+                    .onSizeChanged { topContentPx = it.height }.testTag("roomDetail")
             ) {
                 if (ui.error != null) {
                     Txt(
@@ -267,47 +301,75 @@ fun RoomScreen(roomId: Long, viewModel: RoomDetailViewModel, manage: RoomManageV
                     onDecorate = { nav.navigate(Routes.roomDecor(roomId)) },
                     modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 14.dp),
                 )
-
-                Row(
-                    Modifier.fillMaxWidth().padding(top = 16.dp).drawBehind {
-                        drawLine(DQColors.Soft, Offset(0f, size.height), Offset(size.width, size.height), 1.dp.toPx())
-                    },
-                ) {
-                    TABS.forEach { t ->
-                        val on = t == tab
-                        Box(
-                            Modifier.weight(1f).clickable { tab = t }.padding(bottom = 10.dp),
-                            contentAlignment = Alignment.TopCenter,
-                        ) {
-                            Txt(t, size = 15f, weight = if (on) Bold else Medium, color = if (on) DQColors.Ink else DQColors.Muted)
+                Spacer(Modifier.height(14.dp))
+            }
+            // 아래로 당기면 새로고침: 방 정보·피드·(미션 탭이면) 미션을 다시 받는다.
+            val feedLoading = feedVm?.ui?.collectAsStateWithLifecycle()?.value?.loading == true
+            val missionsLoading = missions.ui.collectAsStateWithLifecycle().value.loading
+            val busy by rememberUpdatedState(ui.refreshing || feedLoading || (tab == "미션" && missionsLoading))
+            var pulling by remember { mutableStateOf(false) }
+            LaunchedEffect(pulling) {
+                if (!pulling) return@LaunchedEffect
+                // 받기가 시작될 틈을 준 뒤, 모두 끝나면 당김 표시를 끈다.
+                delay(400)
+                snapshotFlow { busy }.first { !it }
+                pulling = false
+            }
+            RoomTabSheet(
+                area = sheetArea,
+                collapsedTopPx = topContentPx,
+                refreshing = pulling,
+                onRefresh = {
+                    pulling = true
+                    viewModel.refresh()
+                    feedVm?.refresh()
+                    if (tab == "미션" && ui.isMember) missions.refresh()
+                },
+                header = {
+                    Row(
+                        Modifier.fillMaxWidth().padding(top = 4.dp).drawBehind {
+                            drawLine(DQColors.Soft, Offset(0f, size.height), Offset(size.width, size.height), 1.dp.toPx())
+                        },
+                    ) {
+                        TABS.forEach { t ->
+                            val on = t == tab
+                            Box(
+                                Modifier.weight(1f).clickable { tab = t }.padding(bottom = 10.dp),
+                                contentAlignment = Alignment.TopCenter,
+                            ) {
+                                Txt(t, size = 15f, weight = if (on) Bold else Medium, color = if (on) DQColors.Ink else DQColors.Muted)
+                            }
                         }
                     }
-                }
-                Row(Modifier.fillMaxWidth()) {
-                    TABS.forEach { t ->
-                        Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                            if (t == tab) Box(Modifier.size(60.dp, 3.dp).background(DQColors.Primary, RoundedCornerShape(2.dp)))
+                    Row(Modifier.fillMaxWidth()) {
+                        TABS.forEach { t ->
+                            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                                if (t == tab) Box(Modifier.size(60.dp, 3.dp).background(DQColors.Primary, RoundedCornerShape(2.dp)))
+                            }
                         }
                     }
-                }
-
-                when (tab) {
-                    "피드" ->
-                        if (ui.isMember) {
-                            Box(Modifier.fillMaxWidth().padding(16.dp)) { feedVm?.let { FeedContent(roomId, it, faceOf = { id -> faceById[id] }) } }
-                        } else Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                            Txt("참여 후 방의 인증 피드를 볼 수 있어요.", size = 14f, color = DQColors.Muted)
+                },
+            ) {
+                    when (tab) {
+                        "피드" ->
+                            if (ui.isMember) {
+                                Box(Modifier.fillMaxWidth().padding(16.dp)) { feedVm?.let { FeedContent(roomId, it, faceOf = { id -> faceById[id] }, showRefreshButton = false) } }
+                            } else Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                                Txt("참여 후 방의 인증 피드를 볼 수 있어요.", size = 14f, color = DQColors.Muted)
+                            }
+                        "미션" ->
+                            if (ui.isMember) RoomMissionsTab(roomId, missions) { missionId ->
+                                nav.navigate(Routes.missionDetail(missionId, roomId))
+                            } else Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                                Txt("참여 후 방의 미션을 볼 수 있어요.", size = 14f, color = DQColors.Muted)
+                            }
+                        else -> Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                            Txt("랭킹 정보 준비 중", size = 14f, color = DQColors.Muted)
                         }
-                    "미션" ->
-                        if (ui.isMember) RoomMissionsTab(roomId, missions) { missionId ->
-                            nav.navigate(Routes.missionDetail(missionId, roomId))
-                        } else Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                            Txt("참여 후 방의 미션을 볼 수 있어요.", size = 14f, color = DQColors.Muted)
-                        }
-                    else -> Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                        Txt("랭킹 정보 준비 중", size = 14f, color = DQColors.Muted)
                     }
-                }
+                    // 아래 "+ 미션 보내기" 버튼에 가리지 않게.
+                    Spacer(Modifier.height(110.dp))
+            }
             }
         }
 
@@ -333,6 +395,92 @@ fun RoomScreen(roomId: Long, viewModel: RoomDetailViewModel, manage: RoomManageV
                 confirmButton = { TextButton(onClick = { notice = null }) { Text("확인") } },
                 text = { Text(it) },
             )
+        }
+    }
+}
+
+/** 시트 위 손잡이·탭 줄 높이(대략). 위쪽 내용이 아주 길어도 시트가 이만큼은 보이게 한다. */
+private val ROOM_SHEET_MIN_VISIBLE = 160.dp
+
+/**
+ * 방 화면 아래 흰 시트 (QA 디자인): 상점 시트처럼 흰 바탕·둥근 윗모서리·그림자·손잡이.
+ * - 처음에는 방 그림 바로 아래([collapsedTopPx])에 있고, 손잡이·탭 줄을 위로 끌면 위쪽 내용(멤버·방 그림)을 가리며 올라온다.
+ *   위쪽 내용은 크기가 바뀌지 않고 가려지기만 한다. 처음 자리보다 아래로는 내려가지 않는다.
+ * - 내용 맨 위에서 아래로 당기면 [onRefresh](새로고침 버튼 대신).
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RoomTabSheet(
+    area: BoxWithConstraintsScope,
+    collapsedTopPx: Int,
+    refreshing: Boolean,
+    onRefresh: () -> Unit,
+    header: @Composable ColumnScope.() -> Unit,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val density = LocalDensity.current
+    val fullPx = with(density) { area.maxHeight.toPx() }
+    val minVisiblePx = with(density) { ROOM_SHEET_MIN_VISIBLE.toPx() }
+    val lowest = collapsedTopPx.toFloat().coerceIn(0f, (fullPx - minVisiblePx).coerceAtLeast(0f))
+    var raised by rememberSaveable { mutableStateOf(false) }
+    var top by remember { mutableFloatStateOf(-1f) }
+    // 위쪽 내용 높이가 정해지거나 바뀌면 지금 상태 자리로 맞춘다.
+    LaunchedEffect(lowest) { top = if (raised) 0f else lowest }
+    val scope = rememberCoroutineScope()
+    var settling by remember { mutableStateOf(false) }
+    fun settle(up: Boolean, velocity: Float = 0f) {
+        scope.launch {
+            settling = true
+            animate(top, if (up) 0f else lowest, velocity, spring(stiffness = Spring.StiffnessMediumLow)) { v, _ -> top = v }
+            raised = up
+            settling = false
+        }
+    }
+    if (top < 0f) return
+    val shape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp)
+    Column(
+        Modifier
+            .offset { IntOffset(0, top.roundToInt()) }
+            .layout { measurable, constraints ->
+                // 보이는 만큼만 높이를 준다(아래가 화면 밖으로 잘리지 않게 스크롤 끝까지 볼 수 있다).
+                val h = (fullPx - top).roundToInt().coerceAtLeast(0)
+                val placeable = measurable.measure(constraints.copy(minHeight = h, maxHeight = h))
+                layout(placeable.width, h) { placeable.place(0, 0) }
+            }
+            .fillMaxWidth()
+            .shadow(10.dp, shape, spotColor = Color.Black.copy(alpha = 0.2f))
+            .background(DQColors.White, shape)
+            .testTag("roomSheet"),
+    ) {
+        Column(
+            Modifier.fillMaxWidth().draggable(
+                orientation = Orientation.Vertical,
+                enabled = !settling,
+                state = rememberDraggableState { delta -> top = (top + delta).coerceIn(0f, lowest) },
+                onDragStopped = { velocity ->
+                    val up = when {
+                        velocity < -1_000f -> true
+                        velocity > 1_000f -> false
+                        else -> top < lowest / 2
+                    }
+                    settle(up, velocity)
+                },
+            ),
+        ) {
+            Box(
+                Modifier.fillMaxWidth().height(24.dp).clickable(role = Role.Button, enabled = !settling) { settle(!raised) }
+                    .semantics { contentDescription = if (raised) "시트 내리기" else "시트 올리기" }
+                    .testTag("roomSheetHandle"),
+                contentAlignment = Alignment.Center,
+            ) { Box(Modifier.size(40.dp, 4.dp).background(DQColors.Handle, RoundedCornerShape(2.dp))) }
+            header()
+        }
+        PullToRefreshBox(
+            isRefreshing = refreshing,
+            onRefresh = onRefresh,
+            modifier = Modifier.weight(1f).fillMaxWidth().testTag("roomSheetRefresh"),
+        ) {
+            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), content = content)
         }
     }
 }

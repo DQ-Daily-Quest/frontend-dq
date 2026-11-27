@@ -63,9 +63,10 @@ fun FeedScreen(roomId: Long, viewModel: FeedViewModel) {
 /**
  * 피드 목록 본문(로딩·오류·빈 상태·더 보기·새로고침). 인증 피드 화면과 방 상세의 피드 탭이 함께 쓴다.
  * @param faceOf 올린 사람의 프로필 얼굴(방 멤버 목록에서 찾음). 모르면 null → 기본 얼굴.
+ * @param showRefreshButton 방 화면은 아래로 당겨 새로고침하므로 버튼을 숨긴다(QA 디자인).
  */
 @Composable
-fun FeedContent(roomId: Long, viewModel: FeedViewModel, faceOf: (Long) -> PersonFace? = { null }) {
+fun FeedContent(roomId: Long, viewModel: FeedViewModel, faceOf: (Long) -> PersonFace? = { null }, showRefreshButton: Boolean = true) {
     val nav = LocalNav.current
     val ui by viewModel.ui.collectAsStateWithLifecycle()
     val open = { p: PendingProof -> nav.navigate(Routes.proofDetail(p.proofId, roomId)) }
@@ -82,7 +83,7 @@ fun FeedContent(roomId: Long, viewModel: FeedViewModel, faceOf: (Long) -> Person
         // 위의 동그라미 줄("최근 24시간 인증")은 뺐다. 방 화면에서는 멤버 얼굴 테두리가 같은 역할을 한다(QA 디자인 4단계).
         ui.items.forEach { p -> FeedRow(p, faceOf(p.user.userId)) { open(p) } }
         if (ui.hasNext) Btn("더 보기", Modifier.fillMaxWidth().height(40.dp).testTag("feedMore"), size = 13f, enabled = !ui.loadingMore) { viewModel.loadMore() }
-        if (ui.loaded && !ui.gone) Btn("새로고침", Modifier.fillMaxWidth().height(40.dp).testTag("feedRefresh"), BtnStyle.Outline, size = 13f, enabled = !ui.loading) { viewModel.refresh() }
+        if (showRefreshButton && ui.loaded && !ui.gone) Btn("새로고침", Modifier.fillMaxWidth().height(40.dp).testTag("feedRefresh"), BtnStyle.Outline, size = 13f, enabled = !ui.loading) { viewModel.refresh() }
     }
 }
 
