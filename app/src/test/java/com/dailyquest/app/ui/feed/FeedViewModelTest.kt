@@ -115,4 +115,24 @@ class FeedViewModelTest {
         vm(); advanceUntilIdle()
         assertTrue(api.pages.isEmpty())
     }
+
+    @Test fun markViewedTurnsOffNewUntilServerCatchesUp() = runTest {
+        api.feed = { _, _ -> PageDto(listOf(item(2), item(1)), 0, 20, 2, 1) }
+        val v = vm(); advanceUntilIdle()
+        v.markViewed(2)
+        assertTrue(v.ui.value.items.first { it.proofId == 2L }.viewed)
+        assertFalse(v.ui.value.items.first { it.proofId == 1L }.viewed)
+        // 서버가 아직 기록하기 전이라 viewed=false로 다시 와도, 이 앱에서 연 인증은 봤음으로 둔다.
+        v.refresh(); advanceUntilIdle()
+        assertTrue(v.ui.value.items.first { it.proofId == 2L }.viewed)
+        assertFalse(v.ui.value.items.first { it.proofId == 1L }.viewed)
+    }
+
+    @Test fun accountSwitchForgetsOpenedProofs() = runTest {
+        api.feed = { _, _ -> PageDto(listOf(item(2)), 0, 20, 1, 1) }
+        val v = vm(); advanceUntilIdle()
+        v.markViewed(2)
+        session.value = profile(2); advanceUntilIdle()
+        assertFalse("다른 계정에서는 그 계정의 서버 값대로", v.ui.value.items.first { it.proofId == 2L }.viewed)
+    }
 }

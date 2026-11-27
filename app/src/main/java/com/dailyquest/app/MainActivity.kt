@@ -19,6 +19,9 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -26,6 +29,9 @@ import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ViewModelProvider
 import com.dailyquest.app.navigation.DQNavGraph
+import com.dailyquest.app.ui.components.DqToastHost
+import com.dailyquest.app.ui.components.DqToastState
+import com.dailyquest.app.ui.components.LocalDqToast
 import com.dailyquest.app.ui.avatar.AvatarPrewarm
 import com.dailyquest.app.ui.avatar.FaceStudioHost
 import com.dailyquest.app.ui.avatar.FaceStudios
@@ -69,9 +75,10 @@ class MainActivity : ComponentActivity() {
                 if (resumedOnce) container.proofSync.notifyChanged() else resumedOnce = true
             }
         })
+        val toast = DqToastState()
         setContent {
             DailyQuestTheme {
-                CompositionLocalProvider(LocalAuth provides authViewModel, LocalPublicRooms provides publicRooms, LocalMyRooms provides myRooms, LocalMyMissions provides myMissions, LocalAppContainer provides container, LocalShop provides shop, LocalInventory provides inventory) {
+                CompositionLocalProvider(LocalAuth provides authViewModel, LocalPublicRooms provides publicRooms, LocalMyRooms provides myRooms, LocalMyMissions provides myMissions, LocalAppContainer provides container, LocalShop provides shop, LocalInventory provides inventory, LocalDqToast provides toast) {
                     Box(Modifier.fillMaxSize()) {
                         // 프로필 얼굴 공장: 맨 아래 층에 두고 위를 불투명한 배경이 덮는다(보이지 않게 아바타 얼굴을 찍는다).
                         // UI 테스트 환경(3D 끔)에서는 두지 않는다. 얼굴 사진이 없으면 화면은 기본 그림을 보여준다.
@@ -83,6 +90,8 @@ class MainActivity : ComponentActivity() {
                         // 같은 때에 상점 상품 이미지를 기기에 미리 받는다(상점 이미지 속도 3단계).
                         if (container.prefetchShopImages) ShopImagePrefetch(container)
                         Box(Modifier.fillMaxSize().background(DQColors.Bg)) { DQNavGraph() }
+                        // 앱 안에 그리는 알림(QA 디자인 5단계). 아래 탭·착용 막대 위쪽에 뜬다.
+                        DqToastHost(toast, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 150.dp))
                     }
                 }
             }

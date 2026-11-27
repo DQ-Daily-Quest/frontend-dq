@@ -40,6 +40,9 @@ class FeedViewModel(
     private var job: Job? = null
     private var generation = 0
 
+    /** 이 앱에서 상세를 연 인증. 서버가 기록하기 전에 다시 받아도 "봤음"으로 둔다(스토리 링, QA 디자인 2-1단계). */
+    private val openedHere = mutableSetOf<Long>()
+
     init {
         viewModelScope.launch { refreshSignal.drop(1).collect { if (_ui.value.userId != null) refresh() } }
         viewModelScope.launch {
@@ -50,11 +53,21 @@ class FeedViewModel(
                 .collect { userId ->
                     generation++
                     job?.cancel()
+                    openedHere.clear()
                     _ui.value = PendingProofsUiState(roomId, userId = userId)
                     if (userId != null) load(page = 0, keep = false)
                 }
         }
     }
+
+    /** 상세를 열 인증을 바로 "봤음"으로 바꾼다. 서버는 상세를 열 때 기록한다. */
+    fun markViewed(proofId: Long) {
+        openedHere += proofId
+        _ui.update { s -> s.copy(items = s.items.map { if (it.proofId == proofId) it.copy(viewed = true) else it }) }
+    }
+
+    private fun applyOpened(items: List<com.dailyquest.app.data.proof.PendingProof>) =
+        if (openedHere.isEmpty()) items else items.map { if (it.proofId in openedHere) it.copy(viewed = true) else it }
 
     fun retry() = load(page = 0, keep = false)
     fun refresh() = load(page = 0, keep = true)
@@ -77,7 +90,7 @@ class FeedViewModel(
             _ui.update {
                 when (r) {
                     is ApiResult.Success -> it.copy(
-                        items = if (page == 0) r.value.items else (it.items + r.value.items).distinctBy { p -> p.proofId },
+                        items = applyOpened(if (page == 0) r.value.items else (it.items + r.value.items).distinctBy { p -> p.proofId }),
                         page = r.value.page, hasNext = r.value.hasNext, loaded = true, loading = false, loadingMore = false,
                     )
                     is ApiResult.Failure -> {

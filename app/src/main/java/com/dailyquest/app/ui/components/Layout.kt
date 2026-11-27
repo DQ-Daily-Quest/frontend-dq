@@ -31,6 +31,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.dailyquest.app.R
 import com.dailyquest.app.navigation.LocalNav
@@ -63,6 +64,8 @@ fun NavHeader(
     divider: Boolean = false,
     onBack: (() -> Unit)? = null,
     right: (@Composable RowScope.() -> Unit)? = null,
+    /** 제목 양쪽 여백. 오른쪽 내용이 넓으면 키워 제목이 겹치지 않게 한다. */
+    titlePadding: Dp = 60.dp,
 ) {
     val nav = LocalNav.current
     Box(
@@ -85,13 +88,13 @@ fun NavHeader(
         )
         Txt(
             title, size = 17f, weight = Bold, align = TextAlign.Center, maxLines = 1,
-            modifier = Modifier.align(Alignment.Center).padding(horizontal = 60.dp).offset(y = (-2).dp),
+            modifier = Modifier.align(Alignment.Center).padding(horizontal = titlePadding).offset(y = (-2).dp),
         )
         if (right != null) {
             Row(
-                Modifier.align(Alignment.CenterEnd).padding(end = 16.dp),
+                Modifier.align(Alignment.CenterEnd).padding(end = if (titlePadding > 60.dp) 8.dp else 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(if (titlePadding > 60.dp) 4.dp else 8.dp),
                 content = right,
             )
         }

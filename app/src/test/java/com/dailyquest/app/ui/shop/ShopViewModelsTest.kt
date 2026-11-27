@@ -165,6 +165,7 @@ class ShopViewModelsTest {
         assertTrue(vm.ui.value.isOwned(vm.ui.value.items.first { it.itemId == 2L }))
         assertEquals(1, vm.purchaseVersion.value); assertEquals(1, profileRefreshes)
         assertEquals("'민트 상의' 구매가 완료됐어요.", vm.ui.value.message)
+        assertFalse("구매 완료는 초록 알림", vm.ui.value.messageIsError)
         assertNull(vm.ui.value.purchasingId)
     }
 
@@ -204,6 +205,7 @@ class ShopViewModelsTest {
         val vm = shopVm(); advanceUntilIdle()
         vm.purchase(vm.ui.value.items[2]); advanceUntilIdle()
         assertTrue(api.purchaseCalls.isEmpty()); assertEquals("코인이 부족해요.", vm.ui.value.message)
+        assertTrue("코인 부족은 빨간 알림", vm.ui.value.messageIsError)
         assertEquals(320, coins())
     }
 
@@ -212,6 +214,7 @@ class ShopViewModelsTest {
         val vm = shopVm(); advanceUntilIdle()
         vm.purchase(vm.ui.value.items[1]); advanceUntilIdle()
         assertEquals(1, api.purchaseCalls.size); assertEquals("코인이 부족해요.", vm.ui.value.message)
+        assertTrue(vm.ui.value.messageIsError)
         assertEquals(10, coins()); assertTrue(vm.ui.value.ownedIds.isEmpty())
     }
 
@@ -220,6 +223,7 @@ class ShopViewModelsTest {
         api.owned += 2 // 다른 기기에서 이미 구매
         vm.purchase(vm.ui.value.items[1]); advanceUntilIdle()
         assertEquals("이미 보유한 아이템이에요.", vm.ui.value.message)
+        assertTrue("이번 구매는 이뤄지지 않았으므로 빨간 알림", vm.ui.value.messageIsError)
         assertTrue(2L in vm.ui.value.ownedIds); assertEquals(320, api.coins)
     }
 
@@ -245,6 +249,7 @@ class ShopViewModelsTest {
         val vm = shopVm(); advanceUntilIdle()
         vm.purchase(vm.ui.value.items[1]); advanceUntilIdle()
         assertEquals("구매가 처리되지 않았어요. 다시 시도해 주세요.", vm.ui.value.message)
+        assertTrue(vm.ui.value.messageIsError)
         assertTrue(vm.ui.value.ownedIds.isEmpty()); assertEquals(320, coins())
         api.purchaseBehavior = { id -> api.realPurchase(id) }
         vm.purchase(vm.ui.value.items[1]); advanceUntilIdle()

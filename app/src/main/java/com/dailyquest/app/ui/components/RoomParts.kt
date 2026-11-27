@@ -3,6 +3,7 @@ package com.dailyquest.app.ui.components
 import com.dailyquest.app.data.avatar.PersonFace
 import com.dailyquest.app.ui.avatar.ProfileFace
 import androidx.annotation.DrawableRes
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -20,9 +22,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.dailyquest.app.R
+import com.dailyquest.app.ui.feed.StoryRing
 import com.dailyquest.app.ui.theme.DQColors
 
 /**
@@ -36,6 +46,10 @@ data class Member(
     val badge: String? = null,
     val face: PersonFace? = null,
     val showsFace: Boolean = false,
+    /** 사용자 ID(방 화면 멤버 줄에서 누른 사람을 찾는 데 쓴다). */
+    val id: Long? = null,
+    /** 스토리 링. null이면 테두리 없음(QA 디자인 2-1단계). */
+    val ring: StoryRing? = null,
 )
 
 /** 방 멤버 줄 (03 · 13) — 멤버 + 초대 버튼 */
@@ -69,6 +83,65 @@ fun MemberRow(members: List<Member>, size: Dp, inviteSize: Dp, showInviteLabel: 
             ) { DqIcon(R.drawable.ic_plus, 20.dp) }
             if (showInviteLabel) Txt("초대", size = 11.5f, color = DQColors.Muted)
         }
+    }
+}
+
+/**
+ * 방 화면 멤버 줄 (QA 디자인 2단계): **내 얼굴을 맨 앞에**, 세로선(│)으로 나누고 다른 멤버, 맨 끝에 초대하기 버튼.
+ * @param inviteState 초대하기 버튼의 상태 설명(보조 기능이 읽음). 우리만 방이면 "초대코드 ○○○", 공개방이면 "공개방".
+ */
+@Composable
+fun RoomMemberStrip(
+    me: Member?,
+    others: List<Member>,
+    inviteState: String,
+    onInvite: () -> Unit,
+    modifier: Modifier = Modifier,
+    size: Dp = 52.dp,
+    onMember: (Member) -> Unit = {},
+) {
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        me?.let { MemberFace(it, size, onMember, Modifier.testTag("memberMe")) }
+        if (me != null && others.isNotEmpty()) {
+            Box(Modifier.padding(top = (size + 8.dp - 36.dp) / 2).width(1.dp).height(36.dp).background(DQColors.Line).testTag("memberDivider"))
+        }
+        others.forEach { MemberFace(it, size, onMember) }
+        Column(Modifier.width(size + 8.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Box(
+                Modifier.padding(4.dp).size(size).clip(CircleShape).background(DQColors.White).border(1.dp, DQColors.Line, CircleShape)
+                    .clickable(role = Role.Button, onClick = onInvite)
+                    .testTag("roomInvite")
+                    .semantics { contentDescription = "초대하기"; stateDescription = inviteState },
+                contentAlignment = Alignment.Center,
+            ) {
+                Image(painterResource(R.drawable.ic_plus), null, Modifier.size(22.dp), colorFilter = ColorFilter.tint(DQColors.Primary))
+            }
+            Txt("초대하기", size = 11.5f, color = DQColors.Muted, maxLines = 1)
+        }
+    }
+}
+
+/**
+ * 멤버 얼굴. 스토리 링이 있으면 테두리를 두르고 누를 수 있다(안 본 인증: 분홍, 다 봄: 연한 회색).
+ * 테두리가 없어도 같은 자리를 차지해 얼굴 줄이 들쭉날쭉하지 않다.
+ */
+@Composable
+private fun MemberFace(m: Member, size: Dp, onClick: (Member) -> Unit, modifier: Modifier = Modifier) {
+    val ringColor = when (m.ring) {
+        StoryRing.NEW -> DQColors.StoryPink
+        StoryRing.SEEN -> DQColors.Line
+        null -> Color.Transparent
+    }
+    Column(modifier.width(size + 8.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Box(
+            Modifier.size(size + 8.dp).clip(CircleShape).border(2.5.dp, ringColor, CircleShape)
+                .then(if (m.ring != null) Modifier.clickable(role = Role.Button) { onClick(m) } else Modifier)
+                .testTag("memberFace-${m.id}")
+                .semantics { stateDescription = when (m.ring) { StoryRing.NEW -> "새 인증"; StoryRing.SEEN -> "인증 봄"; null -> "인증 없음" } },
+            contentAlignment = Alignment.Center,
+        ) { ProfileFace(m.face, size, contentDescription = "${m.name} 아바타") }
+        Txt(m.name, size = 11.5f, maxLines = 1, color = DQColors.Muted)
+        if (m.badge != null) Txt(m.badge, size = 10f, weight = Bold, color = DQColors.Green)
     }
 }
 

@@ -60,7 +60,10 @@ class ShopFlowTest {
         compose.onNodeWithTag("shopCoin").assertTextContains("320", substring = true)
         openItem(2)
         compose.onNodeWithTag("shopBuy").performClick()
-        compose.onNodeWithText("보유 코인 320 → 구매 후 200", substring = true).assertExists()
+        // 구매 확인 창의 금액(QA 디자인 5-2단계).
+        compose.onNodeWithTag("confirmBalance").assertTextEquals("320")
+        compose.onNodeWithTag("confirmCost").assertTextEquals("-120")
+        compose.onNodeWithTag("confirmAfter").assertTextEquals("200")
         compose.onNodeWithTag("shopConfirm").performClick()
         compose.waitUntil(5_000) { TestShopCalls.purchaseCalls.size == 1 }
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("shopCoin").fetchSemanticsNodes().isNotEmpty() && runCatching { state(2).assertTextEquals("보유 중") }.isSuccess }

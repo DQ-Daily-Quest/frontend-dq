@@ -53,8 +53,9 @@ class RoomDecorCardTest {
 
     @Test fun neverSavedRoomShowsDefaultRoomEmptyAndDecorateButton() {
         openMyRoom1()
-        waitFor(hasTestTag("roomDecorCaption") and hasText("아직 꾸미지 않은 방이에요", substring = true))
-        compose.onNode(cardRoom and hasContentDescription("방, 가구 0개")).assertExists()
+        waitFor(cardRoom and hasContentDescription("방, 가구 0개"))
+        // 방 그림 안에는 안내 글자가 없다(QA 디자인 3단계).
+        compose.onNodeWithTag("roomDecorCaption").assertDoesNotExist()
         compose.onNodeWithTag("roomDecorEdit").assertExists()
         compose.runOnIdle { assertTrue(9101L in TestDecorCalls.getRequests) }
     }
@@ -75,8 +76,8 @@ class RoomDecorCardTest {
         )
         openMyRoom1()
         waitFor(cardRoom and hasContentDescription("방, 가구 2개"))
-        compose.onNode(hasTestTag("roomDecorCaption") and hasText("마지막으로 꾸민 사람: 지원")).assertExists()
-        compose.onNodeWithTag("roomDecorKept").assertDoesNotExist()
+        // 방 그림 안에는 안내 글자가 없다("마지막으로 꾸민 사람"도 QA 디자인 3단계에서 뺌).
+        compose.onNodeWithTag("roomDecorCaption").assertDoesNotExist()
     }
 
     @Test fun furnitureTheAppDoesNotKnowIsCountedNotDrawn() {
@@ -92,17 +93,18 @@ class RoomDecorCardTest {
         )
         openMyRoom1()
         waitFor(cardRoom and hasContentDescription("방, 가구 1개"))
-        compose.onNode(hasTestTag("roomDecorKept") and hasText("앱을 업데이트하면 보이는 가구가 1개 있어요.")).assertExists()
+        // 모르는 가구 수 안내도 방 그림 안에 띄우지 않는다(QA 디자인 3단계).
+        compose.onNodeWithTag("roomDecorKept").assertDoesNotExist()
     }
 
-    @Test fun loadFailureShowsRetryAndRetryLoads() {
+    @Test fun loadFailureShowsDefaultRoomWithoutText() {
         TestDecorCalls.failure = IOException("offline")
         openMyRoom1()
-        waitFor(hasTestTag("roomDecorRetry"))
-        TestDecorCalls.failure = null
-        compose.onNodeWithTag("roomDecorRetry").performClick()
-        waitFor(hasTestTag("roomDecorCaption") and hasText("아직 꾸미지 않은 방이에요", substring = true))
+        // 꾸미기 정보를 못 받아도 글자 없이 기본 방을 보여 준다. 방 화면에 다시 들어오면 다시 받는다.
+        waitFor(cardRoom and hasContentDescription("방, 가구 0개"))
         compose.onNodeWithTag("roomDecorRetry").assertDoesNotExist()
+        compose.onNodeWithTag("roomDecorCaption").assertDoesNotExist()
+        compose.onNodeWithTag("roomDecorEdit").assertExists()
     }
 
     @Test fun tappingRoomOpensFullViewAndCloseReturns() {

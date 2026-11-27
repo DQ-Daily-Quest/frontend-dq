@@ -32,6 +32,8 @@ data class MyAvatarUiState(
     val saving: Boolean = false,
     /** 한 번 보여 줄 안내(토스트). 보여 준 뒤 [MyAvatarViewModel.consumeMessage]로 지운다. */
     val message: String? = null,
+    /** [message]가 실패 안내인지(빨강) 성공 안내인지(초록). QA 디자인 5단계. */
+    val messageIsError: Boolean = false,
 ) {
     /** [AvatarView]에 넘길 모습: 내가 입은 옷 위에 입어 보는 옷을 덮어쓴다(3D 모델이 있는 것만). */
     val previewParts: Map<AvatarPart, String>
@@ -114,7 +116,7 @@ class MyAvatarViewModel(
      */
     fun takeOff(part: AvatarPart) {
         if (part !in REMOVABLE_PARTS) {
-            _ui.update { it.copy(message = "모자만 벗을 수 있어요.") }
+            _ui.update { it.copy(message = "모자만 벗을 수 있어요.", messageIsError = true) }
             return
         }
         save(mapOf(part to null), part, "벗었어요")
@@ -132,8 +134,8 @@ class MyAvatarViewModel(
             if (_ui.value.userId != userId) return@launch
             _ui.update {
                 when (result) {
-                    is ApiResult.Success -> it.copy(saving = false, avatar = result.value, tryOn = it.tryOn - part, message = successMessage)
-                    is ApiResult.Failure -> it.copy(saving = false, tryOn = it.tryOn - part, message = AvatarErrorMessages.forApi(result.error))
+                    is ApiResult.Success -> it.copy(saving = false, avatar = result.value, tryOn = it.tryOn - part, message = successMessage, messageIsError = false)
+                    is ApiResult.Failure -> it.copy(saving = false, tryOn = it.tryOn - part, message = AvatarErrorMessages.forApi(result.error), messageIsError = true)
                 }
             }
         }

@@ -33,6 +33,10 @@ object DQColors {
     val WoodPillLine = Color(0xFFB89366)
     val Cream = Color(0xFFFFFCF3)
     val Orange = Color(0xFFE07A2F)
+    /** 위험·실패 (방 삭제, 내보내기, 실패 알림) */
+    val Danger = Color(0xFFD64545)
+    /** 스토리 링(안 본 인증) — 기존 스토리 그림의 분홍 */
+    val StoryPink = Color(0xFFED94AB)
     val Gold = Color(0xFFB07A10)
     val Dashed = Color(0xFF8DBF9C)
     val Shadow = Color(0xFF1F4733)

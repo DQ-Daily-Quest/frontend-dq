@@ -1,5 +1,10 @@
 package com.dailyquest.app.ui.decor
 
+import androidx.compose.ui.semantics.Role
+import com.dailyquest.app.R
+import com.dailyquest.app.ui.components.DqDialogButton
+import com.dailyquest.app.ui.components.DqIconBadge
+import com.dailyquest.app.ui.components.DqPopup
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -97,17 +102,29 @@ fun RoomDecorEditScreen(vm: RoomDecorEditViewModel, catalog: RoomCatalog) {
     BackHandler(enabled = ui.dirty || ui.saving) { leave() }
 
     if (askLeave) {
-        AlertDialog(
-            onDismissRequest = { askLeave = false },
-            title = { Text("저장하지 않고 나갈까요?") },
-            text = { Text("바꾼 배치가 사라져요.") },
-            confirmButton = {
-                TextButton(onClick = { askLeave = false; nav.popBackStack() }, modifier = Modifier.testTag("decorLeaveConfirm")) { Text("나가기") }
-            },
-            dismissButton = {
-                TextButton(onClick = { askLeave = false }, modifier = Modifier.testTag("decorLeaveCancel")) { Text("계속 꾸미기") }
-            },
-        )
+        // 저장하지 않고 나가기 확인(QA 디자인): 되돌리기 아이콘, 계속 꾸미기(초록)·저장하지 않고 나가기(빨간 테두리)를 위아래로.
+        DqPopup(onDismiss = { askLeave = false }, tag = "decorLeaveDialog") {
+            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                DqIconBadge(R.drawable.ic_refresh, DQColors.InkGreen)
+                Txt(
+                    "저장하지 않고\n나갈까요?", size = 20f, weight = Bold, color = DQColors.InkGreen, align = TextAlign.Center,
+                    modifier = Modifier.padding(top = 14.dp),
+                )
+                Txt(
+                    "방금 바꾼 가구 배치는 저장되지 않아요.\n마지막으로 저장한 배치는 그대로 유지돼요.",
+                    size = 13.5f, color = DQColors.Ink, align = TextAlign.Center, modifier = Modifier.padding(top = 10.dp),
+                )
+                DqDialogButton("계속 꾸미기", Modifier.padding(top = 20.dp).fillMaxWidth().testTag("decorLeaveCancel")) { askLeave = false }
+                val leaveShape = RoundedCornerShape(14.dp)
+                Box(
+                    Modifier.padding(top = 10.dp).fillMaxWidth().height(50.dp).clip(leaveShape).background(DQColors.White)
+                        .border(1.dp, DQColors.Danger.copy(alpha = 0.7f), leaveShape)
+                        .clickable(role = Role.Button) { askLeave = false; nav.popBackStack() }
+                        .testTag("decorLeaveConfirm"),
+                    contentAlignment = Alignment.Center,
+                ) { Txt("저장하지 않고 나가기", size = 15f, weight = Bold, color = DQColors.Danger) }
+            }
+        }
     }
 
     DqScreen {

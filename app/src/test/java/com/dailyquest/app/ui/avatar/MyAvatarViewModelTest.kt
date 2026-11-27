@@ -204,6 +204,7 @@ class MyAvatarViewModelTest {
         assertFalse(vm.ui.value.isTryingOn)
         assertEquals("u/hoodie", vm.ui.value.previewParts[AvatarPart.TOP])
         assertEquals("착용했어요", vm.ui.value.message)
+        assertFalse("착용 성공은 초록 알림", vm.ui.value.messageIsError)
     }
 
     @Test fun `착용 저장이 실패하면 입어보기를 벗겨 원래 모습으로 되돌리고 이유를 알린다`() = runTest(dispatcher) {
@@ -220,6 +221,7 @@ class MyAvatarViewModelTest {
         assertEquals(boy.modelParts, vm.ui.value.previewParts)
         assertFalse(vm.ui.value.saving)
         assertEquals("내 캐릭터가 입을 수 없는 아이템이에요.", vm.ui.value.message)
+        assertTrue("착용 실패는 빨간 알림", vm.ui.value.messageIsError)
     }
 
     @Test fun `실패해도 다른 슬롯의 입어보기는 그대로다`() = runTest(dispatcher) {
@@ -245,6 +247,7 @@ class MyAvatarViewModelTest {
 
         assertEquals(listOf(mapOf<AvatarPart, Long?>(AvatarPart.HAT to null)), sent)
         assertEquals("벗었어요", vm.ui.value.message)
+        assertFalse(vm.ui.value.messageIsError)
     }
 
     @Test fun `모자 외 슬롯은 벗을 수 없고 서버에 요청하지 않는다`() = runTest(dispatcher) {
@@ -257,6 +260,7 @@ class MyAvatarViewModelTest {
 
         assertEquals(0, calls)
         assertEquals("모자만 벗을 수 있어요.", vm.ui.value.message)
+        assertTrue(vm.ui.value.messageIsError)
     }
 
     @Test fun `저장 중에는 다른 저장을 받지 않는다`() = runTest(dispatcher) {

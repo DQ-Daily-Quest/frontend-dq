@@ -1,5 +1,6 @@
 package com.dailyquest.app.ui.proof
 
+import com.dailyquest.app.data.proof.ProofMediaType
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -308,5 +309,40 @@ private fun fetchMessage(r: VideoFetch.Reason) = when (r) {
 private fun ControlPill(text: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Box(modifier.background(Color(0xB3000000), RoundedCornerShape(20.dp)).clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp)) {
         Txt(text, size = 13f, weight = Bold, color = Color.White)
+    }
+}
+
+/**
+ * 인증 팝업(승인·거절·삭제) 카드의 작은 그림 (QA 디자인).
+ * 사진은 썸네일(없으면 원본), 영상은 서버 썸네일이 없으면 **첫 장면**(인증 상세와 같은 기기 저장 캐시라 한 번 뽑으면 바로 보인다)
+ * 위에 작은 ▶, 글 인증은 "글".
+ */
+@Composable
+fun ProofMediaThumb(mediaType: ProofMediaType, mediaUrl: String?, thumbnailUrl: String?, modifier: Modifier = Modifier) {
+    when (mediaType) {
+        ProofMediaType.IMAGE -> RemoteImage(thumbnailUrl ?: mediaUrl, modifier, placeholder = "사진")
+        ProofMediaType.TEXT -> Box(modifier.background(DQColors.White), contentAlignment = Alignment.Center) { Txt("글", size = 14f, weight = Bold) }
+        ProofMediaType.VIDEO -> Box(modifier.background(DQColors.Soft), contentAlignment = Alignment.Center) {
+            val context = LocalContext.current
+            val bitmap by produceState<Bitmap?>(null, mediaUrl, thumbnailUrl) {
+                if (thumbnailUrl != null || mediaUrl.isNullOrBlank()) return@produceState
+                val thumb = VideoThumbnails.cache(context).get(mediaUrl, cacheKeyOf(mediaUrl))
+                value = thumb?.let { t -> withContext(Dispatchers.IO) { runCatching { BitmapFactory.decodeFile(t.file.path) }.getOrNull() } }
+            }
+            val b = bitmap
+            when {
+                thumbnailUrl != null -> RemoteImage(thumbnailUrl, Modifier.matchParentSize(), placeholder = "영상")
+                b != null -> Image(b.asImageBitmap(), "영상 첫 장면", Modifier.matchParentSize(), contentScale = ContentScale.Crop)
+                else -> Txt("영상", size = 12f, color = DQColors.Muted)
+            }
+            Box(Modifier.size(22.dp).background(Color(0x99000000), CircleShape), contentAlignment = Alignment.Center) {
+                Canvas(Modifier.size(9.dp)) {
+                    val path = Path().apply {
+                        moveTo(size.width * 0.2f, 0f); lineTo(size.width, size.height / 2); lineTo(size.width * 0.2f, size.height); close()
+                    }
+                    drawPath(path, Color.White)
+                }
+            }
+        }
     }
 }
